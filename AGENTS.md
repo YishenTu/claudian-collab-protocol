@@ -2,7 +2,7 @@
 
 ## Ownership
 
-- This repository is the sole source, compatibility, test, build, package, and release authority for `@claudian/collab-protocol`.
+- This repository is the sole source, compatibility, test, build, package, and release authority for `@claudian-collab/protocol`.
 - It owns opaque Collab IDs, transport-neutral DTOs, executable codecs, the canonical operation registry, Cloud binding routes/capabilities/bootstrap/snapshot/events, shared safe errors and limits, Git ref semantics, parsers, and independent package/wire/binding compatibility policy.
 - Claudian and Claudian Cloud Server are exact-version registry consumers. Do not copy or re-declare package source, operation registries, codecs, compatibility rules, or editable fixtures in a consumer.
 - LAN bindings, authentication, trusted ingress, application state, repositories, SQL, Git execution, UI, and agent runtimes remain consumer-owned.

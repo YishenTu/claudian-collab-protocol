@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Packed-artifact verification for @claudian/collab-protocol.
+ * Packed-artifact verification for @claudian-collab/protocol.
  *
  * 1. builds the package;
  * 2. packs it and asserts the exact published file inventory;
@@ -101,7 +101,7 @@ writeFileSync(
       private: true,
       version: '0.0.0',
       dependencies: {
-        '@claudian/collab-protocol': `file:${tarballPath}`,
+        '@claudian-collab/protocol': `file:${tarballPath}`,
       },
     },
     null,
@@ -110,7 +110,7 @@ writeFileSync(
 );
 runNpm(['install', '--no-audit', '--no-fund', '--ignore-scripts'], { cwd: consumerRoot });
 const installedManifest = JSON.parse(readFileSync(
-  path.join(consumerRoot, 'node_modules', '@claudian/collab-protocol', 'package.json'),
+  path.join(consumerRoot, 'node_modules', '@claudian-collab/protocol', 'package.json'),
   'utf8',
 ));
 console.log(`installed artifact version: ${installedManifest.version}`);
@@ -118,7 +118,7 @@ console.log(`installed artifact version: ${installedManifest.version}`);
 // 4. Runtime smoke: CJS require, then ESM import, with codec execution.
 const smokeSource = `
 const assert = require('node:assert/strict');
-const protocol = require('@claudian/collab-protocol');
+const protocol = require('@claudian-collab/protocol');
 const packageVersion = ${JSON.stringify(installedManifest.version)};
 
 assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 4);
@@ -187,7 +187,7 @@ console.log(`cjs ${cjsOutput}`);
 const esmOutput = run(process.execPath, [
   '--input-type=module',
   '-e',
-  "import { COLLAB_CLOUD_BINDING_VERSION, COLLAB_PROTOCOL_VERSION, collabMemberRef } from '@claudian/collab-protocol';"
+  "import { COLLAB_CLOUD_BINDING_VERSION, COLLAB_PROTOCOL_VERSION, collabMemberRef } from '@claudian-collab/protocol';"
     + " if (COLLAB_PROTOCOL_VERSION !== 4 || COLLAB_CLOUD_BINDING_VERSION !== 1 || collabMemberRef('member_1') !== 'refs/heads/members/member_1') process.exit(1);"
     + " console.log('esm import OK');",
 ], { cwd: consumerRoot });
@@ -197,7 +197,7 @@ console.log(esmOutput);
 for (const subpath of ['dist/CollabError.js', 'package.json']) {
   run(process.execPath, [
     '-e',
-    `try { require('@claudian/collab-protocol/${subpath}'); process.exit(3); }`
+    `try { require('@claudian-collab/protocol/${subpath}'); process.exit(3); }`
       + ' catch { process.exit(0); }',
   ], { cwd: consumerRoot });
 }

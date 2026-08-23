@@ -1,4 +1,4 @@
-# @claudian/collab-protocol
+# @claudian-collab/protocol
 
 The canonical shared Collab wire contract, produced from the
 [claudian-collab-protocol](https://github.com/YishenTu/claudian-collab-protocol) repository. Both Claudian
@@ -46,7 +46,7 @@ import {
   COLLAB_PROTOCOL_VERSION,
   COLLAB_CONTROL_OPERATION_CODECS,
   CollabError,
-} from '@claudian/collab-protocol';
+} from '@claudian-collab/protocol';
 
 const codec = COLLAB_CONTROL_OPERATION_CODECS.ensureMyRequest;
 const decoded = codec.decodeRequest(rawBody);

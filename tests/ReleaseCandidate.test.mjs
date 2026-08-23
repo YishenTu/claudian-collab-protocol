@@ -8,7 +8,7 @@ import {
 } from '../scripts/release-candidate.mjs';
 
 const packageManifest = {
-  name: '@claudian/collab-protocol',
+  name: '@claudian-collab/protocol',
   version: '1.0.0',
   license: 'MIT',
   repository: {
@@ -45,7 +45,7 @@ test('records exact public metadata, toolchain, inventory, and tarball digests',
     package: {
       access: 'public',
       license: 'MIT',
-      name: '@claudian/collab-protocol',
+      name: '@claudian-collab/protocol',
       provenance: true,
       registry: 'https://registry.npmjs.org',
       repository: 'git+https://github.com/YishenTu/claudian-collab-protocol.git',

@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  assertPublishedArtifact,
   assertReleaseRecord,
   createReleaseRecord,
   expectedPackedPaths,
+  isMissingRegistryVersion,
 } from '../scripts/release-candidate.mjs';
 
 const packageManifest = {
@@ -77,6 +79,27 @@ test('rejects release drift in bytes or inventory', () => {
     }, expected),
     /release candidate differs/u,
   );
+});
+
+test('accepts only the exact reviewed integrity for an already published version', () => {
+  assert.doesNotThrow(() => assertPublishedArtifact(
+    'sha512-reviewed',
+    'sha512-reviewed',
+  ));
+  assert.throws(
+    () => assertPublishedArtifact('sha512-published', 'sha512-reviewed'),
+    /published registry artifact differs/u,
+  );
+});
+
+test('treats only a registry E404 as an unpublished version', () => {
+  assert.equal(isMissingRegistryVersion({
+    stdout: JSON.stringify({ error: { code: 'E404' } }),
+  }), true);
+  assert.equal(isMissingRegistryVersion({
+    stdout: JSON.stringify({ error: { code: 'ECONNRESET' } }),
+  }), false);
+  assert.equal(isMissingRegistryVersion({ stdout: 'not-json' }), false);
 });
 
 test('derives the only allowed package inventory from source modules', () => {

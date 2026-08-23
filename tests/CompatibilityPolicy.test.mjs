@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { readdirSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +16,7 @@ import {
   classifyPackageApiChange,
   digestTypeScriptBehavior,
   generateContractSnapshot,
+  publicDeclarationsFromDist,
 } from '../scripts/check-compatibility.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -185,4 +193,27 @@ test('the runtime baseline covers every source module', () => {
     .map(entry => entry.path);
 
   assert.deepEqual(actual, expected);
+});
+
+test('an inline type-only root export cannot pass as a patch release', (t) => {
+  const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'collab-protocol-declarations-'));
+  t.after(() => rmSync(fixtureRoot, { force: true, recursive: true }));
+  mkdirSync(fixtureRoot, { recursive: true });
+  writeFileSync(
+    path.join(fixtureRoot, 'index.d.ts'),
+    'export interface InlineContract { readonly value: string; }\n',
+  );
+  const declarations = publicDeclarationsFromDist(fixtureRoot);
+  assert.deepEqual(declarations, [{
+    declaration: 'export interface InlineContract { readonly value: string; }',
+    exportName: 'InlineContract',
+    source: '.',
+  }]);
+  assert.throws(
+    () => assertVersionedContractChange(
+      snapshot({ declarations: [], runtimeExports: [] }),
+      snapshot({ declarations, packageVersion: '1.0.1', runtimeExports: [] }),
+    ),
+    /package minor or major release/u,
+  );
 });

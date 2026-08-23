@@ -276,10 +276,17 @@ function declaredNames(statement) {
   return [];
 }
 
-function publicDeclarations() {
-  const distRoot = path.join(repositoryRoot, 'dist');
-  if (!existsSync(distRoot)) throw new Error('dist is missing; run npm run build first');
+function hasModifier(statement, kind) {
+  return statement.modifiers?.some(modifier => modifier.kind === kind) ?? false;
+}
+
+function declarationText(statement, sourceFile) {
+  return statement.getText(sourceFile).replace(/\r\n/gu, '\n');
+}
+
+export function publicDeclarationsFromDist(distRoot) {
   const indexPath = path.join(distRoot, 'index.d.ts');
+  if (!existsSync(indexPath)) throw new Error(`Declaration entry point is missing: ${indexPath}`);
   const indexSource = ts.createSourceFile(
     indexPath,
     readFileSync(indexPath, 'utf8'),
@@ -289,38 +296,63 @@ function publicDeclarations() {
   );
   const declarations = [];
   for (const statement of indexSource.statements) {
-    if (
-      !ts.isExportDeclaration(statement)
-      || !statement.moduleSpecifier
-      || !ts.isStringLiteral(statement.moduleSpecifier)
-      || !statement.exportClause
-      || !ts.isNamedExports(statement.exportClause)
-    ) continue;
-    const moduleName = statement.moduleSpecifier.text;
-    const declarationPath = path.join(distRoot, `${moduleName.replace(/^\.\//u, '')}.d.ts`);
-    const declarationSource = ts.createSourceFile(
-      declarationPath,
-      readFileSync(declarationPath, 'utf8'),
-      ts.ScriptTarget.Latest,
-      true,
-      ts.ScriptKind.TS,
-    );
-    for (const element of statement.exportClause.elements) {
-      const localName = element.propertyName?.text ?? element.name.text;
-      const matches = declarationSource.statements.filter(item => declaredNames(item).includes(localName));
-      if (matches.length === 0) {
-        throw new Error(`Cannot resolve public declaration ${localName} from ${moduleName}`);
+    if (ts.isExportDeclaration(statement)) {
+      if (
+        !statement.moduleSpecifier
+        || !ts.isStringLiteral(statement.moduleSpecifier)
+        || !statement.exportClause
+        || !ts.isNamedExports(statement.exportClause)
+      ) {
+        throw new Error(`Unsupported public export declaration: ${declarationText(statement, indexSource)}`);
       }
+      const moduleName = statement.moduleSpecifier.text;
+      const declarationPath = path.join(distRoot, `${moduleName.replace(/^\.\//u, '')}.d.ts`);
+      const declarationSource = ts.createSourceFile(
+        declarationPath,
+        readFileSync(declarationPath, 'utf8'),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TS,
+      );
+      for (const element of statement.exportClause.elements) {
+        const localName = element.propertyName?.text ?? element.name.text;
+        const matches = declarationSource.statements
+          .filter(item => declaredNames(item).includes(localName));
+        if (matches.length === 0) {
+          throw new Error(`Cannot resolve public declaration ${localName} from ${moduleName}`);
+        }
+        declarations.push({
+          declaration: matches.map(item => declarationText(item, declarationSource)).join('\n'),
+          exportName: element.name.text,
+          source: moduleName,
+        });
+      }
+      continue;
+    }
+    if (ts.isExportAssignment(statement) || ts.isNamespaceExportDeclaration(statement)) {
+      throw new Error(`Unsupported public declaration: ${declarationText(statement, indexSource)}`);
+    }
+    if (!hasModifier(statement, ts.SyntaxKind.ExportKeyword)) continue;
+    const names = declaredNames(statement);
+    const isDefault = hasModifier(statement, ts.SyntaxKind.DefaultKeyword);
+    if (names.length === 0 && !isDefault) {
+      throw new Error(`Cannot classify public declaration: ${declarationText(statement, indexSource)}`);
+    }
+    for (const exportName of isDefault ? ['default'] : names) {
       declarations.push({
-        declaration: matches
-          .map(item => item.getText(declarationSource).replace(/\r\n/gu, '\n'))
-          .join('\n'),
-        exportName: element.name.text,
-        source: moduleName,
+        declaration: declarationText(statement, indexSource),
+        exportName,
+        source: '.',
       });
     }
   }
   return declarations.sort((left, right) => left.exportName.localeCompare(right.exportName, 'en-US'));
+}
+
+function publicDeclarations() {
+  const distRoot = path.join(repositoryRoot, 'dist');
+  if (!existsSync(distRoot)) throw new Error('dist is missing; run npm run build first');
+  return publicDeclarationsFromDist(distRoot);
 }
 
 function sourceFiles(directory = path.join(repositoryRoot, 'src')) {

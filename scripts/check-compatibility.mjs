@@ -4,8 +4,8 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -396,7 +396,10 @@ export function readBaseSnapshot(baseSha, { cwd = repositoryRoot } = {}) {
     });
   } catch (error) {
     const stderr = Buffer.isBuffer(error?.stderr) ? error.stderr.toString('utf8').trim() : '';
-    throw new Error(`Cannot read base protocol snapshot at ${baseSha}: ${stderr || 'commit unavailable'}`);
+    throw new Error(
+      `Cannot read base protocol snapshot at ${baseSha}: ${stderr || 'commit unavailable'}`,
+      { cause: error },
+    );
   }
   try {
     return JSON.parse(execFileSync('git', ['show', `${baseSha}:${snapshotRelativePath}`], {
@@ -407,7 +410,10 @@ export function readBaseSnapshot(baseSha, { cwd = repositoryRoot } = {}) {
   } catch (error) {
     const stderr = typeof error?.stderr === 'string' ? error.stderr : '';
     if (GIT_SHOW_MISSING_PATH.test(stderr)) return null;
-    throw new Error(`Cannot read base protocol snapshot at ${baseSha}: ${stderr.trim() || error.message}`);
+    throw new Error(
+      `Cannot read base protocol snapshot at ${baseSha}: ${stderr.trim() || error.message}`,
+      { cause: error },
+    );
   }
 }
 

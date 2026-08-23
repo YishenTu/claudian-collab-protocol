@@ -16,8 +16,9 @@
     "provenance": true
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=24 <25"
   },
+  "packageManager": "npm@11.13.0",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -34,17 +35,30 @@
   "sideEffects": false,
   "scripts": {
     "build": "npm run clean && tsc -p tsconfig.json",
+    "check:compatibility": "node scripts/check-compatibility.mjs",
+    "check:migration-provenance": "node scripts/check-migration-provenance.mjs --verify-standalone",
     "clean": "node scripts/clean.mjs",
+    "lint": "eslint src tests scripts",
     "prepack": "npm run build",
-    "test": "jest",
+    "release:candidate": "node scripts/release-candidate.mjs --output .context/release",
+    "test": "jest && node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.jest.json",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run test && npm run check:compatibility && npm run check:migration-provenance && npm run verify:pack && npm run release:candidate",
     "verify:pack": "node scripts/verify-pack.mjs"
   },
   "dependencies": {
     "@lezer/markdown": "1.7.2"
   },
   "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.7.2",
+    "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.5.2",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "eslint": "^10.2.0",
+    "eslint-plugin-jest": "^29.15.1",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
     "jest": "^30.3.0",
     "ts-jest": "^29.4.9",
     "typescript": "^6.0.2"

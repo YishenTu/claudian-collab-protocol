@@ -106,6 +106,27 @@ export function assertReleaseRecord(actual, expected) {
   }
 }
 
+export function assertPublishedArtifact(publishedIntegrity, reviewedIntegrity) {
+  assert(
+    publishedIntegrity === reviewedIntegrity,
+    'published registry artifact differs from the reviewed release candidate',
+  );
+}
+
+export function isMissingRegistryVersion(error) {
+  const output = error !== null
+    && typeof error === 'object'
+    && 'stdout' in error
+    && typeof error.stdout === 'string'
+    ? error.stdout
+    : '';
+  try {
+    return JSON.parse(output).error?.code === 'E404';
+  } catch {
+    return false;
+  }
+}
+
 function run(command, args, options = {}) {
   return execFileSync(command, args, {
     cwd: options.cwd ?? repositoryRoot,
@@ -119,6 +140,30 @@ function run(command, args, options = {}) {
 function runNpm(args, options = {}) {
   assert(process.env.npm_execpath, 'npm_execpath is required; run through an npm script');
   return run(process.execPath, [process.env.npm_execpath, ...args], options);
+}
+
+function readPublishedIntegrity(packageName, packageVersion) {
+  let output;
+  try {
+    output = runNpm([
+      'view',
+      `${packageName}@${packageVersion}`,
+      'dist.integrity',
+      '--json',
+    ]);
+  } catch (error) {
+    if (isMissingRegistryVersion(error)) return null;
+    throw new Error(
+      'release candidate failure: registry integrity lookup failed',
+      { cause: error },
+    );
+  }
+  const integrity = JSON.parse(output);
+  assert(
+    typeof integrity === 'string' && integrity.length > 0,
+    'published registry integrity is missing or malformed',
+  );
+  return integrity;
 }
 
 function optionValue(args, name) {
@@ -163,17 +208,25 @@ function buildCandidate(outputRoot) {
     packResult,
     sha256: createHash('sha256').update(readFileSync(tarballPath)).digest('hex'),
   });
-  const dryRun = JSON.parse(runNpm([
-    'publish',
-    '--access',
-    'public',
-    '--dry-run',
-    '--ignore-scripts',
-    '--json',
-    tarballPath,
-  ]));
-  assert(dryRun.name === record.package.name, 'publication dry-run package name differs');
-  assert(dryRun.version === record.package.version, 'publication dry-run package version differs');
+  const publishedIntegrity = readPublishedIntegrity(
+    record.package.name,
+    record.package.version,
+  );
+  if (publishedIntegrity === null) {
+    const dryRun = JSON.parse(runNpm([
+      'publish',
+      '--access',
+      'public',
+      '--dry-run',
+      '--ignore-scripts',
+      '--json',
+      tarballPath,
+    ]));
+    assert(dryRun.name === record.package.name, 'publication dry-run package name differs');
+    assert(dryRun.version === record.package.version, 'publication dry-run package version differs');
+  } else {
+    assertPublishedArtifact(publishedIntegrity, record.tarball.integrity);
+  }
   return { record, tarballPath };
 }
 

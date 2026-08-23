@@ -18,9 +18,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
-  rmSync,
+  readFileSync,
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
@@ -28,8 +27,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const repoRoot = path.resolve(packageRoot, '..', '..');
-const contextRoot = path.join(repoRoot, '.context');
+const contextRoot = path.join(packageRoot, '.context');
 mkdirSync(contextRoot, { recursive: true });
 
 function run(command, args, options = {}) {
@@ -73,8 +71,9 @@ const tarballPath = path.join(workRoot, tarballName);
 assert(existsSync(tarballPath), `tarball missing: ${tarballPath}`);
 console.log(`packed: ${tarballName}`);
 
-// 2. Exact packed-file inventory: dist build output, package.json, README.md.
+// 2. Exact packed-file inventory: dist build output and reviewed package metadata.
 const expectedFiles = [
+  'LICENSE',
   'README.md',
   'package.json',
   ...readdirSync(path.join(packageRoot, 'src'))
@@ -125,7 +124,7 @@ const packageVersion = ${JSON.stringify(installedManifest.version)};
 assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 4);
 assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 1);
 assert.notEqual(packageVersion, String(protocol.COLLAB_PROTOCOL_VERSION));
-assert.match(packageVersion, /^0\\./);
+assert.equal(packageVersion, '1.0.0');
 
 const codec = protocol.COLLAB_CONTROL_OPERATION_CODECS.ensureMyRequest;
 const valid = codec.decodeRequest({

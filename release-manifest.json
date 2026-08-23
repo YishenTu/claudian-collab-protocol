@@ -1,0 +1,166 @@
+{
+  "package": {
+    "access": "public",
+    "license": "MIT",
+    "name": "@claudian/collab-protocol",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org",
+    "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
+    "version": "1.0.0"
+  },
+  "schemaVersion": 1,
+  "tarball": {
+    "filename": "claudian-collab-protocol-1.0.0.tgz",
+    "files": [
+      {
+        "path": "dist/CollabCloudBinding.d.ts",
+        "size": 6131
+      },
+      {
+        "path": "dist/CollabCloudBinding.js",
+        "size": 18921
+      },
+      {
+        "path": "dist/CollabCloudProjectEvent.d.ts",
+        "size": 1797
+      },
+      {
+        "path": "dist/CollabCloudProjectEvent.js",
+        "size": 4882
+      },
+      {
+        "path": "dist/CollabCloudProjectSnapshot.d.ts",
+        "size": 1975
+      },
+      {
+        "path": "dist/CollabCloudProjectSnapshot.js",
+        "size": 11402
+      },
+      {
+        "path": "dist/CollabConstants.d.ts",
+        "size": 1132
+      },
+      {
+        "path": "dist/CollabConstants.js",
+        "size": 1267
+      },
+      {
+        "path": "dist/CollabControlOperationCodecs.d.ts",
+        "size": 3161
+      },
+      {
+        "path": "dist/CollabControlOperationCodecs.js",
+        "size": 3810
+      },
+      {
+        "path": "dist/CollabError.d.ts",
+        "size": 2023
+      },
+      {
+        "path": "dist/CollabError.js",
+        "size": 5478
+      },
+      {
+        "path": "dist/CollabMarkdownProse.d.ts",
+        "size": 75
+      },
+      {
+        "path": "dist/CollabMarkdownProse.js",
+        "size": 1874
+      },
+      {
+        "path": "dist/CollabMemberMentionParser.d.ts",
+        "size": 310
+      },
+      {
+        "path": "dist/CollabMemberMentionParser.js",
+        "size": 2042
+      },
+      {
+        "path": "dist/CollabProtocol.d.ts",
+        "size": 5703
+      },
+      {
+        "path": "dist/CollabProtocol.js",
+        "size": 2303
+      },
+      {
+        "path": "dist/CollabRequestTicketRequestCodecs.d.ts",
+        "size": 769
+      },
+      {
+        "path": "dist/CollabRequestTicketRequestCodecs.js",
+        "size": 13150
+      },
+      {
+        "path": "dist/CollabRequestTicketResponseCodecs.d.ts",
+        "size": 1655
+      },
+      {
+        "path": "dist/CollabRequestTicketResponseCodecs.js",
+        "size": 16375
+      },
+      {
+        "path": "dist/CollabTicketReferenceParser.d.ts",
+        "size": 1037
+      },
+      {
+        "path": "dist/CollabTicketReferenceParser.js",
+        "size": 2522
+      },
+      {
+        "path": "dist/CollabValidation.d.ts",
+        "size": 389
+      },
+      {
+        "path": "dist/CollabValidation.js",
+        "size": 1166
+      },
+      {
+        "path": "dist/DevelopmentBootstrap.d.ts",
+        "size": 9951
+      },
+      {
+        "path": "dist/DevelopmentBootstrap.js",
+        "size": 22789
+      },
+      {
+        "path": "dist/index.d.ts",
+        "size": 5752
+      },
+      {
+        "path": "dist/index.js",
+        "size": 11291
+      },
+      {
+        "path": "dist/types.d.ts",
+        "size": 4455
+      },
+      {
+        "path": "dist/types.js",
+        "size": 471
+      },
+      {
+        "path": "LICENSE",
+        "size": 1056
+      },
+      {
+        "path": "package.json",
+        "size": 2209
+      },
+      {
+        "path": "README.md",
+        "size": 6061
+      }
+    ],
+    "integrity": "sha512-CSODfRHHqJ3Kgtdop6WtpqIjH+0bF2Kw7FCVRAC3473oO2ShUxTupNlfxlL/iJv/nWdot75tH+SUhNsVGpLPaw==",
+    "sha256": "eabd1d7d4688ecdd1ab40e6e03d30ff533c1a4d1b65ee2ba6b8bd882761aae16",
+    "shasum": "ab53bda062e4244207362972ca2101b03b9c753a",
+    "size": 31076,
+    "unpackedSize": 175384
+  },
+  "toolchain": {
+    "node": "24.16.0",
+    "npm": "11.13.0"
+  }
+}

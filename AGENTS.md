@@ -1,42 +1,44 @@
-# Collab Protocol Package
-
-`packages/collab-protocol/` produces `@claudian/collab-protocol`, the sole canonical owner of the shared Collab wire contract consumed by Claudian and Claudian Cloud Server.
+# Claudian Collab Protocol
 
 ## Ownership
 
-- This package owns: opaque Collab IDs and their runtime validation predicates, decision-complete transport-neutral request/response DTOs, executable JSON codecs, the one canonical collaboration operation registry, Cloud binding versions and route builders, capability/bootstrap/snapshot/event contracts, decoder-defined compatibility behavior, safe shared wire error codes and sanitized context, shared Git ref semantics, shared limits, idempotency/expected-state field shapes, and protocol-version negotiation contracts.
-- There is exactly one source of truth for every exported type, codec, operation, error, limit, ref rule, and compatibility rule. Do not copy, re-declare, or re-register any of them in Claudian `src/`, Cloud Server, or fixtures presented as editable source.
-- LAN bindings (HTTP versions, methods, route templates, prefixes, authentication/admission, dispatch, invitation trust, mDNS/TLS/discovery, Host-transfer transports) are owned by the consuming application, never by this package. `IngressPrincipal` and ingress details are server deployment contracts and do not belong here.
+- This repository is the sole source, compatibility, test, build, package, and release authority for `@claudian/collab-protocol`.
+- It owns opaque Collab IDs, transport-neutral DTOs, executable codecs, the canonical operation registry, Cloud binding routes/capabilities/bootstrap/snapshot/events, shared safe errors and limits, Git ref semantics, parsers, and independent package/wire/binding compatibility policy.
+- Claudian and Claudian Cloud Server are exact-version registry consumers. Do not copy or re-declare package source, operation registries, codecs, compatibility rules, or editable fixtures in a consumer.
+- LAN bindings, authentication, trusted ingress, application state, repositories, SQL, Git execution, UI, and agent runtimes remain consumer-owned.
 
-## Forbidden dependencies
+## Dependency boundary
 
-- The package must not import Claudian `src/`, Obsidian, provider code, Cloud Server source, LAN route implementations, SQL or filesystem implementations, or any transport/runtime adapter.
-- Runtime dependencies are limited to `@lezer/markdown` (required by the canonical Markdown masking used by reference parsers). Do not add another runtime dependency without an accepted decision recorded here.
-- Keep runtime code platform-neutral. Do not add Node, browser, Obsidian, or server-runtime APIs to the contract package.
+- `src/index.ts` is the only public entry point; `package.json` exposes only `.`. Do not add deep exports.
+- Runtime dependencies are limited to `@lezer/markdown`, which supports canonical Markdown masking. Record an accepted architecture decision here before adding another runtime dependency.
+- Runtime code must remain platform-neutral and must not import Node, browser, Obsidian, provider, Claudian application, Cloud Server, SQL, filesystem, or transport-adapter APIs.
+- There is one source of truth for every exported type, codec, operation, error, limit, ref rule, parser, version, and compatibility rule.
 
-## Public exports
+## Compatibility
 
-- `src/index.ts` is the only public entry point; `package.json` `exports` exposes only `.`. Do not add subpath exports.
-- Export only the contract vocabulary consumers bind to: IDs, DTOs, codecs, the collaboration operation registry, Cloud binding routes/capabilities/bootstrap/snapshot/events, shared errors, shared limits, ref semantics, parsers, and independent version constants. Module-private helpers stay unexported. Application-only error codes, recovery actions, quotas, and diff/checkout limits remain outside the package.
-- Consumers validate shared Project, Member, opaque-operation, and Git-object IDs through the exported predicates. Do not export regex objects or duplicate their grammar in a transport adapter; application-only request IDs, credentials, fingerprints, and path rules remain locally owned.
-- Removing or renaming an export, or tightening a decoder, is a breaking package change; see versioning below.
+- Package SemVer, canonical wire version, and Cloud binding version are independent authorities. Claudian's LAN protocol version is independently consumer-owned.
+- From `1.0.0`, changing or removing an existing public declaration, export, runtime behavior baseline, codec, error, limit, ref rule, operation, or compatibility rule requires a package major release. Backward-compatible additions require at least a minor release.
+- Wire-visible breaking changes also require a canonical wire-version increase. Cloud-binding breaking changes also require a Cloud binding-version increase. Package-only repository, documentation, CI, or release metadata changes do not change wire or binding versions.
+- Unknown compatibility classifications fail closed. Update the governing policy and executable classifier intentionally; never bypass or hand-edit around the snapshot gate.
+- Envelope decoders reject unknown fields and unsupported versions. Operation compatibility remains decoder-defined and pinned by independent fixtures.
 
-## Compatibility and versioning
+## Release
 
-- Package SemVer, canonical wire version, and Cloud binding version are independent authorities. The accepted steps 5–8 producer revision advances package `0.3.0`/wire `3` to package `0.4.0`/wire `4` and introduces Cloud binding version `1`. Existing application LAN control/event version `9` remains independently owned under `src/app/collab/lan/` and must not change as a consequence.
-- `contract-snapshot.json` is the committed public-contract baseline. Regenerate it with repository-root `npm run check:protocol-compatibility -- --write` only for an intentional contract change; any detected contract change requires monotonic increases to both package SemVer and `COLLAB_PROTOCOL_VERSION`. CI compares the proposed snapshot with the merge-base snapshot and rejects rollbacks or unversioned drift.
-- Envelope decoders reject unknown fields and unsupported protocol versions (fail closed). Operation compatibility is decoder-defined and pinned by fixtures; decoded DTOs must not retain unrecognized input properties. Unknown operation kinds have no codec and fail at registry lookup.
-- Page budgets measure final JSON serialization, including escaping. Every JSON transport adapter must accept `COLLAB_LIMITS.maxJsonPayloadUtf8Bytes`; a producer must fail closed if a single valid item cannot fit its protocol-owned page budget.
-- Any change to envelope, DTO, or operation payload shape, or to the operation inventory, is a wire-breaking change requiring a new wire-protocol version; package SemVer alone never signals wire compatibility.
-- The accepted Cloud surface is limited to binding v1 capability discovery, six private-development bootstrap bindings, `getProjectSnapshot`, the canonical collaboration operations, six redacted durable event kinds, and `snapshot.required`. Do not add production onboarding, membership lifecycle, LAN lifecycle, or another HTTP binding without a separately accepted decision-complete contract.
-- Unknown capability tokens are ignored. Unknown fields, discriminants, operation names, package-owned schema versions, Cloud binding versions, and canonical wire versions fail closed. A Cloud capability token expresses complete server support, not client availability or LAN behavior.
+- `release-manifest.json` identifies the exact reviewed package version, metadata, file inventory, and tarball SHA-256. Release CI publishes that verified tarball path and never silently repacks different bytes.
+- Releases originate from a reviewed tag in this public repository on a GitHub-hosted runner with npm provenance. Never commit, print, or store credentials in repository files or `.context`.
+- Consumers pin exact published versions. Never republish or overwrite an existing version; a defective release requires an explicitly approved successor version.
+- Keep package contents sensitive-data free and auditable. `dist/` and tarballs are generated artifacts, not committed source.
 
-## Tests
+## Development
 
-- Package tests live in `packages/collab-protocol/tests/` and run with `npm test` in this directory. They own the codec fixtures, malformed/oversized/unknown-input behavior, safe-error guarantees, the exact public export allowlist, the forbidden-dependency scan, and package/wire version distinction.
-- Expected codec results come from specification literals and accepted fixtures, never from re-running the production codec inside an assertion.
-- `npm run verify:pack` packs the artifact and proves a clean consumer can install and import it; artifacts go under the repository's ignored `.context/` directory.
+- Use Node 24 and the pinned npm version. The full local gate is `npm run verify`.
+- Production behavior and compatibility-classification changes use TDD: establish a failing test at the owning public seam, implement the minimum behavior, then refactor under green tests.
+- Expected codec results come from specification literals and accepted fixtures, never by reproducing the production algorithm in assertions.
+- Write code, comments, identifiers, commit messages, and repository documents in English. Keep Markdown soft-wrapped.
+- Interfaces do not use an `I` prefix. Treat acronyms as words in owned symbols. Name TypeScript files after their primary export in `PascalCase.ts`; tests mirror the target with `.test.ts`.
+- Put non-committed research, handoffs, sanitized traces, and temporary scripts in `.context/`. It is never a production or release dependency.
 
-## Build
+## Instruction maintenance
 
-- `npm run build` compiles `src/` to `dist/` (CommonJS + declarations) with `tsc`. `dist/` is generated output, never edited and never committed.
+- Keep this file limited to current constraints that materially change implementation, review, or verification behavior. Use Git history for retired decisions.
+- `CLAUDE.md` must contain exactly `@AGENTS.md`.

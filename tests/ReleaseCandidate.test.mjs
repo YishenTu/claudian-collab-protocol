@@ -1,0 +1,104 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  assertReleaseRecord,
+  createReleaseRecord,
+  expectedPackedPaths,
+} from '../scripts/release-candidate.mjs';
+
+const packageManifest = {
+  name: '@claudian/collab-protocol',
+  version: '1.0.0',
+  license: 'MIT',
+  repository: {
+    type: 'git',
+    url: 'git+https://github.com/YishenTu/claudian-collab-protocol.git',
+  },
+  publishConfig: { access: 'public', provenance: true },
+};
+
+function record(overrides = {}) {
+  return createReleaseRecord({
+    nodeVersion: '24.16.0',
+    npmVersion: '11.13.0',
+    packageManifest,
+    packResult: {
+      filename: 'claudian-collab-protocol-1.0.0.tgz',
+      files: [
+        { path: 'package.json', size: 100 },
+        { path: 'README.md', size: 200 },
+      ],
+      integrity: 'sha512-integrity',
+      shasum: 'sha1-sum',
+      size: 300,
+      unpackedSize: 500,
+    },
+    sha256: 'sha256-sum',
+    ...overrides,
+  });
+}
+
+test('records exact public metadata, toolchain, inventory, and tarball digests', () => {
+  assert.deepEqual(record(), {
+    schemaVersion: 1,
+    package: {
+      access: 'public',
+      license: 'MIT',
+      name: '@claudian/collab-protocol',
+      provenance: true,
+      registry: 'https://registry.npmjs.org',
+      repository: 'git+https://github.com/YishenTu/claudian-collab-protocol.git',
+      version: '1.0.0',
+    },
+    toolchain: { node: '24.16.0', npm: '11.13.0' },
+    tarball: {
+      filename: 'claudian-collab-protocol-1.0.0.tgz',
+      files: [
+        { path: 'package.json', size: 100 },
+        { path: 'README.md', size: 200 },
+      ],
+      integrity: 'sha512-integrity',
+      sha256: 'sha256-sum',
+      shasum: 'sha1-sum',
+      size: 300,
+      unpackedSize: 500,
+    },
+  });
+});
+
+test('rejects release drift in bytes or inventory', () => {
+  const expected = record();
+  assert.doesNotThrow(() => assertReleaseRecord(expected, expected));
+  assert.throws(
+    () => assertReleaseRecord({
+      ...expected,
+      tarball: { ...expected.tarball, sha256: 'different' },
+    }, expected),
+    /release candidate differs/u,
+  );
+});
+
+test('derives the only allowed package inventory from source modules', () => {
+  assert.deepEqual(expectedPackedPaths(['index.ts', 'types.ts']), [
+    'LICENSE',
+    'README.md',
+    'dist/index.d.ts',
+    'dist/index.js',
+    'dist/types.d.ts',
+    'dist/types.js',
+    'package.json',
+  ]);
+});
+
+test('rejects non-public or non-provenance package metadata', () => {
+  assert.throws(
+    () => record({
+      packageManifest: {
+        ...packageManifest,
+        publishConfig: { access: 'restricted', provenance: false },
+      },
+    }),
+    /public access and provenance/u,
+  );
+});

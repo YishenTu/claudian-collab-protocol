@@ -1,8 +1,23 @@
 {
   "name": "@claudian/collab-protocol",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "Canonical Collab wire and Cloud binding contract for Claudian clients and servers.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YishenTu/claudian-collab-protocol.git"
+  },
+  "homepage": "https://github.com/YishenTu/claudian-collab-protocol#readme",
+  "bugs": {
+    "url": "https://github.com/YishenTu/claudian-collab-protocol/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=24"
+  },
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

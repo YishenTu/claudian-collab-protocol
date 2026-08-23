@@ -1,7 +1,7 @@
 # @claudian/collab-protocol
 
 The canonical shared Collab wire contract, produced from the
-[Claudian](https://github.com/yishentu/claudian) repository. Both Claudian
+[claudian-collab-protocol](https://github.com/YishenTu/claudian-collab-protocol) repository. Both Claudian
 (LAN client and Host) and Claudian Cloud Server consume this package; neither
 may maintain copied types, operation registries, codec maps, shared constants,
 or compatibility rules.
@@ -62,9 +62,12 @@ part of the public surface.
 
 Package SemVer, canonical wire version, and Cloud binding version are independent concepts.
 
-- **Package version** (this `package.json`): pre-1.0. Minor releases may add or
-  break TypeScript API; patch releases are behavior-preserving fixes. The
-  package version never signals wire compatibility by itself.
+- **Package version** (this `package.json`): `1.0.0`. Patch releases preserve
+  every existing public declaration and runtime behavior baseline. Minor
+  releases may add backward-compatible API. Removing or changing an existing
+  declaration, export, runtime behavior, codec, error, limit, ref rule,
+  operation, or compatibility rule requires a major release. The package
+  version never signals wire compatibility by itself.
 - **Wire version** (`COLLAB_PROTOCOL_VERSION`): currently `4`. The supported
   range is exactly `[4, 4]`. This is independent from Cloud binding version `1` and the existing application
   LAN control version `9`. Any change to an envelope, DTO, or operation
@@ -94,6 +97,7 @@ the same behavior.
 ```bash
 npm run build        # compile src/ -> dist/ (CommonJS + declarations)
 npm test             # package unit tests
+npm run check:compatibility
 npm run verify:pack  # pack the artifact and smoke-test a clean consumer
 ```
 

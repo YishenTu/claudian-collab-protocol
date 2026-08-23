@@ -2,7 +2,7 @@
   "package": {
     "access": "public",
     "license": "MIT",
-    "name": "@claudian/collab-protocol",
+    "name": "@claudian-collab/protocol",
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
@@ -153,10 +153,10 @@
         "size": 6061
       }
     ],
-    "integrity": "sha512-CSODfRHHqJ3Kgtdop6WtpqIjH+0bF2Kw7FCVRAC3473oO2ShUxTupNlfxlL/iJv/nWdot75tH+SUhNsVGpLPaw==",
-    "sha256": "eabd1d7d4688ecdd1ab40e6e03d30ff533c1a4d1b65ee2ba6b8bd882761aae16",
-    "shasum": "ab53bda062e4244207362972ca2101b03b9c753a",
-    "size": 31076,
+    "integrity": "sha512-kNq57tIDzcaMl+o+N4lwETN+QPJybzq4nSD4fjhgdhx/H9qMkJGraf4LX5ELqElMmFG+f5QGxnYQMVLh9/XwdQ==",
+    "sha256": "45bb1ea0c3cac3ed13043294e4109401a9609f5ccf9085f0efd264c795fbc4c5",
+    "shasum": "710a9b28de1c31e08e37aab8be5dbb05c546f57d",
+    "size": 31077,
     "unpackedSize": 175384
   },
   "toolchain": {

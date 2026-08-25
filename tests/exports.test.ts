@@ -86,6 +86,7 @@ const EXPECTED_VALUE_EXPORTS = [
   'encodeCollabProjectCheckpointCoordinationNdjson',
   'encodeCollabProjectCheckpointManifestCanonicalJson',
   'encodeCollabProjectCheckpointManifestDigestInput',
+  'encodeCollabProtectedClaimAssociatedData',
   'encodeCollabTransferredMembershipClaimBatchDigestInput',
   'encodeCollabTransferredMembershipRedemptionReceiptSigningInput',
   'encodeDevelopmentBootstrapManifestCanonicalJson',

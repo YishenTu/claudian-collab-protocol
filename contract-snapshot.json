@@ -1744,6 +1744,11 @@
         "source": "./CollabProjectCheckpoint"
       },
       {
+        "declaration": "export declare function encodeCollabProtectedClaimAssociatedData(associatedData: CollabProtectedClaimAssociatedData): string;",
+        "exportName": "encodeCollabProtectedClaimAssociatedData",
+        "source": "./CollabProjectCheckpoint"
+      },
+      {
         "declaration": "export declare function encodeCollabTransferredMembershipClaimBatchDigestInput(batch: CollabTransferredMembershipClaimBatch): string;",
         "exportName": "encodeCollabTransferredMembershipClaimBatchDigestInput",
         "source": "./CollabAuthorityTransfer"
@@ -1996,6 +2001,7 @@
       "encodeCollabProjectCheckpointCoordinationNdjson",
       "encodeCollabProjectCheckpointManifestCanonicalJson",
       "encodeCollabProjectCheckpointManifestDigestInput",
+      "encodeCollabProtectedClaimAssociatedData",
       "encodeCollabTransferredMembershipClaimBatchDigestInput",
       "encodeCollabTransferredMembershipRedemptionReceiptSigningInput",
       "encodeDevelopmentBootstrapManifestCanonicalJson",
@@ -2049,7 +2055,7 @@
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
-        "sha256": "989af7d3bcfc74bbabb5391b6c1e39a887812f4c2e7c269afea96c00770eb7f5"
+        "sha256": "2cc9e9348a32ae0f90a4cd4f4926a031e0c5e28219f969327c9a75a77a276db1"
       },
       {
         "path": "src/CollabProjectRetirement.ts",
@@ -2081,7 +2087,7 @@
       },
       {
         "path": "src/index.ts",
-        "sha256": "fd772b6bb6a121bbb4191dd8f92221ce0469defd49cff62f186fa685c15e70b9"
+        "sha256": "aed33a0beac873b436e07c0e2d162b2be7bab633d6cc37dafbd9808ca1340f8a"
       },
       {
         "path": "src/types.ts",
@@ -2961,6 +2967,11 @@
           "source": "./CollabProjectCheckpoint"
         },
         {
+          "declaration": "export declare function encodeCollabProtectedClaimAssociatedData(associatedData: CollabProtectedClaimAssociatedData): string;",
+          "exportName": "encodeCollabProtectedClaimAssociatedData",
+          "source": "./CollabProjectCheckpoint"
+        },
+        {
           "declaration": "export declare function encodeCollabTransferredMembershipClaimBatchDigestInput(batch: CollabTransferredMembershipClaimBatch): string;",
           "exportName": "encodeCollabTransferredMembershipClaimBatchDigestInput",
           "source": "./CollabAuthorityTransfer"
@@ -3206,7 +3217,7 @@
         },
         {
           "path": "src/CollabProjectCheckpoint.ts",
-          "sha256": "989af7d3bcfc74bbabb5391b6c1e39a887812f4c2e7c269afea96c00770eb7f5"
+          "sha256": "2cc9e9348a32ae0f90a4cd4f4926a031e0c5e28219f969327c9a75a77a276db1"
         },
         {
           "path": "src/CollabProjectRetirement.ts",

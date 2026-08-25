@@ -14,6 +14,7 @@ import {
   encodeCollabProjectCheckpointCoordinationNdjson,
   encodeCollabProjectCheckpointManifestCanonicalJson,
   encodeCollabProjectCheckpointManifestDigestInput,
+  encodeCollabProtectedClaimAssociatedData,
   validateCollabProjectCheckpointConsistency,
 } from '../src/CollabProjectCheckpoint';
 
@@ -24,6 +25,7 @@ const SHA256 = 'a'.repeat(64);
 const MERGE = '3'.repeat(40);
 const MEMBER_THREE = '4'.repeat(40);
 const ED25519_SIGNATURE = 'A'.repeat(86);
+const ASSOCIATED_DATA_SHA256 = '30aea339f8817abecafcc150f97b2134d930bb18d0849c554cc459b1ab2d64e6';
 
 function retirementResult() {
   return {
@@ -244,13 +246,13 @@ function protectedClaimEnvelopeRecord() {
         authorityGeneration: 4,
         checkpointSha256: SHA256,
         claimSha256: 'e'.repeat(64),
-        envelopeVersion: 1,
+        envelopeVersion: COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION,
         environmentIdentity: 'environment_1',
         memberId: 'member_3',
         projectId: 'project_1',
         transferId: 'transfer_1',
       },
-      associatedDataSha256: 'd'.repeat(64),
+      associatedDataSha256: ASSOCIATED_DATA_SHA256,
       ciphertext: 'Y2lwaGVydGV4dA',
       encryptionAlgorithm: 'xchacha20-poly1305',
       expiresAt: '2026-09-24T00:00:00.000Z',
@@ -669,6 +671,26 @@ describe('Project checkpoint contract', () => {
         'backup',
       )).toThrow('collab.error.protocol-payload-invalid');
     }
+  });
+
+  it('defines one domain-separated canonical protected-claim AAD input', () => {
+    const associatedData = protectedClaimEnvelopeRecord().value.associatedData;
+    const input = encodeCollabProtectedClaimAssociatedData(associatedData);
+    expect(input).toBe(JSON.stringify({
+      domain: 'claudian-collab.protected-claim-envelope-associated-data.v1',
+      payload: associatedData,
+    }));
+    expect(createHash('sha256').update(input).digest('hex')).toBe(ASSOCIATED_DATA_SHA256);
+    expect(encodeCollabProtectedClaimAssociatedData({
+      transferId: associatedData.transferId,
+      projectId: associatedData.projectId,
+      memberId: associatedData.memberId,
+      environmentIdentity: associatedData.environmentIdentity,
+      envelopeVersion: associatedData.envelopeVersion,
+      claimSha256: associatedData.claimSha256,
+      checkpointSha256: associatedData.checkpointSha256,
+      authorityGeneration: associatedData.authorityGeneration,
+    })).toBe(input);
   });
 
   it('round-trips Cloud continuity only in the backup profile', () => {

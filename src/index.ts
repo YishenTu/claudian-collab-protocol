@@ -76,6 +76,7 @@ export {
   encodeCollabProjectCheckpointCoordinationNdjson,
   encodeCollabProjectCheckpointManifestCanonicalJson,
   encodeCollabProjectCheckpointManifestDigestInput,
+  encodeCollabProtectedClaimAssociatedData,
   validateCollabProjectCheckpointConsistency,
 } from './CollabProjectCheckpoint';
 export type {

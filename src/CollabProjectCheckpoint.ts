@@ -1394,6 +1394,50 @@ function terminalResponderRecord(
   };
 }
 
+const PROTECTED_CLAIM_ASSOCIATED_DATA_KEYS = [
+  'authorityGeneration',
+  'checkpointSha256',
+  'claimSha256',
+  'envelopeVersion',
+  'environmentIdentity',
+  'memberId',
+  'projectId',
+  'transferId',
+] as const;
+
+function decodeProtectedClaimAssociatedData(
+  value: unknown,
+): CollabProtectedClaimAssociatedData {
+  const associatedData = exactRecord(
+    value,
+    'associatedData',
+    PROTECTED_CLAIM_ASSOCIATED_DATA_KEYS,
+  );
+  const envelopeVersion = associatedData.envelopeVersion;
+  if (envelopeVersion !== COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION) {
+    throw invalidPayload('envelopeVersion');
+  }
+  return {
+    authorityGeneration: positiveInteger(associatedData, 'authorityGeneration'),
+    checkpointSha256: sha256(associatedData, 'checkpointSha256'),
+    claimSha256: sha256(associatedData, 'claimSha256'),
+    envelopeVersion,
+    environmentIdentity: token(associatedData, 'environmentIdentity'),
+    memberId: token(associatedData, 'memberId', isCollabMemberId),
+    projectId: token(associatedData, 'projectId', isCollabProjectId),
+    transferId: token(associatedData, 'transferId'),
+  };
+}
+
+export function encodeCollabProtectedClaimAssociatedData(
+  associatedData: CollabProtectedClaimAssociatedData,
+): string {
+  return JSON.stringify({
+    domain: 'claudian-collab.protected-claim-envelope-associated-data.v1',
+    payload: decodeProtectedClaimAssociatedData(associatedData),
+  });
+}
+
 function protectedClaimEnvelopeRecord(
   source: UnknownRecord,
   recordId: string,
@@ -1413,32 +1457,9 @@ function protectedClaimEnvelopeRecord(
     'tag',
     'transferId',
   ]);
-  const associatedData = exactRecord(value.associatedData, 'associatedData', [
-    'authorityGeneration',
-    'checkpointSha256',
-    'claimSha256',
-    'envelopeVersion',
-    'environmentIdentity',
-    'memberId',
-    'projectId',
-    'transferId',
-  ]);
   const transferId = token(value, 'transferId');
   const memberId = token(value, 'memberId', isCollabMemberId);
-  const envelopeVersion = associatedData.envelopeVersion;
-  if (envelopeVersion !== COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION) {
-    throw invalidPayload('envelopeVersion');
-  }
-  const decodedAssociatedData: CollabProtectedClaimAssociatedData = {
-    authorityGeneration: positiveInteger(associatedData, 'authorityGeneration'),
-    checkpointSha256: sha256(associatedData, 'checkpointSha256'),
-    claimSha256: sha256(associatedData, 'claimSha256'),
-    envelopeVersion,
-    environmentIdentity: token(associatedData, 'environmentIdentity'),
-    memberId: token(associatedData, 'memberId', isCollabMemberId),
-    projectId: token(associatedData, 'projectId', isCollabProjectId),
-    transferId: token(associatedData, 'transferId'),
-  };
+  const decodedAssociatedData = decodeProtectedClaimAssociatedData(value.associatedData);
   if (
     decodedAssociatedData.memberId !== memberId
     || decodedAssociatedData.transferId !== transferId

@@ -338,6 +338,7 @@ function operationalBackupRecords() {
         operationKind: 'authority-transfer',
         phase: 'claims-retained',
         projectId: 'project_1',
+        relinquishmentProof: null,
         updatedAt: NOW,
       },
     },
@@ -626,6 +627,73 @@ describe('Project checkpoint contract', () => {
     )).toThrow('collab.error.protocol-payload-invalid');
   });
 
+  it('reuses exact transfer phases and fences in backup lifecycle recovery records', () => {
+    const invalidLifecycleValues = [
+      {
+        batchRevision: null,
+        batchSha256: null,
+        checkpointSha256: null,
+        direction: null,
+        phase: 'future-unknown-phase',
+      },
+      {
+        direction: 'lan-to-cloud',
+        phase: 'cloud-quiesced',
+      },
+      {
+        phase: 'source-relinquished',
+      },
+      {
+        direction: 'lan-to-cloud',
+        operationKind: 'retire',
+        phase: 'retired',
+      },
+    ];
+    for (const invalidValue of invalidLifecycleValues) {
+      const records = [
+        ...portableRecords(),
+        ...operationalBackupRecords().map(record => record.kind === 'lifecycle-state'
+          ? { ...record, value: { ...record.value, ...invalidValue } }
+          : record),
+      ];
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+
+    const proof = {
+      batchRevision: 2,
+      batchSha256: 'b'.repeat(64),
+      certificate: 'c291cmNlLXNpZ25hdHVyZQ',
+      certificateAlgorithm: 'ed25519',
+      checkpointSha256: SHA256,
+      committedAt: NOW,
+      operationIntentId: 'relinquish_intent_1',
+      projectId: 'project_1',
+      sourceAuthority: { generation: 3, kind: 'lan' },
+      sourceHostMemberId: 'member_1',
+      targetAuthority: { generation: 4, kind: 'cloud' },
+      transferId: 'operation_1',
+    };
+    const recoverable = [
+      ...portableRecords(),
+      ...operationalBackupRecords().map(record => record.kind === 'lifecycle-state'
+        ? {
+          ...record,
+          value: {
+            ...record.value,
+            phase: 'source-relinquished',
+            relinquishmentProof: proof,
+          },
+        }
+        : record),
+    ];
+    const ndjson = recoverable.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(decodeCollabProjectCheckpointCoordinationNdjson(ndjson, 'backup'))
+      .toEqual(recoverable);
+  });
+
   it('preserves a canonical terminal acknowledgement set bound to eligible principals', () => {
     const invalidAcknowledgementSets = [
       {
@@ -686,6 +754,37 @@ describe('Project checkpoint contract', () => {
           },
         };
       });
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it('binds lifecycle response Project and operation identities to backup records', () => {
+    const mutations = [
+      {
+        kind: 'idempotency-result',
+        response: { ...retirementResult(), projectId: 'project_2' },
+      },
+      {
+        kind: 'terminal-responder',
+        response: { ...retirementResult(), projectId: 'project_2' },
+      },
+      {
+        kind: 'terminal-responder',
+        response: { ...retirementResult(), retirementId: 'retirement_2' },
+      },
+    ];
+    for (const mutation of mutations) {
+      const records = [...portableRecords(), ...operationalBackupRecords()].map(record => (
+        record.kind === mutation.kind
+          ? {
+            ...record,
+            value: { ...record.value, responseJson: JSON.stringify(mutation.response) },
+          }
+          : record
+      ));
       expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
         records.map(record => JSON.stringify(record)).join('\n') + '\n',
         'backup',

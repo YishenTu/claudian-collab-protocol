@@ -14,11 +14,11 @@
     "files": [
       {
         "path": "dist/CollabAuthorityTransfer.d.ts",
-        "size": 13572
+        "size": 14951
       },
       {
         "path": "dist/CollabAuthorityTransfer.js",
-        "size": 28902
+        "size": 32598
       },
       {
         "path": "dist/CollabCloudBinding.d.ts",
@@ -26,7 +26,7 @@
       },
       {
         "path": "dist/CollabCloudBinding.js",
-        "size": 25934
+        "size": 26033
       },
       {
         "path": "dist/CollabCloudProjectEvent.d.ts",
@@ -86,11 +86,11 @@
       },
       {
         "path": "dist/CollabProjectCheckpoint.d.ts",
-        "size": 13121
+        "size": 14014
       },
       {
         "path": "dist/CollabProjectCheckpoint.js",
-        "size": 46817
+        "size": 50166
       },
       {
         "path": "dist/CollabProjectRetirement.d.ts",
@@ -150,11 +150,11 @@
       },
       {
         "path": "dist/index.d.ts",
-        "size": 10296
+        "size": 10352
       },
       {
         "path": "dist/index.js",
-        "size": 20709
+        "size": 20997
       },
       {
         "path": "dist/types.d.ts",
@@ -177,11 +177,11 @@
         "size": 6921
       }
     ],
-    "integrity": "sha512-eavNtM5RXukTaKoK/qdYzedIlHwbl01LVlB4HpTkcrFxLhD/yWxF7AE48JLdwwgWtyG22NsyMuks8k03WPUMmg==",
-    "sha256": "7b13370b6a2f5c77eaf1f9d33836afc96fb1c974dadbe2f7d444a5a23f9468b6",
-    "shasum": "90cb00664546cd3635af2b0f2d13562863ed644a",
-    "size": 50279,
-    "unpackedSize": 318708
+    "integrity": "sha512-q8ImqsF4/Pv5U2mbwLVPF8Y3DD5J89WBoG8bKzXLDLmUYu3tZgOXk8EwqRzk9bns+qPYvy37UQpYuj7RzBtfBw==",
+    "sha256": "47d9ee586b343fabb6a4e9fadbe30917780782e2a59270d75dfa06d9768ad3e0",
+    "shasum": "33161f1f8c9fa269edc34a7b171d54f3e263cb50",
+    "size": 51974,
+    "unpackedSize": 328468
   },
   "toolchain": {
     "node": "24.16.0",

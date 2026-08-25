@@ -20,6 +20,7 @@ export {
   decodeCollabTransferredMembershipClaimBatch,
   decodeCollabTransferredMembershipClaimCustodyReceipt,
   decodeCollabTransferredMembershipRedemptionReceipt,
+  encodeCollabTransferredMembershipClaimBatchDigestInput,
 } from './CollabAuthorityTransfer';
 export type {
   AcceptCloudToLanTransferTargetRequest,

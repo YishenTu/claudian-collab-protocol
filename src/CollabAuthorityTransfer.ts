@@ -118,7 +118,7 @@ export interface CollabTransferredMembershipRedemptionReceipt {
   readonly transferId: string;
 }
 
-export interface CollabAuthorityRelinquishmentProof {
+interface CollabAuthorityRelinquishmentProofBase {
   readonly batchRevision: number;
   readonly batchSha256: string;
   readonly certificate: string;
@@ -127,11 +127,21 @@ export interface CollabAuthorityRelinquishmentProof {
   readonly committedAt: CollabIsoTimestamp;
   readonly operationIntentId: string;
   readonly projectId: CollabProjectId;
-  readonly sourceAuthority: CollabCheckpointAuthority;
-  readonly sourceHostMemberId: CollabMemberId;
-  readonly targetAuthority: CollabCheckpointAuthority;
   readonly transferId: string;
 }
+
+export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofBase & (
+  | {
+    readonly sourceAuthority: CollabCheckpointAuthority & { readonly kind: 'lan' };
+    readonly sourceHostMemberId: CollabMemberId;
+    readonly targetAuthority: CollabCheckpointAuthority & { readonly kind: 'cloud' };
+  }
+  | {
+    readonly sourceAuthority: CollabCheckpointAuthority & { readonly kind: 'cloud' };
+    readonly sourceHostMemberId: null;
+    readonly targetAuthority: CollabCheckpointAuthority & { readonly kind: 'lan' };
+  }
+);
 
 export interface CollabAuthorityTransferStatus {
   readonly batchRevision: number | null;
@@ -145,6 +155,7 @@ export interface CollabAuthorityTransferStatus {
     | CollabCloudToLanTransferPhase
     | CollabAuthorityTransferCancellationPhase;
   readonly projectId: CollabProjectId;
+  readonly relinquishmentProof: CollabAuthorityRelinquishmentProof | null;
   readonly sourceAuthority: CollabCheckpointAuthority;
   readonly state: 'active' | 'cancelled' | 'completed';
   readonly targetAuthority: CollabCheckpointAuthority;
@@ -262,6 +273,7 @@ export interface ReportCloudToLanTargetStagedRequest extends CollabAuthorityMuta
 }
 
 export interface ConfirmCloudToLanTargetActiveRequest extends CollabAuthorityMutationRequest {
+  readonly relinquishmentProof: CollabAuthorityRelinquishmentProof;
   readonly targetActivationProof: string;
   readonly transferId: string;
 }
@@ -536,6 +548,21 @@ export function decodeCollabTransferredMembershipClaimBatch(
   };
 }
 
+export function encodeCollabTransferredMembershipClaimBatchDigestInput(
+  batch: CollabTransferredMembershipClaimBatch,
+): string {
+  const decoded = decodeCollabTransferredMembershipClaimBatch(batch);
+  return JSON.stringify({
+    batchRevision: decoded.batchRevision,
+    checkpointSha256: decoded.checkpointSha256,
+    claims: decoded.claims,
+    expiresAt: decoded.expiresAt,
+    projectId: decoded.projectId,
+    targetAuthorityGeneration: decoded.targetAuthorityGeneration,
+    transferId: decoded.transferId,
+  });
+}
+
 export function decodeCollabTransferredMembershipClaimCustodyReceipt(
   value: unknown,
 ): CollabTransferredMembershipClaimCustodyReceipt {
@@ -645,9 +672,13 @@ export function decodeCollabAuthorityRelinquishmentProof(
   ]);
   const sourceAuthority = authority(source.sourceAuthority, 'sourceAuthority');
   const targetAuthority = authority(source.targetAuthority, 'targetAuthority');
+  const sourceHostMemberId = source.sourceHostMemberId === null
+    ? null
+    : token(source, 'sourceHostMemberId', isCollabMemberId);
   if (
     sourceAuthority.kind === targetAuthority.kind
     || targetAuthority.generation !== sourceAuthority.generation + 1
+    || (sourceAuthority.kind === 'lan') !== (sourceHostMemberId !== null)
   ) throw invalidPayload('targetAuthority');
   return {
     batchRevision: positiveInteger(source, 'batchRevision'),
@@ -659,10 +690,10 @@ export function decodeCollabAuthorityRelinquishmentProof(
     operationIntentId: token(source, 'operationIntentId'),
     projectId: token(source, 'projectId', isCollabProjectId),
     sourceAuthority,
-    sourceHostMemberId: token(source, 'sourceHostMemberId', isCollabMemberId),
+    sourceHostMemberId,
     targetAuthority,
     transferId: token(source, 'transferId'),
-  };
+  } as CollabAuthorityRelinquishmentProof;
 }
 
 const LAN_TO_CLOUD_PHASE_SET: ReadonlySet<string> = new Set(
@@ -686,6 +717,12 @@ const LAN_TO_CLOUD_BATCH_REQUIRED_PHASE_SET: ReadonlySet<string> = new Set(
 const CLOUD_TO_LAN_BATCH_REQUIRED_PHASE_SET: ReadonlySet<string> = new Set(
   COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES.slice(4),
 );
+const LAN_TO_CLOUD_RELINQUISHMENT_REQUIRED_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES.slice(6),
+);
+const CLOUD_TO_LAN_RELINQUISHMENT_REQUIRED_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES.slice(5),
+);
 
 function transferPhase(
   source: UnknownRecord,
@@ -701,41 +738,16 @@ function transferPhase(
   return value as CollabAuthorityTransferStatus['phase'];
 }
 
-export function decodeCollabAuthorityTransferStatus(
-  value: unknown,
-): CollabAuthorityTransferStatus {
-  const source = exactRecord(value, 'transferStatus', [
+export function decodeCollabAuthorityTransferLifecycleFence(value: unknown) {
+  const source = exactRecord(value, 'transferLifecycleFence', [
     'batchRevision',
     'batchSha256',
     'checkpointSha256',
-    'createdAt',
     'direction',
-    'expiresAt',
     'phase',
-    'projectId',
-    'sourceAuthority',
-    'state',
-    'targetAuthority',
-    'targetUrl',
-    'transferId',
-    'updatedAt',
   ]);
   const direction = literal(source, 'direction', ['cloud-to-lan', 'lan-to-cloud']);
-  const sourceAuthority = authority(source.sourceAuthority, 'sourceAuthority');
-  const targetAuthority = authority(source.targetAuthority, 'targetAuthority');
   const phase = transferPhase(source, direction);
-  const state = literal(source, 'state', ['active', 'cancelled', 'completed']);
-  if (
-    sourceAuthority.kind === targetAuthority.kind
-    || targetAuthority.generation !== sourceAuthority.generation + 1
-    || (direction === 'lan-to-cloud'
-      && (sourceAuthority.kind !== 'lan' || targetAuthority.kind !== 'cloud'))
-    || (direction === 'cloud-to-lan'
-      && (sourceAuthority.kind !== 'cloud' || targetAuthority.kind !== 'lan'))
-    || (state === 'cancelled' && phase !== 'cancelled')
-    || (state === 'completed' && phase !== 'completed')
-    || (state === 'active' && (phase === 'cancelled' || phase === 'completed'))
-  ) throw invalidPayload('transferStatus');
   const checkpointSha256 = source.checkpointSha256 === null
     ? null
     : sha256(source, 'checkpointSha256');
@@ -761,6 +773,85 @@ export function decodeCollabAuthorityTransferStatus(
       && batchRevision === null
     )
   ) throw invalidPayload('claimBatch');
+  const relinquishmentRequired = (direction === 'lan-to-cloud'
+    ? LAN_TO_CLOUD_RELINQUISHMENT_REQUIRED_PHASE_SET
+    : CLOUD_TO_LAN_RELINQUISHMENT_REQUIRED_PHASE_SET).has(phase);
+  return {
+    batchRevision,
+    batchSha256,
+    checkpointSha256,
+    direction,
+    phase,
+    relinquishmentRequired,
+  };
+}
+
+export function decodeCollabAuthorityTransferStatus(
+  value: unknown,
+): CollabAuthorityTransferStatus {
+  const source = exactRecord(value, 'transferStatus', [
+    'batchRevision',
+    'batchSha256',
+    'checkpointSha256',
+    'createdAt',
+    'direction',
+    'expiresAt',
+    'phase',
+    'projectId',
+    'relinquishmentProof',
+    'sourceAuthority',
+    'state',
+    'targetAuthority',
+    'targetUrl',
+    'transferId',
+    'updatedAt',
+  ]);
+  const lifecycleFence = decodeCollabAuthorityTransferLifecycleFence({
+    batchRevision: source.batchRevision,
+    batchSha256: source.batchSha256,
+    checkpointSha256: source.checkpointSha256,
+    direction: source.direction,
+    phase: source.phase,
+  });
+  const {
+    batchRevision,
+    batchSha256,
+    checkpointSha256,
+    direction,
+    phase,
+    relinquishmentRequired,
+  } = lifecycleFence;
+  const sourceAuthority = authority(source.sourceAuthority, 'sourceAuthority');
+  const targetAuthority = authority(source.targetAuthority, 'targetAuthority');
+  const state = literal(source, 'state', ['active', 'cancelled', 'completed']);
+  if (
+    sourceAuthority.kind === targetAuthority.kind
+    || targetAuthority.generation !== sourceAuthority.generation + 1
+    || (direction === 'lan-to-cloud'
+      && (sourceAuthority.kind !== 'lan' || targetAuthority.kind !== 'cloud'))
+    || (direction === 'cloud-to-lan'
+      && (sourceAuthority.kind !== 'cloud' || targetAuthority.kind !== 'lan'))
+    || (state === 'cancelled' && phase !== 'cancelled')
+    || (state === 'completed' && phase !== 'completed')
+    || (state === 'active' && (phase === 'cancelled' || phase === 'completed'))
+  ) throw invalidPayload('transferStatus');
+  const relinquishmentProof = source.relinquishmentProof === null
+    ? null
+    : decodeCollabAuthorityRelinquishmentProof(source.relinquishmentProof);
+  if (
+    relinquishmentRequired !== (relinquishmentProof !== null)
+    || (relinquishmentProof !== null && (
+      relinquishmentProof.batchRevision !== batchRevision
+      || relinquishmentProof.batchSha256 !== batchSha256
+      || relinquishmentProof.checkpointSha256 !== checkpointSha256
+      || relinquishmentProof.projectId !== source.projectId
+      || relinquishmentProof.sourceAuthority.generation !== sourceAuthority.generation
+      || relinquishmentProof.sourceAuthority.kind !== sourceAuthority.kind
+      || relinquishmentProof.targetAuthority.generation !== targetAuthority.generation
+      || relinquishmentProof.targetAuthority.kind !== targetAuthority.kind
+      || relinquishmentProof.transferId !== source.transferId
+    ))
+  ) throw invalidPayload('relinquishmentProof');
   return {
     batchRevision,
     batchSha256,
@@ -770,6 +861,7 @@ export function decodeCollabAuthorityTransferStatus(
     expiresAt: timestamp(source, 'expiresAt'),
     phase,
     projectId: token(source, 'projectId', isCollabProjectId),
+    relinquishmentProof,
     sourceAuthority,
     state,
     targetAuthority,
@@ -1026,13 +1118,26 @@ function decodeConfirmCloudToLanTargetActive(
   const source = exactRecord(value, 'request', [
     'idempotencyKey',
     'projectId',
+    'relinquishmentProof',
     'targetActivationProof',
     'transferId',
   ]);
+  const common = mutationFields(source);
+  const transferId = token(source, 'transferId');
+  const relinquishmentProof = decodeCollabAuthorityRelinquishmentProof(
+    source.relinquishmentProof,
+  );
+  if (
+    relinquishmentProof.projectId !== common.projectId
+    || relinquishmentProof.transferId !== transferId
+    || relinquishmentProof.sourceAuthority.kind !== 'cloud'
+    || relinquishmentProof.targetAuthority.kind !== 'lan'
+  ) throw invalidPayload('relinquishmentProof');
   return {
-    ...mutationFields(source),
+    ...common,
+    relinquishmentProof,
     targetActivationProof: base64url(source, 'targetActivationProof'),
-    transferId: token(source, 'transferId'),
+    transferId,
   };
 }
 

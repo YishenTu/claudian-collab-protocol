@@ -1,4 +1,11 @@
 import {
+  type CollabAuthorityRelinquishmentProof,
+  type CollabAuthorityTransferDirection,
+  type CollabAuthorityTransferStatus,
+  decodeCollabAuthorityRelinquishmentProof,
+  decodeCollabAuthorityTransferLifecycleFence,
+} from './CollabAuthorityTransfer';
+import {
   type CollabCloudProjectEvent,
   decodeCollabCloudProjectEventMessage,
 } from './CollabCloudProjectEvent';
@@ -254,18 +261,42 @@ export type CollabCheckpointRepositoryPlacementRecord =
     readonly repositoryIdentity: string;
   }>;
 
-export type CollabCheckpointLifecycleStateRecord =
-  CollabCheckpointRecordBase<'lifecycle-state', {
-    readonly batchRevision: number | null;
-    readonly batchSha256: string | null;
+type CollabCheckpointAuthorityTransferLifecycleState = {
+  readonly batchRevision: number | null;
+  readonly batchSha256: string | null;
+  readonly checkpointSha256: string | null;
+  readonly direction: CollabAuthorityTransferDirection;
+  readonly operationId: string;
+  readonly operationKind: 'authority-transfer';
+  readonly phase: CollabAuthorityTransferStatus['phase'];
+  readonly projectId: CollabProjectId;
+  readonly relinquishmentProof: CollabAuthorityRelinquishmentProof | null;
+  readonly updatedAt: CollabIsoTimestamp;
+};
+
+type CollabCheckpointInternalLifecycleState = {
+  readonly batchRevision: null;
+  readonly batchSha256: null;
+  readonly direction: null;
+  readonly operationId: string;
+  readonly phase: string;
+  readonly projectId: CollabProjectId;
+  readonly relinquishmentProof: null;
+  readonly updatedAt: CollabIsoTimestamp;
+} & (
+  | {
     readonly checkpointSha256: string | null;
-    readonly direction: 'cloud-to-lan' | 'lan-to-cloud' | null;
-    readonly operationId: string;
-    readonly operationKind: 'authority-transfer' | 'backup' | 'delete' | 'retire';
-    readonly phase: string;
-    readonly projectId: CollabProjectId;
-    readonly updatedAt: CollabIsoTimestamp;
-  }>;
+    readonly operationKind: 'backup';
+  }
+  | {
+    readonly checkpointSha256: null;
+    readonly operationKind: 'delete' | 'retire';
+  }
+);
+
+export type CollabCheckpointLifecycleStateRecord =
+  CollabCheckpointRecordBase<'lifecycle-state',
+  CollabCheckpointAuthorityTransferLifecycleState | CollabCheckpointInternalLifecycleState>;
 
 export interface CollabCheckpointTerminalAcknowledgement {
   readonly acknowledgedAt: CollabIsoTimestamp;
@@ -489,18 +520,19 @@ function canonicalOperationResponseJson(
   source: UnknownRecord,
   field: string,
   operation: CollabControlOperation,
-): string {
+): { readonly decoded: UnknownRecord; readonly responseJson: string } {
   if (PLAINTEXT_CLAIM_RESPONSE_OPERATION_SET.has(operation)) throw invalidPayload(field);
   const value = boundedString(source, field, 512 * 1024, true);
-  let decoded: unknown;
+  let decoded: UnknownRecord;
   try {
-    decoded = JSON.parse(value) as unknown;
-    const operationResponse = collabControlOperationCodec(operation).decodeResponse(decoded);
+    const parsed = JSON.parse(value) as unknown;
+    const operationResponse = collabControlOperationCodec(operation).decodeResponse(parsed);
     if (JSON.stringify(operationResponse) !== value) throw invalidPayload(field);
+    decoded = record(operationResponse, field);
   } catch {
     throw invalidPayload(field);
   }
-  return value;
+  return { decoded, responseJson: value };
 }
 
 function authority(value: unknown, field: string): CollabCheckpointAuthority {
@@ -1035,18 +1067,26 @@ function idempotencyResultRecord(
     'responseJson',
   ]);
   const operation = controlOperation(value, 'operation');
+  const idempotencyKey = token(value, 'idempotencyKey');
+  const projectId = token(value, 'projectId', isCollabProjectId);
+  const response = canonicalOperationResponseJson(value, 'responseJson', operation);
+  if (
+    recordId !== idempotencyKey
+    || (Object.hasOwn(response.decoded, 'projectId')
+      && response.decoded.projectId !== projectId)
+  ) throw invalidPayload('responseJson');
   return {
     kind: 'idempotency-result',
     recordId,
     revision,
     value: {
       createdAt: timestamp(value, 'createdAt'),
-      idempotencyKey: token(value, 'idempotencyKey'),
+      idempotencyKey,
       memberId: token(value, 'memberId', isCollabMemberId),
       operation,
-      projectId: token(value, 'projectId', isCollabProjectId),
+      projectId,
       requestFingerprint: sha256(value, 'requestFingerprint'),
-      responseJson: canonicalOperationResponseJson(value, 'responseJson', operation),
+      responseJson: response.responseJson,
     },
   };
 }
@@ -1115,44 +1155,107 @@ function lifecycleStateRecord(
     'operationKind',
     'phase',
     'projectId',
+    'relinquishmentProof',
     'updatedAt',
   ]);
   const operationId = token(value, 'operationId');
   if (recordId !== operationId) throw invalidPayload('recordId');
-  const batchRevision = value.batchRevision === null
-    ? null
-    : positiveInteger(value, 'batchRevision');
-  const batchSha256 = value.batchSha256 === null ? null : sha256(value, 'batchSha256');
+  const operationKind = literal(value, 'operationKind', [
+    'authority-transfer',
+    'backup',
+    'delete',
+    'retire',
+  ]);
+  const common = {
+    operationId,
+    projectId: token(value, 'projectId', isCollabProjectId),
+    updatedAt: timestamp(value, 'updatedAt'),
+  };
+  if (operationKind === 'authority-transfer') {
+    const fence = decodeCollabAuthorityTransferLifecycleFence({
+      batchRevision: value.batchRevision,
+      batchSha256: value.batchSha256,
+      checkpointSha256: value.checkpointSha256,
+      direction: value.direction,
+      phase: value.phase,
+    });
+    const relinquishmentProof = value.relinquishmentProof === null
+      ? null
+      : decodeCollabAuthorityRelinquishmentProof(value.relinquishmentProof);
+    if (
+      fence.relinquishmentRequired !== (relinquishmentProof !== null)
+      || (relinquishmentProof !== null && (
+        relinquishmentProof.batchRevision !== fence.batchRevision
+        || relinquishmentProof.batchSha256 !== fence.batchSha256
+        || relinquishmentProof.checkpointSha256 !== fence.checkpointSha256
+        || relinquishmentProof.projectId !== common.projectId
+        || relinquishmentProof.transferId !== operationId
+        || (fence.direction === 'lan-to-cloud'
+          ? relinquishmentProof.sourceAuthority.kind !== 'lan'
+            || relinquishmentProof.targetAuthority.kind !== 'cloud'
+          : relinquishmentProof.sourceAuthority.kind !== 'cloud'
+            || relinquishmentProof.targetAuthority.kind !== 'lan')
+      ))
+    ) throw invalidPayload('relinquishmentProof');
+    return {
+      kind: 'lifecycle-state',
+      recordId,
+      revision,
+      value: {
+        batchRevision: fence.batchRevision,
+        batchSha256: fence.batchSha256,
+        checkpointSha256: fence.checkpointSha256,
+        direction: fence.direction,
+        operationId,
+        operationKind,
+        phase: fence.phase,
+        projectId: common.projectId,
+        relinquishmentProof,
+        updatedAt: common.updatedAt,
+      },
+    };
+  }
+  if (
+    value.direction !== null
+    || value.batchRevision !== null
+    || value.batchSha256 !== null
+    || value.relinquishmentProof !== null
+    || (operationKind !== 'backup' && value.checkpointSha256 !== null)
+  ) throw invalidPayload('lifecycleState');
   const checkpointSha256 = value.checkpointSha256 === null
     ? null
     : sha256(value, 'checkpointSha256');
-  const direction = value.direction === null
-    ? null
-    : literal(value, 'direction', ['cloud-to-lan', 'lan-to-cloud']);
-  if (
-    (batchRevision === null) !== (batchSha256 === null)
-    || (batchRevision !== null && checkpointSha256 === null)
-  ) throw invalidPayload('claimBatch');
+  const phase = boundedString(value, 'phase', 128);
+  const internalState: CollabCheckpointInternalLifecycleState = operationKind === 'backup'
+    ? {
+      batchRevision: null,
+      batchSha256: null,
+      checkpointSha256,
+      direction: null,
+      operationId,
+      operationKind,
+      phase,
+      projectId: common.projectId,
+      relinquishmentProof: null,
+      updatedAt: common.updatedAt,
+    }
+    : {
+      batchRevision: null,
+      batchSha256: null,
+      checkpointSha256: null,
+      direction: null,
+      operationId,
+      operationKind,
+      phase,
+      projectId: common.projectId,
+      relinquishmentProof: null,
+      updatedAt: common.updatedAt,
+    };
   return {
     kind: 'lifecycle-state',
     recordId,
     revision,
-    value: {
-      batchRevision,
-      batchSha256,
-      checkpointSha256,
-      direction,
-      operationId,
-      operationKind: literal(value, 'operationKind', [
-        'authority-transfer',
-        'backup',
-        'delete',
-        'retire',
-      ]),
-      phase: boundedString(value, 'phase', 128),
-      projectId: token(value, 'projectId', isCollabProjectId),
-      updatedAt: timestamp(value, 'updatedAt'),
-    },
+    value: internalState,
   };
 }
 
@@ -1173,6 +1276,17 @@ function terminalResponderRecord(
   const operationId = token(value, 'operationId');
   if (recordId !== operationId) throw invalidPayload('recordId');
   const operation = controlOperation(value, 'operation');
+  const projectId = token(value, 'projectId', isCollabProjectId);
+  const response = canonicalOperationResponseJson(value, 'responseJson', operation);
+  const responseOperationId = Object.hasOwn(response.decoded, 'transferId')
+    ? response.decoded.transferId
+    : Object.hasOwn(response.decoded, 'retirementId')
+      ? response.decoded.retirementId
+      : null;
+  if (
+    response.decoded.projectId !== projectId
+    || responseOperationId !== operationId
+  ) throw invalidPayload('responseJson');
   if (!Array.isArray(value.eligibleMemberIds)) throw invalidPayload('eligibleMemberIds');
   const eligibleMemberIds = value.eligibleMemberIds.map((item) => {
     if (!isCollabMemberId(item)) throw invalidPayload('eligibleMemberIds');
@@ -1216,8 +1330,8 @@ function terminalResponderRecord(
       expiresAt: timestamp(value, 'expiresAt'),
       operation,
       operationId,
-      projectId: token(value, 'projectId', isCollabProjectId),
-      responseJson: canonicalOperationResponseJson(value, 'responseJson', operation),
+      projectId,
+      responseJson: response.responseJson,
     },
   };
 }

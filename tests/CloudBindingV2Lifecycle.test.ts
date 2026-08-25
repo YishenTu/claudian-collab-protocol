@@ -172,6 +172,23 @@ describe('Cloud binding v2 lifecycle integration', () => {
     )).toBeNull();
   });
 
+  it('rejects noncanonical origin, dot-segment, and encoded route aliases', () => {
+    for (const [method, target] of [
+      ['GET', '//evil.invalid/v2/projects/project_1/checkpoint-exports/export_1'],
+      ['GET', '/v2/projects/project_1/x/../checkpoint-exports/export_1'],
+      [
+        'GET',
+        '/v2/projects/project_1/x/%2e%2e/checkpoint-exports/export_1/checkpoint/checkpoint.json',
+      ],
+      [
+        'PUT',
+        '/v2/projects/project_1/x/../authority-transfers/transfer_1/checkpoint/repository.bundle',
+      ],
+    ]) {
+      expect(matchCollabCloudRoute(method, target)).toBeNull();
+    }
+  });
+
   it('round-trips the exact v2 capability document and fails closed on v1/v4', () => {
     expect(decodeCollabCloudCapabilityDocument(capabilities())).toEqual(capabilities());
     expect(collabCloudCapabilityDocument([...COLLAB_CLOUD_CAPABILITIES], limits()))

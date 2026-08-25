@@ -446,7 +446,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/CollabCloudBinding.ts",
-          "sha256": "7732732a7cc1f5c31cb5990ae72104094f58995ccc2a21e24842b91f10a75659"
+          "sha256": "153c28a9bb06be9815655c590aa636521ed51293821d1080ab42295b00f585e9"
         },
         {
           "path": "src/CollabCloudProjectEvent.ts",
@@ -664,7 +664,7 @@
         "source": "./CollabConstants"
       },
       {
-        "declaration": "export interface CollabAuthorityRelinquishmentProof {\n    readonly batchRevision: number;\n    readonly batchSha256: string;\n    readonly certificate: string;\n    readonly certificateAlgorithm: 'ed25519';\n    readonly checkpointSha256: string;\n    readonly committedAt: CollabIsoTimestamp;\n    readonly operationIntentId: string;\n    readonly projectId: CollabProjectId;\n    readonly sourceAuthority: CollabCheckpointAuthority;\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority;\n    readonly transferId: string;\n}",
+        "declaration": "export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofBase & ({\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n} | {\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n    readonly sourceHostMemberId: null;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n});",
         "exportName": "CollabAuthorityRelinquishmentProof",
         "source": "./CollabAuthorityTransfer"
       },
@@ -694,7 +694,7 @@
         "source": "./CollabAuthorityTransfer"
       },
       {
-        "declaration": "export interface CollabAuthorityTransferStatus {\n    readonly batchRevision: number | null;\n    readonly batchSha256: string | null;\n    readonly checkpointSha256: string | null;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly direction: CollabAuthorityTransferDirection;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly phase: CollabLanToCloudTransferPhase | CollabCloudToLanTransferPhase | CollabAuthorityTransferCancellationPhase;\n    readonly projectId: CollabProjectId;\n    readonly sourceAuthority: CollabCheckpointAuthority;\n    readonly state: 'active' | 'cancelled' | 'completed';\n    readonly targetAuthority: CollabCheckpointAuthority;\n    readonly targetUrl: string;\n    readonly transferId: string;\n    readonly updatedAt: CollabIsoTimestamp;\n}",
+        "declaration": "export interface CollabAuthorityTransferStatus {\n    readonly batchRevision: number | null;\n    readonly batchSha256: string | null;\n    readonly checkpointSha256: string | null;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly direction: CollabAuthorityTransferDirection;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly phase: CollabLanToCloudTransferPhase | CollabCloudToLanTransferPhase | CollabAuthorityTransferCancellationPhase;\n    readonly projectId: CollabProjectId;\n    readonly relinquishmentProof: CollabAuthorityRelinquishmentProof | null;\n    readonly sourceAuthority: CollabCheckpointAuthority;\n    readonly state: 'active' | 'cancelled' | 'completed';\n    readonly targetAuthority: CollabCheckpointAuthority;\n    readonly targetUrl: string;\n    readonly transferId: string;\n    readonly updatedAt: CollabIsoTimestamp;\n}",
         "exportName": "CollabAuthorityTransferStatus",
         "source": "./CollabAuthorityTransfer"
       },
@@ -759,7 +759,7 @@
         "source": "./CollabProjectCheckpoint"
       },
       {
-        "declaration": "export type CollabCheckpointLifecycleStateRecord = CollabCheckpointRecordBase<'lifecycle-state', {\n    readonly batchRevision: number | null;\n    readonly batchSha256: string | null;\n    readonly checkpointSha256: string | null;\n    readonly direction: 'cloud-to-lan' | 'lan-to-cloud' | null;\n    readonly operationId: string;\n    readonly operationKind: 'authority-transfer' | 'backup' | 'delete' | 'retire';\n    readonly phase: string;\n    readonly projectId: CollabProjectId;\n    readonly updatedAt: CollabIsoTimestamp;\n}>;",
+        "declaration": "export type CollabCheckpointLifecycleStateRecord = CollabCheckpointRecordBase<'lifecycle-state', CollabCheckpointAuthorityTransferLifecycleState | CollabCheckpointInternalLifecycleState>;",
         "exportName": "CollabCheckpointLifecycleStateRecord",
         "source": "./CollabProjectCheckpoint"
       },
@@ -1409,7 +1409,7 @@
         "source": "./CollabAuthorityTransfer"
       },
       {
-        "declaration": "export interface ConfirmCloudToLanTargetActiveRequest extends CollabAuthorityMutationRequest {\n    readonly targetActivationProof: string;\n    readonly transferId: string;\n}",
+        "declaration": "export interface ConfirmCloudToLanTargetActiveRequest extends CollabAuthorityMutationRequest {\n    readonly relinquishmentProof: CollabAuthorityRelinquishmentProof;\n    readonly targetActivationProof: string;\n    readonly transferId: string;\n}",
         "exportName": "ConfirmCloudToLanTargetActiveRequest",
         "source": "./CollabAuthorityTransfer"
       },
@@ -1709,6 +1709,11 @@
         "source": "./CollabProjectCheckpoint"
       },
       {
+        "declaration": "export declare function encodeCollabTransferredMembershipClaimBatchDigestInput(batch: CollabTransferredMembershipClaimBatch): string;",
+        "exportName": "encodeCollabTransferredMembershipClaimBatchDigestInput",
+        "source": "./CollabAuthorityTransfer"
+      },
+      {
         "declaration": "export declare function encodeDevelopmentBootstrapManifestCanonicalJson(value: DevelopmentBootstrapManifest): string;",
         "exportName": "encodeDevelopmentBootstrapManifestCanonicalJson",
         "source": "./DevelopmentBootstrap"
@@ -1947,6 +1952,7 @@
       "encodeCollabProjectCheckpointCoordinationNdjson",
       "encodeCollabProjectCheckpointManifestCanonicalJson",
       "encodeCollabProjectCheckpointManifestDigestInput",
+      "encodeCollabTransferredMembershipClaimBatchDigestInput",
       "encodeDevelopmentBootstrapManifestCanonicalJson",
       "isCollabGitOid",
       "isCollabMemberId",
@@ -1962,11 +1968,11 @@
     "runtimeBehaviorDigests": [
       {
         "path": "src/CollabAuthorityTransfer.ts",
-        "sha256": "ab8feda2f9d25058924fb46fffbeb7cf7c14d0a52fc80e94f312eaeb9660fa3c"
+        "sha256": "cfb3d252f4a5b94c82d2079d753a12377b4dbe4bf45a305118a16e51fd6b623e"
       },
       {
         "path": "src/CollabCloudBinding.ts",
-        "sha256": "7732732a7cc1f5c31cb5990ae72104094f58995ccc2a21e24842b91f10a75659"
+        "sha256": "153c28a9bb06be9815655c590aa636521ed51293821d1080ab42295b00f585e9"
       },
       {
         "path": "src/CollabCloudProjectEvent.ts",
@@ -1998,7 +2004,7 @@
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
-        "sha256": "2e3490794670296286f406cde008d4caa949f8b04565d1c02ec3b70559ef2977"
+        "sha256": "23ddb2331d2e8b1be5e6ba16e7ccbd30a3695d9de75f5e87861ecc26379d1c04"
       },
       {
         "path": "src/CollabProjectRetirement.ts",
@@ -2030,7 +2036,7 @@
       },
       {
         "path": "src/index.ts",
-        "sha256": "3a152a341c082b6c16628c9290fe1f015cc8885dd83c71c5446ce15a9874bae8"
+        "sha256": "dc017b2f03c4eb259291d585c7b001ee826993e48c6b6a5cf350150294d080d1"
       },
       {
         "path": "src/types.ts",
@@ -2190,7 +2196,7 @@
           "source": "./CollabConstants"
         },
         {
-          "declaration": "export interface CollabAuthorityRelinquishmentProof {\n    readonly batchRevision: number;\n    readonly batchSha256: string;\n    readonly certificate: string;\n    readonly certificateAlgorithm: 'ed25519';\n    readonly checkpointSha256: string;\n    readonly committedAt: CollabIsoTimestamp;\n    readonly operationIntentId: string;\n    readonly projectId: CollabProjectId;\n    readonly sourceAuthority: CollabCheckpointAuthority;\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority;\n    readonly transferId: string;\n}",
+          "declaration": "export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofBase & ({\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n} | {\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n    readonly sourceHostMemberId: null;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n});",
           "exportName": "CollabAuthorityRelinquishmentProof",
           "source": "./CollabAuthorityTransfer"
         },
@@ -2220,7 +2226,7 @@
           "source": "./CollabAuthorityTransfer"
         },
         {
-          "declaration": "export interface CollabAuthorityTransferStatus {\n    readonly batchRevision: number | null;\n    readonly batchSha256: string | null;\n    readonly checkpointSha256: string | null;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly direction: CollabAuthorityTransferDirection;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly phase: CollabLanToCloudTransferPhase | CollabCloudToLanTransferPhase | CollabAuthorityTransferCancellationPhase;\n    readonly projectId: CollabProjectId;\n    readonly sourceAuthority: CollabCheckpointAuthority;\n    readonly state: 'active' | 'cancelled' | 'completed';\n    readonly targetAuthority: CollabCheckpointAuthority;\n    readonly targetUrl: string;\n    readonly transferId: string;\n    readonly updatedAt: CollabIsoTimestamp;\n}",
+          "declaration": "export interface CollabAuthorityTransferStatus {\n    readonly batchRevision: number | null;\n    readonly batchSha256: string | null;\n    readonly checkpointSha256: string | null;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly direction: CollabAuthorityTransferDirection;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly phase: CollabLanToCloudTransferPhase | CollabCloudToLanTransferPhase | CollabAuthorityTransferCancellationPhase;\n    readonly projectId: CollabProjectId;\n    readonly relinquishmentProof: CollabAuthorityRelinquishmentProof | null;\n    readonly sourceAuthority: CollabCheckpointAuthority;\n    readonly state: 'active' | 'cancelled' | 'completed';\n    readonly targetAuthority: CollabCheckpointAuthority;\n    readonly targetUrl: string;\n    readonly transferId: string;\n    readonly updatedAt: CollabIsoTimestamp;\n}",
           "exportName": "CollabAuthorityTransferStatus",
           "source": "./CollabAuthorityTransfer"
         },
@@ -2285,7 +2291,7 @@
           "source": "./CollabProjectCheckpoint"
         },
         {
-          "declaration": "export type CollabCheckpointLifecycleStateRecord = CollabCheckpointRecordBase<'lifecycle-state', {\n    readonly batchRevision: number | null;\n    readonly batchSha256: string | null;\n    readonly checkpointSha256: string | null;\n    readonly direction: 'cloud-to-lan' | 'lan-to-cloud' | null;\n    readonly operationId: string;\n    readonly operationKind: 'authority-transfer' | 'backup' | 'delete' | 'retire';\n    readonly phase: string;\n    readonly projectId: CollabProjectId;\n    readonly updatedAt: CollabIsoTimestamp;\n}>;",
+          "declaration": "export type CollabCheckpointLifecycleStateRecord = CollabCheckpointRecordBase<'lifecycle-state', CollabCheckpointAuthorityTransferLifecycleState | CollabCheckpointInternalLifecycleState>;",
           "exportName": "CollabCheckpointLifecycleStateRecord",
           "source": "./CollabProjectCheckpoint"
         },
@@ -2740,7 +2746,7 @@
           "source": "./CollabAuthorityTransfer"
         },
         {
-          "declaration": "export interface ConfirmCloudToLanTargetActiveRequest extends CollabAuthorityMutationRequest {\n    readonly targetActivationProof: string;\n    readonly transferId: string;\n}",
+          "declaration": "export interface ConfirmCloudToLanTargetActiveRequest extends CollabAuthorityMutationRequest {\n    readonly relinquishmentProof: CollabAuthorityRelinquishmentProof;\n    readonly targetActivationProof: string;\n    readonly transferId: string;\n}",
           "exportName": "ConfirmCloudToLanTargetActiveRequest",
           "source": "./CollabAuthorityTransfer"
         },
@@ -2873,6 +2879,11 @@
           "declaration": "export declare function encodeCollabProjectCheckpointManifestDigestInput(manifest: CollabProjectCheckpointManifest): string;",
           "exportName": "encodeCollabProjectCheckpointManifestDigestInput",
           "source": "./CollabProjectCheckpoint"
+        },
+        {
+          "declaration": "export declare function encodeCollabTransferredMembershipClaimBatchDigestInput(batch: CollabTransferredMembershipClaimBatch): string;",
+          "exportName": "encodeCollabTransferredMembershipClaimBatchDigestInput",
+          "source": "./CollabAuthorityTransfer"
         },
         {
           "declaration": "export interface EnsureMyRequestRequest extends CollabMutationContext {\n    expectedMainOid: CollabGitOid;\n    headOid: CollabGitOid;\n    description: string;\n}",
@@ -3094,7 +3105,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/CollabAuthorityTransfer.ts",
-          "sha256": "ab8feda2f9d25058924fb46fffbeb7cf7c14d0a52fc80e94f312eaeb9660fa3c"
+          "sha256": "cfb3d252f4a5b94c82d2079d753a12377b4dbe4bf45a305118a16e51fd6b623e"
         },
         {
           "path": "src/CollabConstants.ts",
@@ -3110,7 +3121,7 @@
         },
         {
           "path": "src/CollabProjectCheckpoint.ts",
-          "sha256": "2e3490794670296286f406cde008d4caa949f8b04565d1c02ec3b70559ef2977"
+          "sha256": "23ddb2331d2e8b1be5e6ba16e7ccbd30a3695d9de75f5e87861ecc26379d1c04"
         },
         {
           "path": "src/CollabProjectRetirement.ts",

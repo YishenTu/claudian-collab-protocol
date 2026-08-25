@@ -530,13 +530,14 @@ export function matchCollabCloudRoute(
   method: string,
   target: string,
 ): CollabCloudRouteMatch | null {
-  if (!target.startsWith('/') || target.includes('#')) return null;
+  if (!target.startsWith('/') || target.startsWith('//') || target.includes('#')) return null;
   let url: URL;
   try {
     url = new URL(target, 'http://collab.invalid');
   } catch {
     return null;
   }
+  if (`${url.pathname}${url.search}` !== target) return null;
   const segments = url.pathname.split('/').filter(Boolean);
   if (url.pathname !== `/${segments.join('/')}` || target.endsWith('?')) return null;
   if (

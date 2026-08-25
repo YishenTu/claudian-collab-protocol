@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES,
   COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES,
@@ -10,11 +12,13 @@ import {
   decodeCollabTransferredMembershipClaimBatch,
   decodeCollabTransferredMembershipClaimCustodyReceipt,
   decodeCollabTransferredMembershipRedemptionReceipt,
+  encodeCollabTransferredMembershipClaimBatchDigestInput,
 } from '../src/CollabAuthorityTransfer';
 
 const NOW = '2026-08-25T00:00:00.000Z';
 const LATER = '2026-09-24T00:00:00.000Z';
 const SHA256 = 'a'.repeat(64);
+const BATCH_SHA256 = '4689acf5d0c9daa2771ed640a1ab7ef77a0b6f23bea04e34f3b9d39521136409';
 
 function proposal(overrides: Record<string, unknown> = {}) {
   return {
@@ -32,7 +36,7 @@ function proposal(overrides: Record<string, unknown> = {}) {
 function claimBatch(overrides: Record<string, unknown> = {}) {
   return {
     batchRevision: 2,
-    batchSha256: 'b'.repeat(64),
+    batchSha256: BATCH_SHA256,
     checkpointSha256: SHA256,
     claims: [
       { claim: 'claim_for_member_2', memberId: 'member_2' },
@@ -49,7 +53,7 @@ function claimBatch(overrides: Record<string, unknown> = {}) {
 function custodyReceipt(overrides: Record<string, unknown> = {}) {
   return {
     batchRevision: 2,
-    batchSha256: 'b'.repeat(64),
+    batchSha256: BATCH_SHA256,
     checkpointSha256: SHA256,
     committedAt: NOW,
     custodyAuthority: { generation: 3, kind: 'lan' },
@@ -84,7 +88,7 @@ function redemptionReceipt(overrides: Record<string, unknown> = {}) {
 function relinquishmentProof(overrides: Record<string, unknown> = {}) {
   return {
     batchRevision: 2,
-    batchSha256: 'b'.repeat(64),
+    batchSha256: BATCH_SHA256,
     certificate: 'c291cmNlLXNpZ25hdHVyZQ',
     certificateAlgorithm: 'ed25519',
     checkpointSha256: SHA256,
@@ -97,6 +101,16 @@ function relinquishmentProof(overrides: Record<string, unknown> = {}) {
     transferId: 'transfer_1',
     ...overrides,
   };
+}
+
+function cloudRelinquishmentProof(overrides: Record<string, unknown> = {}) {
+  return relinquishmentProof({
+    sourceAuthority: { generation: 4, kind: 'cloud' },
+    sourceHostMemberId: null,
+    targetAuthority: { generation: 5, kind: 'lan' },
+    transferId: 'transfer_2',
+    ...overrides,
+  });
 }
 
 describe('Project authority transfer contract', () => {
@@ -152,6 +166,12 @@ describe('Project authority transfer contract', () => {
       .toEqual(claimBatch());
   });
 
+  it('defines one canonical claim-batch digest input for independent custody checks', () => {
+    const digestInput = encodeCollabTransferredMembershipClaimBatchDigestInput(claimBatch());
+    expect(digestInput).not.toContain('batchSha256');
+    expect(createHash('sha256').update(digestInput).digest('hex')).toBe(BATCH_SHA256);
+  });
+
   it.each([
     claimBatch({ batchRevision: 0 }),
     claimBatch({ claims: [
@@ -198,6 +218,11 @@ describe('Project authority transfer contract', () => {
       ...proof,
       targetAuthority: { generation: 5, kind: 'cloud' },
     })).toThrow('collab.error.protocol-payload-invalid');
+    expect(decodeCollabAuthorityRelinquishmentProof(cloudRelinquishmentProof()))
+      .toEqual(cloudRelinquishmentProof());
+    expect(() => decodeCollabAuthorityRelinquishmentProof(cloudRelinquishmentProof({
+      sourceHostMemberId: 'member_1',
+    }))).toThrow('collab.error.protocol-payload-invalid');
   });
 
   it('binds signed receipts and relinquishment proofs to checkpoint and operation intent', () => {
@@ -281,6 +306,7 @@ describe('Project authority transfer contract', () => {
       expiresAt: LATER,
       phase: 'claims-retained',
       projectId: 'project_1',
+      relinquishmentProof: null,
       sourceAuthority: { generation: 4, kind: 'cloud' },
       state: 'active',
       targetAuthority: { generation: 5, kind: 'lan' },
@@ -300,6 +326,48 @@ describe('Project authority transfer contract', () => {
       'rotateTransferredMembershipClaims',
       rotate,
     )).toEqual(rotate);
+  });
+
+  it('delivers and acknowledges the Cloud relinquishment proof before LAN activation', () => {
+    const proof = cloudRelinquishmentProof();
+    const status = {
+      batchRevision: 2,
+      batchSha256: BATCH_SHA256,
+      checkpointSha256: SHA256,
+      createdAt: NOW,
+      direction: 'cloud-to-lan',
+      expiresAt: LATER,
+      phase: 'cloud-relinquished',
+      projectId: 'project_1',
+      relinquishmentProof: proof,
+      sourceAuthority: { generation: 4, kind: 'cloud' },
+      state: 'active',
+      targetAuthority: { generation: 5, kind: 'lan' },
+      targetUrl: 'https://lan-target.invalid:54545',
+      transferId: 'transfer_2',
+      updatedAt: NOW,
+    };
+    expect(decodeCollabAuthorityTransferStatus(status)).toEqual(status);
+    expect(() => decodeCollabAuthorityTransferStatus({
+      ...status,
+      relinquishmentProof: null,
+    })).toThrow('collab.error.protocol-payload-invalid');
+
+    const confirmation = {
+      idempotencyKey: 'confirm_intent_1',
+      projectId: 'project_1',
+      relinquishmentProof: proof,
+      targetActivationProof: 'YWN0aXZhdGlvbi1wcm9vZg',
+      transferId: 'transfer_2',
+    };
+    expect(decodeCollabAuthorityTransferOperationRequest(
+      'confirmCloudToLanTargetActive',
+      confirmation,
+    )).toEqual(confirmation);
+    expect(() => decodeCollabAuthorityTransferOperationRequest(
+      'confirmCloudToLanTargetActive',
+      { ...confirmation, projectId: 'project_2' },
+    )).toThrow('collab.error.protocol-payload-invalid');
   });
 
   it.each([
@@ -322,6 +390,7 @@ describe('Project authority transfer contract', () => {
       expiresAt: LATER,
       phase,
       projectId: 'project_1',
+      relinquishmentProof: null,
       sourceAuthority: { generation: 3, kind: sourceKind },
       state: 'active',
       targetAuthority: { generation: 4, kind: targetKind },
@@ -353,6 +422,7 @@ describe('Project authority transfer contract', () => {
       expiresAt: LATER,
       phase,
       projectId: 'project_1',
+      relinquishmentProof: null,
       sourceAuthority: { generation: 3, kind: sourceKind },
       state: 'active',
       targetAuthority: { generation: 4, kind: targetKind },

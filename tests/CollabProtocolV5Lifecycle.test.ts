@@ -40,6 +40,7 @@ function transferStatus(overrides: Record<string, unknown> = {}) {
     expiresAt: LATER,
     phase: 'collecting-readiness',
     projectId: 'project_1',
+    relinquishmentProof: null,
     sourceAuthority: { generation: 3, kind: 'lan' },
     state: 'active',
     targetAuthority: { generation: 4, kind: 'cloud' },
@@ -81,6 +82,16 @@ function relinquishmentProof() {
     sourceHostMemberId: 'member_1',
     targetAuthority: { generation: 4, kind: 'cloud' },
     transferId: 'transfer_1',
+  };
+}
+
+function cloudRelinquishmentProof() {
+  return {
+    ...relinquishmentProof(),
+    sourceAuthority: { generation: 4, kind: 'cloud' },
+    sourceHostMemberId: null,
+    targetAuthority: { generation: 5, kind: 'lan' },
+    transferId: 'transfer_2',
   };
 }
 
@@ -180,6 +191,7 @@ function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number
     confirmCloudToLanTargetActive: {
       idempotencyKey: 'intent_12',
       projectId: 'project_1',
+      relinquishmentProof: cloudRelinquishmentProof(),
       targetActivationProof: 'YWN0aXZhdGlvbi1wcm9vZg',
       transferId: 'transfer_2',
     },

@@ -664,6 +664,16 @@
         "source": "./CollabProjectRetirement"
       },
       {
+        "declaration": "export declare const COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS: Readonly<{\n    readonly maxCiphertextBytes: 4096;\n    readonly nonceBytes: 24;\n    readonly tagBytes: 16;\n}>;",
+        "exportName": "COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS",
+        "source": "./CollabProjectCheckpoint"
+      },
+      {
+        "declaration": "export declare const COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION: 1;",
+        "exportName": "COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION",
+        "source": "./CollabProjectCheckpoint"
+      },
+      {
         "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 5;",
         "exportName": "COLLAB_PROTOCOL_VERSION",
         "source": "./CollabConstants"
@@ -1239,7 +1249,7 @@
         "source": "./CollabProjectRetirement"
       },
       {
-        "declaration": "export interface CollabProtectedClaimAssociatedData {\n    readonly authorityGeneration: number;\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly envelopeVersion: number;\n    readonly environmentIdentity: string;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly transferId: string;\n}",
+        "declaration": "export interface CollabProtectedClaimAssociatedData {\n    readonly authorityGeneration: number;\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly envelopeVersion: typeof COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION;\n    readonly environmentIdentity: string;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly transferId: string;\n}",
         "exportName": "CollabProtectedClaimAssociatedData",
         "source": "./CollabProjectCheckpoint"
       },
@@ -1911,6 +1921,8 @@
       "COLLAB_PROJECT_COORDINATION_FORMAT_VERSION",
       "COLLAB_PROJECT_RETIREMENT_OPERATIONS",
       "COLLAB_PROJECT_RETIREMENT_RESULT_KINDS",
+      "COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS",
+      "COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION",
       "COLLAB_PROTOCOL_VERSION",
       "CollabError",
       "DEVELOPMENT_BOOTSTRAP_ACTIVATION_PHASES",
@@ -2015,7 +2027,7 @@
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
-        "sha256": "6cf1039e359526e1e336aec3df96753e289f301a79dfef63b3b2cd90bd99c9ea"
+        "sha256": "989af7d3bcfc74bbabb5391b6c1e39a887812f4c2e7c269afea96c00770eb7f5"
       },
       {
         "path": "src/CollabProjectRetirement.ts",
@@ -2047,7 +2059,7 @@
       },
       {
         "path": "src/index.ts",
-        "sha256": "85df2c4e6bb36fe5471ad489942d4ae7daa5ae128d90b27311f218b5d896b073"
+        "sha256": "e13cfdd70b61a969cde1d6e501c988efdc37f4c1289f312db713c203d69ba7e6"
       },
       {
         "path": "src/types.ts",
@@ -2205,6 +2217,16 @@
           "declaration": "export declare const COLLAB_PROJECT_RETIREMENT_RESULT_KINDS: readonly [\"project-retired\"];",
           "exportName": "COLLAB_PROJECT_RETIREMENT_RESULT_KINDS",
           "source": "./CollabProjectRetirement"
+        },
+        {
+          "declaration": "export declare const COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS: Readonly<{\n    readonly maxCiphertextBytes: 4096;\n    readonly nonceBytes: 24;\n    readonly tagBytes: 16;\n}>;",
+          "exportName": "COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS",
+          "source": "./CollabProjectCheckpoint"
+        },
+        {
+          "declaration": "export declare const COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION: 1;",
+          "exportName": "COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION",
+          "source": "./CollabProjectCheckpoint"
         },
         {
           "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 5;",
@@ -2607,7 +2629,7 @@
           "source": "./CollabProjectRetirement"
         },
         {
-          "declaration": "export interface CollabProtectedClaimAssociatedData {\n    readonly authorityGeneration: number;\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly envelopeVersion: number;\n    readonly environmentIdentity: string;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly transferId: string;\n}",
+          "declaration": "export interface CollabProtectedClaimAssociatedData {\n    readonly authorityGeneration: number;\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly envelopeVersion: typeof COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION;\n    readonly environmentIdentity: string;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly transferId: string;\n}",
           "exportName": "CollabProtectedClaimAssociatedData",
           "source": "./CollabProjectCheckpoint"
         },
@@ -3142,7 +3164,7 @@
         },
         {
           "path": "src/CollabProjectCheckpoint.ts",
-          "sha256": "6cf1039e359526e1e336aec3df96753e289f301a79dfef63b3b2cd90bd99c9ea"
+          "sha256": "989af7d3bcfc74bbabb5391b6c1e39a887812f4c2e7c269afea96c00770eb7f5"
         },
         {
           "path": "src/CollabProjectRetirement.ts",

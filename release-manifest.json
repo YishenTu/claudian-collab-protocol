@@ -86,11 +86,11 @@
       },
       {
         "path": "dist/CollabProjectCheckpoint.d.ts",
-        "size": 14039
+        "size": 14315
       },
       {
         "path": "dist/CollabProjectCheckpoint.js",
-        "size": 54120
+        "size": 55485
       },
       {
         "path": "dist/CollabProjectRetirement.d.ts",
@@ -150,11 +150,11 @@
       },
       {
         "path": "dist/index.d.ts",
-        "size": 10439
+        "size": 10520
       },
       {
         "path": "dist/index.js",
-        "size": 21255
+        "size": 21738
       },
       {
         "path": "dist/types.d.ts",
@@ -177,11 +177,11 @@
         "size": 6921
       }
     ],
-    "integrity": "sha512-8olF6eFP4QsHy+6ibwiOA/6iKmeG5i00FVNXSjiJOfpns5gSebIs662CfvpFNCwMsPy4juED720Ct31lKewWsA==",
-    "sha256": "c33159fe5feb9bcdaca81ffac1e48f146893a5cc37ca3a5a91a00d9b8098fb09",
-    "shasum": "efa085db517c38d8656c386dfb2ed26f72907dab",
-    "size": 53017,
-    "unpackedSize": 334602
+    "integrity": "sha512-bSpziO7OnD0ZC+4GZsuDdsmB3oXskQhO385AaqjKPrPx8hQZI8DKkc5vdLhzkYubcTX2n8Kih5YDSiWN15QhTw==",
+    "sha256": "fb5ad9b951bf4809ab93ee9a3541ae4900dd51c94a579f6cab06206d29b29834",
+    "shasum": "5a0387cbe1db03decc444b9936ae61aa28b1d0cb",
+    "size": 53526,
+    "unpackedSize": 336807
   },
   "toolchain": {
     "node": "24.16.0",

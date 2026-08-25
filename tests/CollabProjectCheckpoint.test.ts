@@ -7,6 +7,8 @@ import {
   COLLAB_PROJECT_CHECKPOINT_ARTIFACTS,
   COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION,
   COLLAB_PROJECT_COORDINATION_FORMAT_VERSION,
+  COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS,
+  COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION,
   decodeCollabProjectCheckpointCoordinationNdjson,
   decodeCollabProjectCheckpointManifest,
   encodeCollabProjectCheckpointCoordinationNdjson,
@@ -255,9 +257,9 @@ function protectedClaimEnvelopeRecord() {
       keyId: 'claim-key-2026-08',
       keyVersion: 1,
       memberId: 'member_3',
-      nonce: 'bm9uY2U',
+      nonce: 'A'.repeat(32),
       receiptKeyId: 'receipt-key-2026-08',
-      tag: 'dGFn',
+      tag: 'A'.repeat(22),
       transferId: 'transfer_1',
     },
   };
@@ -421,6 +423,12 @@ describe('Project checkpoint contract', () => {
     ]);
     expect(COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION).toBe(1);
     expect(COLLAB_PROJECT_COORDINATION_FORMAT_VERSION).toBe(1);
+    expect(COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION).toBe(1);
+    expect(COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS).toEqual({
+      maxCiphertextBytes: 4096,
+      nonceBytes: 24,
+      tagBytes: 16,
+    });
     expect(COLLAB_CHECKPOINT_BACKUP_RECORD_KINDS).toEqual([
       'project',
       'member',
@@ -621,6 +629,46 @@ describe('Project checkpoint contract', () => {
       'backup',
     )).toThrow('collab.error.protocol-payload-invalid');
     expect(backupNdjson).not.toMatch(/privateKey|rawClaim|credential|token/i);
+  });
+
+  it('rejects unsupported or malformed protected claim envelopes', () => {
+    type MutableTestRecord = {
+      kind: string;
+      recordId: string;
+      revision: number;
+      value: Record<string, unknown>;
+    };
+    const mutations = [
+      { associatedData: { envelopeVersion: 2 } },
+      { nonce: 'A'.repeat(31) },
+      { tag: 'A'.repeat(21) },
+      { tag: `${'A'.repeat(21)}B` },
+      { ciphertext: 'A'.repeat(5_463) },
+    ];
+    for (const mutation of mutations) {
+      const records = [
+        ...portableRecords(),
+        ...operationalBackupRecords().map((record) => {
+          if (record.kind !== 'protected-claim-envelope') return record;
+          const mutable = record as unknown as MutableTestRecord;
+          return {
+            ...mutable,
+            value: {
+              ...mutable.value,
+              ...mutation,
+              associatedData: {
+                ...(mutable.value.associatedData as Record<string, unknown>),
+                ...(mutation.associatedData ?? {}),
+              },
+            },
+          };
+        }),
+      ];
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
   });
 
   it('round-trips Cloud continuity only in the backup profile', () => {

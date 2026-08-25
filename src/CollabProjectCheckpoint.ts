@@ -36,6 +36,13 @@ import type {
 
 export const COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION = 1 as const;
 export const COLLAB_PROJECT_COORDINATION_FORMAT_VERSION = 1 as const;
+export const COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION = 1 as const;
+
+export const COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS = Object.freeze({
+  maxCiphertextBytes: 4096,
+  nonceBytes: 24,
+  tagBytes: 16,
+} as const);
 
 export const COLLAB_CHECKPOINT_PROFILES = Object.freeze([
   'authority-transfer',
@@ -319,7 +326,7 @@ export interface CollabProtectedClaimAssociatedData {
   readonly authorityGeneration: number;
   readonly checkpointSha256: string;
   readonly claimSha256: string;
-  readonly envelopeVersion: number;
+  readonly envelopeVersion: typeof COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION;
   readonly environmentIdentity: string;
   readonly memberId: CollabMemberId;
   readonly projectId: CollabProjectId;
@@ -404,6 +411,7 @@ const PORTABLE_RECORD_KIND_SET: ReadonlySet<string> = new Set(
 );
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/u;
+const BASE64URL_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 const PLAINTEXT_CLAIM_RESPONSE_OPERATION_SET: ReadonlySet<CollabControlOperation> = new Set([
   'getTransferredMembershipClaim',
   'rotateTransferredMembershipClaims',
@@ -497,6 +505,27 @@ function timestamp(source: UnknownRecord, field: string): CollabIsoTimestamp {
 
 function nullableTimestamp(source: UnknownRecord, field: string): CollabIsoTimestamp | null {
   return source[field] === null ? null : timestampValue(source[field], field);
+}
+
+function canonicalBase64url(
+  source: UnknownRecord,
+  field: string,
+  maximumDecodedBytes: number,
+  exactDecodedBytes?: number,
+): string {
+  const value = boundedString(source, field, Math.ceil(maximumDecodedBytes * 4 / 3));
+  if (!BASE64URL_PATTERN.test(value)) throw invalidPayload(field);
+  const remainder = value.length % 4;
+  const finalIndex = BASE64URL_ALPHABET.indexOf(value[value.length - 1]);
+  const decodedBytes = Math.floor(value.length * 6 / 8);
+  if (
+    remainder === 1
+    || (remainder === 2 && (finalIndex & 15) !== 0)
+    || (remainder === 3 && (finalIndex & 3) !== 0)
+    || decodedBytes > maximumDecodedBytes
+    || (exactDecodedBytes !== undefined && decodedBytes !== exactDecodedBytes)
+  ) throw invalidPayload(field);
+  return value;
 }
 
 function sha256(source: UnknownRecord, field: string): string {
@@ -1396,11 +1425,15 @@ function protectedClaimEnvelopeRecord(
   ]);
   const transferId = token(value, 'transferId');
   const memberId = token(value, 'memberId', isCollabMemberId);
+  const envelopeVersion = associatedData.envelopeVersion;
+  if (envelopeVersion !== COLLAB_PROTECTED_CLAIM_ENVELOPE_VERSION) {
+    throw invalidPayload('envelopeVersion');
+  }
   const decodedAssociatedData: CollabProtectedClaimAssociatedData = {
     authorityGeneration: positiveInteger(associatedData, 'authorityGeneration'),
     checkpointSha256: sha256(associatedData, 'checkpointSha256'),
     claimSha256: sha256(associatedData, 'claimSha256'),
-    envelopeVersion: positiveInteger(associatedData, 'envelopeVersion'),
+    envelopeVersion,
     environmentIdentity: token(associatedData, 'environmentIdentity'),
     memberId: token(associatedData, 'memberId', isCollabMemberId),
     projectId: token(associatedData, 'projectId', isCollabProjectId),
@@ -1417,18 +1450,29 @@ function protectedClaimEnvelopeRecord(
     value: {
       associatedData: decodedAssociatedData,
       associatedDataSha256: sha256(value, 'associatedDataSha256'),
-      ciphertext: token(value, 'ciphertext', item => typeof item === 'string'
-        && BASE64URL_PATTERN.test(item)),
+      ciphertext: canonicalBase64url(
+        value,
+        'ciphertext',
+        COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS.maxCiphertextBytes,
+      ),
       encryptionAlgorithm: literal(value, 'encryptionAlgorithm', ['xchacha20-poly1305']),
       expiresAt: timestamp(value, 'expiresAt'),
       keyId: boundedString(value, 'keyId', 256),
       keyVersion: positiveInteger(value, 'keyVersion'),
       memberId,
-      nonce: token(value, 'nonce', item => typeof item === 'string'
-        && BASE64URL_PATTERN.test(item)),
+      nonce: canonicalBase64url(
+        value,
+        'nonce',
+        COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS.nonceBytes,
+        COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS.nonceBytes,
+      ),
       receiptKeyId: boundedString(value, 'receiptKeyId', 256),
-      tag: token(value, 'tag', item => typeof item === 'string'
-        && BASE64URL_PATTERN.test(item)),
+      tag: canonicalBase64url(
+        value,
+        'tag',
+        COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS.tagBytes,
+        COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS.tagBytes,
+      ),
       transferId,
     },
   };

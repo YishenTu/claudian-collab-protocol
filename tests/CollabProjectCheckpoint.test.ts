@@ -493,6 +493,54 @@ describe('Project checkpoint contract', () => {
     )).toThrow('collab.error.protocol-payload-invalid');
   });
 
+  it('defers Git reachability and rejects multiple open Requests per Member', () => {
+    type MutableTestRecord = {
+      kind: string;
+      recordId: string;
+      revision: number;
+      value: Record<string, unknown>;
+    };
+    const divergent = portableRecords() as unknown as MutableTestRecord[];
+    const requestIndex = divergent.findIndex(record => record.kind === 'request');
+    divergent[requestIndex] = {
+      ...divergent[requestIndex],
+      value: {
+        ...divergent[requestIndex].value,
+        latestHeadOid: MERGE,
+        mergedOid: null,
+        status: 'open',
+      },
+    };
+    const records = decodeCollabProjectCheckpointCoordinationNdjson(
+      divergent.map(record => JSON.stringify(record)).join('\n') + '\n',
+      'authority-transfer',
+    );
+
+    expect(validateCollabProjectCheckpointConsistency(
+      decodeCollabProjectCheckpointManifest(manifest()),
+      records,
+    )).toBe(records);
+
+    const ambiguous = divergent.slice();
+    ambiguous.splice(requestIndex + 1, 0, {
+      ...divergent[requestIndex],
+      recordId: 'request_2',
+      value: {
+        ...divergent[requestIndex].value,
+        latestHeadOid: MEMBER,
+        requestId: 'request_2',
+      },
+    });
+    const ambiguousRecords = decodeCollabProjectCheckpointCoordinationNdjson(
+      ambiguous.map(record => JSON.stringify(record)).join('\n') + '\n',
+      'authority-transfer',
+    );
+    expect(() => validateCollabProjectCheckpointConsistency(
+      decodeCollabProjectCheckpointManifest(manifest()),
+      ambiguousRecords,
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
   it.each([
     manifest({ futureField: true }),
     manifest({ manifestSchemaVersion: 2 }),

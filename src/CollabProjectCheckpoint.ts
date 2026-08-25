@@ -1777,10 +1777,11 @@ export function validateCollabProjectCheckpointConsistency(
       !gitOidMatchesFormat(oid, decodedManifest.gitObjectFormat)
     )))
   ) throw invalidPayload('checkpoint');
-  const activeMemberRefs = records
-    .filter((item): item is CollabCheckpointMemberRecord => (
-      item.kind === 'member' && item.value.status === 'active'
-    ))
+  const activeMembers = records.filter((item): item is CollabCheckpointMemberRecord => (
+    item.kind === 'member' && item.value.status === 'active'
+  ));
+  const activeMemberIds = new Set(activeMembers.map(item => item.value.memberId));
+  const activeMemberRefs = activeMembers
     .map(item => item.value.personalRef)
     .sort((left, right) => left.localeCompare(right, 'en-US'));
   const manifestMemberRefs = decodedManifest.refs.slice(1).map(item => item.name);
@@ -1788,5 +1789,14 @@ export function validateCollabProjectCheckpointConsistency(
     activeMemberRefs.length !== manifestMemberRefs.length
     || activeMemberRefs.some((item, index) => item !== manifestMemberRefs[index])
   ) throw invalidPayload('refs');
+  const openRequestMemberIds = new Set<string>();
+  for (const record of records) {
+    if (record.kind !== 'request' || record.value.status !== 'open') continue;
+    if (
+      !activeMemberIds.has(record.value.memberId)
+      || openRequestMemberIds.has(record.value.memberId)
+    ) throw invalidPayload('refs');
+    openRequestMemberIds.add(record.value.memberId);
+  }
   return records;
 }

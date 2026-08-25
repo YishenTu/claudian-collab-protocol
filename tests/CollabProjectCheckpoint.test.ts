@@ -21,6 +21,7 @@ const MEMBER = '2'.repeat(40);
 const SHA256 = 'a'.repeat(64);
 const MERGE = '3'.repeat(40);
 const MEMBER_THREE = '4'.repeat(40);
+const ED25519_SIGNATURE = 'A'.repeat(86);
 
 function retirementResult() {
   return {
@@ -714,7 +715,7 @@ describe('Project checkpoint contract', () => {
     const proof = {
       batchRevision: 2,
       batchSha256: 'b'.repeat(64),
-      certificate: 'c291cmNlLXNpZ25hdHVyZQ',
+      certificate: ED25519_SIGNATURE,
       certificateAlgorithm: 'ed25519',
       checkpointSha256: SHA256,
       committedAt: NOW,

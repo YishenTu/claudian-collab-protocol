@@ -7,6 +7,7 @@ export {
 export type { CollabProtocolVersion } from './CollabConstants';
 
 export {
+  COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES,
   COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES,
   COLLAB_AUTHORITY_TRANSFER_OPERATIONS,
   COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES,
@@ -32,6 +33,7 @@ export type {
   CancelProjectAuthorityTransferRequest,
   ClaimTransferredMembershipRequest,
   CollabAuthorityRelinquishmentProof,
+  CollabAuthorityTransferCancellablePhase,
   CollabAuthorityTransferCancellationPhase,
   CollabAuthorityTransferDirection,
   CollabAuthorityTransferOperation,

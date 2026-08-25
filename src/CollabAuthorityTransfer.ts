@@ -46,12 +46,30 @@ export const COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES = Object.freeze([
   'cancelled',
 ] as const);
 
+export const COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES = Object.freeze([
+  'collecting-readiness',
+  'source-quiesced',
+  'checkpoint-received',
+  'checkpoint-validated',
+  'claims-retained',
+  'repository-published',
+  'cloud-quiesced',
+  'checkpoint-captured',
+  'target-staged',
+  'cancel-intent',
+  'target-invalidated',
+  'target-cleaned',
+  'source-reopened',
+] as const);
+
 export type CollabLanToCloudTransferPhase =
   typeof COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES[number];
 export type CollabCloudToLanTransferPhase =
   typeof COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES[number];
 export type CollabAuthorityTransferCancellationPhase =
   typeof COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES[number];
+export type CollabAuthorityTransferCancellablePhase =
+  typeof COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES[number];
 export type CollabAuthorityTransferDirection = 'cloud-to-lan' | 'lan-to-cloud';
 
 export interface CollabAuthorityTransferProposal {
@@ -279,7 +297,7 @@ export interface ConfirmCloudToLanTargetActiveRequest extends CollabAuthorityMut
 }
 
 export interface CancelProjectAuthorityTransferRequest extends CollabAuthorityMutationRequest {
-  readonly expectedPhase: string;
+  readonly expectedPhase: CollabAuthorityTransferCancellablePhase;
   readonly transferId: string;
 }
 
@@ -371,6 +389,7 @@ type UnknownRecord = Readonly<Record<string, unknown>>;
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/u;
+const BASE64URL_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
 function invalidPayload(field: string): CollabError {
   return new CollabError({ code: 'protocol-payload-invalid', safeContext: { field } });
@@ -444,6 +463,20 @@ function base64url(source: UnknownRecord, field: string, maximumBytes = 4096): s
   return value;
 }
 
+function fixedBase64url(source: UnknownRecord, field: string, decodedBytes: number): string {
+  const encodedLength = Math.ceil(decodedBytes * 4 / 3);
+  const value = base64url(source, field, encodedLength);
+  const finalIndex = BASE64URL_ALPHABET.indexOf(value[value.length - 1]);
+  const remainder = value.length % 4;
+  if (
+    value.length !== encodedLength
+    || remainder === 1
+    || (remainder === 2 && (finalIndex & 15) !== 0)
+    || (remainder === 3 && (finalIndex & 3) !== 0)
+  ) throw invalidPayload(field);
+  return value;
+}
+
 function literal<T extends string>(source: UnknownRecord, field: string, values: readonly T[]): T {
   const value = source[field];
   if (typeof value !== 'string' || !values.includes(value as T)) throw invalidPayload(field);
@@ -470,7 +503,8 @@ function absoluteTargetUrl(source: UnknownRecord): string {
     (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
     || parsed.username.length > 0
     || parsed.password.length > 0
-    || parsed.hash.length > 0
+    || targetUrl.includes('?')
+    || targetUrl.includes('#')
   ) throw invalidPayload('targetUrl');
   return targetUrl;
 }
@@ -646,7 +680,7 @@ export function decodeCollabTransferredMembershipRedemptionReceipt(
     receiptId: token(source, 'receiptId'),
     receiptKeyId: boundedString(source, 'receiptKeyId', 256),
     redeemedAt: timestamp(source, 'redeemedAt'),
-    signature: base64url(source, 'signature'),
+    signature: fixedBase64url(source, 'signature', 64),
     signatureAlgorithm: literal(source, 'signatureAlgorithm', ['ed25519']),
     targetAuthorityGeneration: positiveInteger(source, 'targetAuthorityGeneration'),
     transferId: token(source, 'transferId'),
@@ -683,7 +717,7 @@ export function decodeCollabAuthorityRelinquishmentProof(
   return {
     batchRevision: positiveInteger(source, 'batchRevision'),
     batchSha256: sha256(source, 'batchSha256'),
-    certificate: base64url(source, 'certificate'),
+    certificate: fixedBase64url(source, 'certificate', 64),
     certificateAlgorithm: literal(source, 'certificateAlgorithm', ['ed25519']),
     checkpointSha256: sha256(source, 'checkpointSha256'),
     committedAt: timestamp(source, 'committedAt'),
@@ -704,6 +738,9 @@ const CLOUD_TO_LAN_PHASE_SET: ReadonlySet<string> = new Set(
 );
 const CANCELLATION_PHASE_SET: ReadonlySet<string> = new Set(
   COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES,
+);
+const CANCELLABLE_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES,
 );
 const LAN_TO_CLOUD_CHECKPOINT_REQUIRED_PHASE_SET: ReadonlySet<string> = new Set(
   COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES.slice(2),
@@ -1160,12 +1197,10 @@ function decodeCancelProjectAuthorityTransfer(
   const expectedPhase = source.expectedPhase;
   if (
     typeof expectedPhase !== 'string'
-    || (!LAN_TO_CLOUD_PHASE_SET.has(expectedPhase)
-      && !CLOUD_TO_LAN_PHASE_SET.has(expectedPhase)
-      && !CANCELLATION_PHASE_SET.has(expectedPhase))
+    || !CANCELLABLE_PHASE_SET.has(expectedPhase)
   ) throw invalidPayload('expectedPhase');
   return {
-    expectedPhase,
+    expectedPhase: expectedPhase as CollabAuthorityTransferCancellablePhase,
     ...mutationFields(source),
     transferId: token(source, 'transferId'),
   };

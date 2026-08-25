@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import {
+  COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES,
   COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES,
   COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES,
   COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES,
@@ -19,6 +20,7 @@ const NOW = '2026-08-25T00:00:00.000Z';
 const LATER = '2026-09-24T00:00:00.000Z';
 const SHA256 = 'a'.repeat(64);
 const BATCH_SHA256 = '4689acf5d0c9daa2771ed640a1ab7ef77a0b6f23bea04e34f3b9d39521136409';
+const ED25519_SIGNATURE = 'A'.repeat(86);
 
 function proposal(overrides: Record<string, unknown> = {}) {
   return {
@@ -77,7 +79,7 @@ function redemptionReceipt(overrides: Record<string, unknown> = {}) {
     receiptId: 'redemption_receipt_1',
     receiptKeyId: 'receipt-key-2026-08',
     redeemedAt: NOW,
-    signature: 'c2lnbmF0dXJl',
+    signature: ED25519_SIGNATURE,
     signatureAlgorithm: 'ed25519',
     targetAuthorityGeneration: 4,
     transferId: 'transfer_1',
@@ -89,7 +91,7 @@ function relinquishmentProof(overrides: Record<string, unknown> = {}) {
   return {
     batchRevision: 2,
     batchSha256: BATCH_SHA256,
-    certificate: 'c291cmNlLXNpZ25hdHVyZQ',
+    certificate: ED25519_SIGNATURE,
     certificateAlgorithm: 'ed25519',
     checkpointSha256: SHA256,
     committedAt: NOW,
@@ -143,6 +145,21 @@ describe('Project authority transfer contract', () => {
       'source-reopened',
       'cancelled',
     ]);
+    expect(COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES).toEqual([
+      'collecting-readiness',
+      'source-quiesced',
+      'checkpoint-received',
+      'checkpoint-validated',
+      'claims-retained',
+      'repository-published',
+      'cloud-quiesced',
+      'checkpoint-captured',
+      'target-staged',
+      'cancel-intent',
+      'target-invalidated',
+      'target-cleaned',
+      'source-reopened',
+    ]);
   });
 
   it('accepts an active Member proposal without asserting Host acceptance or target identity', () => {
@@ -156,6 +173,7 @@ describe('Project authority transfer contract', () => {
     proposal({ expectedSourceAuthority: { generation: 0, kind: 'lan' } }),
     proposal({ targetAuthorityKind: 'lan' }),
     proposal({ targetUrl: '/relative' }),
+    proposal({ targetUrl: 'https://cloud.invalid/base?access_token=secret' }),
   ])('rejects authority assertions, extensions, and invalid targets %#', (input) => {
     expect(() => decodeCollabAuthorityTransferProposal(input))
       .toThrow('collab.error.protocol-payload-invalid');
@@ -217,6 +235,10 @@ describe('Project authority transfer contract', () => {
     expect(() => decodeCollabAuthorityRelinquishmentProof({
       ...proof,
       targetAuthority: { generation: 5, kind: 'cloud' },
+    })).toThrow('collab.error.protocol-payload-invalid');
+    expect(() => decodeCollabAuthorityRelinquishmentProof({
+      ...proof,
+      certificate: 'a',
     })).toThrow('collab.error.protocol-payload-invalid');
     expect(decodeCollabAuthorityRelinquishmentProof(cloudRelinquishmentProof()))
       .toEqual(cloudRelinquishmentProof());
@@ -294,6 +316,39 @@ describe('Project authority transfer contract', () => {
       'claimTransferredMembership',
       { ...cloudClaim, credentialHash: '' },
     )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('allows cancellation only before relinquishment or while cancellation is active', () => {
+    for (const expectedPhase of COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES) {
+      const request = {
+        expectedPhase,
+        idempotencyKey: 'cancel_intent_1',
+        projectId: 'project_1',
+        transferId: 'transfer_1',
+      };
+      expect(decodeCollabAuthorityTransferOperationRequest(
+        'cancelProjectAuthorityTransfer',
+        request,
+      )).toEqual(request);
+    }
+    for (const expectedPhase of [
+      'source-relinquished',
+      'cloud-activated',
+      'cloud-relinquished',
+      'lan-activated',
+      'completed',
+      'cancelled',
+    ]) {
+      expect(() => decodeCollabAuthorityTransferOperationRequest(
+        'cancelProjectAuthorityTransfer',
+        {
+          expectedPhase,
+          idempotencyKey: 'cancel_intent_1',
+          projectId: 'project_1',
+          transferId: 'transfer_1',
+        },
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
   });
 
   it('exposes the exact retained claim batch fence in status and rotation', () => {
@@ -443,6 +498,8 @@ describe('Project authority transfer contract', () => {
     custodyReceipt({ batchSha256: 'c'.repeat(63) }),
     custodyReceipt({ futureField: true }),
     redemptionReceipt({ signature: '' }),
+    redemptionReceipt({ signature: 'a' }),
+    redemptionReceipt({ signature: `${'A'.repeat(85)}B` }),
     redemptionReceipt({ signatureAlgorithm: 'rsa' }),
   ])('fails closed on modified receipts %#', (input) => {
     const decoder = Object.hasOwn(input, 'committedAt')

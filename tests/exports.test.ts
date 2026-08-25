@@ -5,6 +5,7 @@ import * as ts from 'typescript';
 import * as protocol from '../src/index';
 
 const EXPECTED_VALUE_EXPORTS = [
+  'COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES',
   'COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES',
   'COLLAB_AUTHORITY_TRANSFER_OPERATIONS',
   'COLLAB_CHECKPOINT_ARTIFACT_LIMITS',
@@ -160,6 +161,7 @@ const EXPECTED_TYPE_EXPORTS = [
   'CancelProjectAuthorityTransferRequest',
   'ClaimTransferredMembershipRequest',
   'CollabAuthorityRelinquishmentProof',
+  'CollabAuthorityTransferCancellablePhase',
   'CollabAuthorityTransferCancellationPhase',
   'CollabAuthorityTransferDirection',
   'CollabAuthorityTransferOperation',

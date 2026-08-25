@@ -519,7 +519,7 @@
         "source": "./DevelopmentBootstrap"
       },
       {
-        "declaration": "export interface CancelProjectAuthorityTransferRequest extends CollabAuthorityMutationRequest {\n    readonly expectedPhase: string;\n    readonly transferId: string;\n}",
+        "declaration": "export interface CancelProjectAuthorityTransferRequest extends CollabAuthorityMutationRequest {\n    readonly expectedPhase: CollabAuthorityTransferCancellablePhase;\n    readonly transferId: string;\n}",
         "exportName": "CancelProjectAuthorityTransferRequest",
         "source": "./CollabAuthorityTransfer"
       },
@@ -531,6 +531,11 @@
       {
         "declaration": "export type ClaimTransferredMembershipRequest = ClaimTransferredCloudMembershipRequest | ClaimTransferredLanMembershipRequest;",
         "exportName": "ClaimTransferredMembershipRequest",
+        "source": "./CollabAuthorityTransfer"
+      },
+      {
+        "declaration": "export declare const COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES: readonly [\"collecting-readiness\", \"source-quiesced\", \"checkpoint-received\", \"checkpoint-validated\", \"claims-retained\", \"repository-published\", \"cloud-quiesced\", \"checkpoint-captured\", \"target-staged\", \"cancel-intent\", \"target-invalidated\", \"target-cleaned\", \"source-reopened\"];",
+        "exportName": "COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES",
         "source": "./CollabAuthorityTransfer"
       },
       {
@@ -666,6 +671,11 @@
       {
         "declaration": "export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofBase & ({\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n} | {\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n    readonly sourceHostMemberId: null;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n});",
         "exportName": "CollabAuthorityRelinquishmentProof",
+        "source": "./CollabAuthorityTransfer"
+      },
+      {
+        "declaration": "export type CollabAuthorityTransferCancellablePhase = typeof COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES[number];",
+        "exportName": "CollabAuthorityTransferCancellablePhase",
         "source": "./CollabAuthorityTransfer"
       },
       {
@@ -1875,6 +1885,7 @@
       }
     ],
     "publicRuntimeExports": [
+      "COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES",
       "COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES",
       "COLLAB_AUTHORITY_TRANSFER_OPERATIONS",
       "COLLAB_CHECKPOINT_ARTIFACT_LIMITS",
@@ -1968,7 +1979,7 @@
     "runtimeBehaviorDigests": [
       {
         "path": "src/CollabAuthorityTransfer.ts",
-        "sha256": "2dc6376097f459e98e3783ad54acd893d676e1078000006be1fd46ed66ba8039"
+        "sha256": "eca268e36ca1f8e9b179b0c404d09fac80e59b3979f0e533e6ecf4c9951adbed"
       },
       {
         "path": "src/CollabCloudBinding.ts",
@@ -2036,7 +2047,7 @@
       },
       {
         "path": "src/index.ts",
-        "sha256": "dc017b2f03c4eb259291d585c7b001ee826993e48c6b6a5cf350150294d080d1"
+        "sha256": "85df2c4e6bb36fe5471ad489942d4ae7daa5ae128d90b27311f218b5d896b073"
       },
       {
         "path": "src/types.ts",
@@ -2086,7 +2097,7 @@
           "source": "./CollabAuthorityTransfer"
         },
         {
-          "declaration": "export interface CancelProjectAuthorityTransferRequest extends CollabAuthorityMutationRequest {\n    readonly expectedPhase: string;\n    readonly transferId: string;\n}",
+          "declaration": "export interface CancelProjectAuthorityTransferRequest extends CollabAuthorityMutationRequest {\n    readonly expectedPhase: CollabAuthorityTransferCancellablePhase;\n    readonly transferId: string;\n}",
           "exportName": "CancelProjectAuthorityTransferRequest",
           "source": "./CollabAuthorityTransfer"
         },
@@ -2098,6 +2109,11 @@
         {
           "declaration": "export type ClaimTransferredMembershipRequest = ClaimTransferredCloudMembershipRequest | ClaimTransferredLanMembershipRequest;",
           "exportName": "ClaimTransferredMembershipRequest",
+          "source": "./CollabAuthorityTransfer"
+        },
+        {
+          "declaration": "export declare const COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES: readonly [\"collecting-readiness\", \"source-quiesced\", \"checkpoint-received\", \"checkpoint-validated\", \"claims-retained\", \"repository-published\", \"cloud-quiesced\", \"checkpoint-captured\", \"target-staged\", \"cancel-intent\", \"target-invalidated\", \"target-cleaned\", \"source-reopened\"];",
+          "exportName": "COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES",
           "source": "./CollabAuthorityTransfer"
         },
         {
@@ -2198,6 +2214,11 @@
         {
           "declaration": "export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofBase & ({\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n} | {\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n    readonly sourceHostMemberId: null;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n});",
           "exportName": "CollabAuthorityRelinquishmentProof",
+          "source": "./CollabAuthorityTransfer"
+        },
+        {
+          "declaration": "export type CollabAuthorityTransferCancellablePhase = typeof COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES[number];",
+          "exportName": "CollabAuthorityTransferCancellablePhase",
           "source": "./CollabAuthorityTransfer"
         },
         {
@@ -3105,7 +3126,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/CollabAuthorityTransfer.ts",
-          "sha256": "2dc6376097f459e98e3783ad54acd893d676e1078000006be1fd46ed66ba8039"
+          "sha256": "eca268e36ca1f8e9b179b0c404d09fac80e59b3979f0e533e6ecf4c9951adbed"
         },
         {
           "path": "src/CollabConstants.ts",

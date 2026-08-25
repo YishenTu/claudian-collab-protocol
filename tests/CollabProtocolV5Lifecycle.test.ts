@@ -6,6 +6,7 @@ import {
 } from '../src/index';
 
 const NOW = '2026-08-25T00:00:00.000Z';
+const ED25519_SIGNATURE = 'A'.repeat(86);
 const LATER = '2026-09-24T00:00:00.000Z';
 const MAIN = '1'.repeat(40);
 const SHA256 = 'a'.repeat(64);
@@ -61,7 +62,7 @@ function redemptionReceipt() {
     receiptId: 'receipt_1',
     receiptKeyId: 'receipt-key-2026-08',
     redeemedAt: NOW,
-    signature: 'c2lnbmF0dXJl',
+    signature: ED25519_SIGNATURE,
     signatureAlgorithm: 'ed25519',
     targetAuthorityGeneration: 4,
     transferId: 'transfer_1',
@@ -72,7 +73,7 @@ function relinquishmentProof() {
   return {
     batchRevision: 2,
     batchSha256: 'b'.repeat(64),
-    certificate: 'c291cmNlLXNpZ25hdHVyZQ',
+    certificate: ED25519_SIGNATURE,
     certificateAlgorithm: 'ed25519',
     checkpointSha256: SHA256,
     committedAt: NOW,

@@ -15,16 +15,24 @@ import {
   isCollabOpaqueId,
   isCollabProjectId,
 } from './CollabValidation';
+import {
+  COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
+  COLLAB_PROJECT_CHECKPOINT_ARTIFACTS,
+} from './CollabProjectCheckpoint';
+import type { CollabIsoTimestamp, CollabProjectId } from './types';
 
-export const COLLAB_CLOUD_BINDING_VERSION = 1 as const;
-export const COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION = 1 as const;
+export const COLLAB_CLOUD_BINDING_VERSION = 2 as const;
+export const COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION = 2 as const;
 
 export const COLLAB_CLOUD_CAPABILITIES = Object.freeze([
   'accept',
+  'authority-transfer',
   'development-bootstrap',
   'git-receive-pack-personal-ref',
   'git-upload-pack',
+  'project-checkpoint-export',
   'project-events',
+  'project-retirement',
   'project-snapshot',
   'requests',
   'tickets',
@@ -48,6 +56,11 @@ export const COLLAB_CLOUD_BINDING_LIMITS = Object.freeze({
   maxCloudProjectMembers: 100,
   maxCloudSnapshotUtf8Bytes: 448 * 1024,
   maxCloudTicketHighlights: 5,
+  maxCheckpointCoordinationBytes: COLLAB_CHECKPOINT_ARTIFACT_LIMITS.maxCoordinationBytes,
+  maxCheckpointManifestUtf8Bytes: COLLAB_CHECKPOINT_ARTIFACT_LIMITS.maxManifestBytes,
+  maxCheckpointRepositoryBundleBytes:
+    COLLAB_CHECKPOINT_ARTIFACT_LIMITS.maxRepositoryBundleBytes,
+  maxCheckpointStagingBytes: COLLAB_CHECKPOINT_ARTIFACT_LIMITS.maxStagingBytes,
   maxDevelopmentBootstrapGitBundleBytes: 1024 * 1024 * 1024,
   maxDevelopmentBootstrapManifestUtf8Bytes: 64 * 1024,
   maxDevelopmentBootstrapReportUtf8Bytes: 64 * 1024,
@@ -64,6 +77,10 @@ export const COLLAB_CLOUD_BINDING_LIMITS = Object.freeze({
 } as const);
 
 export interface CollabCloudCapabilityLimits {
+  readonly maxCheckpointCoordinationBytes: number;
+  readonly maxCheckpointManifestUtf8Bytes: number;
+  readonly maxCheckpointRepositoryBundleBytes: number;
+  readonly maxCheckpointStagingBytes: number;
   readonly maxDevelopmentBootstrapGitBundleBytes: number;
   readonly maxDevelopmentBootstrapManifestUtf8Bytes: number;
   readonly maxDevelopmentBootstrapReportUtf8Bytes: number;
@@ -90,6 +107,18 @@ export type DevelopmentBootstrapOperation =
   | 'putDevelopmentBootstrapGitBundle';
 
 export type CollabCloudGitService = 'git-upload-pack' | 'git-receive-pack';
+export type CollabCloudAuthorityTransferArtifact =
+  typeof COLLAB_PROJECT_CHECKPOINT_ARTIFACTS[number];
+export type CollabCloudAuthorityTransferArtifactDirection = 'download' | 'upload';
+
+export interface CollabCloudProjectCheckpointExportStatus {
+  readonly checkpointSha256: string | null;
+  readonly createdAt: CollabIsoTimestamp;
+  readonly expiresAt: CollabIsoTimestamp;
+  readonly exportId: string;
+  readonly projectId: CollabProjectId;
+  readonly state: 'preparing' | 'ready';
+}
 
 export type CollabCloudRouteMatch =
   | { readonly kind: 'capabilities' }
@@ -110,6 +139,25 @@ export type CollabCloudRouteMatch =
   }
   | {
     readonly kind: 'git-upload-pack' | 'git-receive-pack';
+    readonly projectId: string;
+  }
+  | {
+    readonly artifact: CollabCloudAuthorityTransferArtifact;
+    readonly direction: CollabCloudAuthorityTransferArtifactDirection;
+    readonly kind: 'authority-transfer-artifact';
+    readonly projectId: string;
+    readonly transferId: string;
+  }
+  | {
+    readonly exportId: string;
+    readonly kind: 'project-checkpoint-export';
+    readonly operation: 'begin' | 'status';
+    readonly projectId: string;
+  }
+  | {
+    readonly artifact: CollabCloudAuthorityTransferArtifact;
+    readonly exportId: string;
+    readonly kind: 'project-checkpoint-export-artifact';
     readonly projectId: string;
   }
   | {
@@ -146,6 +194,9 @@ type UnknownRecord = Readonly<Record<string, unknown>>;
 
 const CLOUD_CAPABILITY_SET: ReadonlySet<string> = new Set(COLLAB_CLOUD_CAPABILITIES);
 const CLOUD_JSON_OPERATION_SET: ReadonlySet<string> = new Set(COLLAB_CLOUD_JSON_OPERATIONS);
+const COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET: ReadonlySet<string> = new Set(
+  COLLAB_PROJECT_CHECKPOINT_ARTIFACTS,
+);
 const COLLAB_ERROR_CODE_SET: ReadonlySet<string> = new Set(COLLAB_ERROR_CODES);
 const RECOVERY_ACTION_SET: ReadonlySet<string> = new Set([
   'retry',
@@ -153,6 +204,7 @@ const RECOVERY_ACTION_SET: ReadonlySet<string> = new Set([
   'request-access',
 ]);
 const CAPABILITY_TOKEN_PATTERN = /^[a-z][a-z0-9-]{0,63}$/u;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 
 function invalidPayload(field: string): CollabError {
   return new CollabError({
@@ -253,6 +305,16 @@ function isCloudJsonOperation(value: string): value is CollabCloudJsonOperation 
   return CLOUD_JSON_OPERATION_SET.has(value);
 }
 
+function isoTimestamp(value: unknown, field: string): CollabIsoTimestamp {
+  if (
+    typeof value !== 'string'
+    || value.length > 64
+    || Number.isNaN(Date.parse(value))
+    || new Date(value).toISOString() !== value
+  ) throw invalidPayload(field);
+  return value;
+}
+
 export function collabCloudCapabilitiesRoute(): CollabCloudRoute {
   return route('GET', '/collab/capabilities', { kind: 'capabilities' });
 }
@@ -263,7 +325,7 @@ export function collabCloudProjectOperationRoute(
 ): CollabCloudRoute {
   assertProjectId(projectId);
   if (!isCloudJsonOperation(operation)) invalidRoute();
-  return route('POST', `/v1/projects/${projectId}/operations/${operation}`, {
+  return route('POST', `/v2/projects/${projectId}/operations/${operation}`, {
     kind: 'project-operation',
     operation,
     projectId,
@@ -276,7 +338,7 @@ export function collabCloudProjectEventsRoute(
 ): CollabCloudRoute {
   assertProjectId(projectId);
   if (!Number.isSafeInteger(afterSequence) || afterSequence < 0) invalidRoute();
-  return route('GET', `/v1/projects/${projectId}/events?afterSequence=${afterSequence}`, {
+  return route('GET', `/v2/projects/${projectId}/events?afterSequence=${afterSequence}`, {
     afterSequence,
     kind: 'project-events',
     projectId,
@@ -302,14 +364,113 @@ export function collabCloudGitRoute(
     if (service !== 'git-upload-pack' && service !== 'git-receive-pack') invalidRoute();
     return route(
       'GET',
-      `/v1/projects/${projectId}/repository.git/info/refs?service=${service}`,
+      `/v2/projects/${projectId}/repository.git/info/refs?service=${service}`,
       { kind: 'git-info-refs', projectId, service },
     );
   }
   if (service !== undefined) invalidRoute();
-  return route('POST', `/v1/projects/${projectId}/repository.git/${routeKind}`, {
+  return route('POST', `/v2/projects/${projectId}/repository.git/${routeKind}`, {
     kind: routeKind,
     projectId,
+  });
+}
+
+export function collabCloudAuthorityTransferArtifactRoute(
+  projectId: string,
+  transferId: string,
+  direction: CollabCloudAuthorityTransferArtifactDirection,
+  artifact: CollabCloudAuthorityTransferArtifact,
+): CollabCloudRoute {
+  assertProjectId(projectId);
+  assertAttemptId(transferId);
+  if (
+    direction !== 'download' && direction !== 'upload'
+    || !COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(artifact)
+  ) invalidRoute();
+  return route(
+    direction === 'upload' ? 'PUT' : 'GET',
+    `/v2/projects/${projectId}/authority-transfers/${transferId}/checkpoint/${artifact}`,
+    {
+      artifact,
+      direction,
+      kind: 'authority-transfer-artifact',
+      projectId,
+      transferId,
+    },
+  );
+}
+
+export function collabCloudProjectCheckpointExportArtifactRoute(
+  projectId: string,
+  exportId: string,
+  artifact: CollabCloudAuthorityTransferArtifact,
+): CollabCloudRoute {
+  assertProjectId(projectId);
+  assertAttemptId(exportId);
+  if (!COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(artifact)) invalidRoute();
+  return route(
+    'GET',
+    `/v2/projects/${projectId}/checkpoint-exports/${exportId}/checkpoint/${artifact}`,
+    {
+      artifact,
+      exportId,
+      kind: 'project-checkpoint-export-artifact',
+      projectId,
+    },
+  );
+}
+
+export function collabCloudProjectCheckpointExportRoute(
+  projectId: string,
+  exportId: string,
+  operation: 'begin' | 'status',
+): CollabCloudRoute {
+  assertProjectId(projectId);
+  assertAttemptId(exportId);
+  if (operation !== 'begin' && operation !== 'status') invalidRoute();
+  return route(
+    operation === 'begin' ? 'POST' : 'GET',
+    `/v2/projects/${projectId}/checkpoint-exports/${exportId}`,
+    { exportId, kind: 'project-checkpoint-export', operation, projectId },
+  );
+}
+
+export function decodeCollabCloudProjectCheckpointExportStatus(
+  value: unknown,
+): CollabCloudProjectCheckpointExportStatus {
+  const source = exactRecord(value, 'checkpointExport', [
+    'checkpointSha256',
+    'createdAt',
+    'expiresAt',
+    'exportId',
+    'projectId',
+    'state',
+  ]);
+  if (!isCollabOpaqueId(source.exportId) || !isCollabProjectId(source.projectId)) {
+    throw invalidPayload('checkpointExport');
+  }
+  const state = source.state;
+  if (state !== 'preparing' && state !== 'ready') throw invalidPayload('state');
+  if (source.checkpointSha256 !== null && typeof source.checkpointSha256 !== 'string') {
+    throw invalidPayload('checkpointSha256');
+  }
+  const checkpointSha256 = source.checkpointSha256;
+  if (
+    (state === 'preparing' && checkpointSha256 !== null)
+    || (state === 'ready' && (
+      typeof checkpointSha256 !== 'string' || !SHA256_PATTERN.test(checkpointSha256)
+    ))
+  ) throw invalidPayload('checkpointSha256');
+  const createdAt = isoTimestamp(source.createdAt, 'createdAt');
+  const expiresAt = isoTimestamp(source.expiresAt, 'expiresAt');
+  if (Date.parse(expiresAt) <= Date.parse(createdAt)) throw invalidPayload('expiresAt');
+  return Object.freeze({
+    checkpointSha256,
+    createdAt,
+    expiresAt,
+    exportId: source.exportId,
+    projectId: source.projectId,
+    state,
   });
 }
 
@@ -324,7 +485,7 @@ export function collabDevelopmentBootstrapRoute(
   operation: DevelopmentBootstrapOperation,
   attemptId?: string,
 ): CollabCloudRoute {
-  const base = '/v1/development/bootstrap/attempts';
+  const base = '/v2/development/bootstrap/attempts';
   if (operation === 'beginDevelopmentBootstrap') {
     if (attemptId !== undefined) invalidRoute();
     return route('POST', base, { kind: 'development-bootstrap', operation });
@@ -367,13 +528,14 @@ export function matchCollabCloudRoute(
   method: string,
   target: string,
 ): CollabCloudRouteMatch | null {
-  if (!target.startsWith('/') || target.includes('#')) return null;
+  if (!target.startsWith('/') || target.startsWith('//') || target.includes('#')) return null;
   let url: URL;
   try {
     url = new URL(target, 'http://collab.invalid');
   } catch {
     return null;
   }
+  if (`${url.pathname}${url.search}` !== target) return null;
   const segments = url.pathname.split('/').filter(Boolean);
   if (url.pathname !== `/${segments.join('/')}` || target.endsWith('?')) return null;
   if (
@@ -383,11 +545,58 @@ export function matchCollabCloudRoute(
   ) return { kind: 'capabilities' };
 
   if (
-    segments[0] === 'v1'
+    segments[0] === 'v2'
     && segments[1] === 'projects'
     && isCollabProjectId(segments[2])
   ) {
     const projectId = segments[2];
+    if (
+      method === 'GET'
+      && segments.length === 7
+      && segments[3] === 'checkpoint-exports'
+      && isCollabOpaqueId(segments[4])
+      && segments[5] === 'checkpoint'
+      && COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(segments[6])
+      && exactQuery(url, [])
+    ) {
+      return {
+        artifact: segments[6] as CollabCloudAuthorityTransferArtifact,
+        exportId: segments[4],
+        kind: 'project-checkpoint-export-artifact',
+        projectId,
+      };
+    }
+    if (
+      (method === 'POST' || method === 'GET')
+      && segments.length === 5
+      && segments[3] === 'checkpoint-exports'
+      && isCollabOpaqueId(segments[4])
+      && exactQuery(url, [])
+    ) {
+      return {
+        exportId: segments[4],
+        kind: 'project-checkpoint-export',
+        operation: method === 'POST' ? 'begin' : 'status',
+        projectId,
+      };
+    }
+    if (
+      (method === 'GET' || method === 'PUT')
+      && segments.length === 7
+      && segments[3] === 'authority-transfers'
+      && isCollabOpaqueId(segments[4])
+      && segments[5] === 'checkpoint'
+      && COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(segments[6])
+      && exactQuery(url, [])
+    ) {
+      return {
+        artifact: segments[6] as CollabCloudAuthorityTransferArtifact,
+        direction: method === 'PUT' ? 'upload' : 'download',
+        kind: 'authority-transfer-artifact',
+        projectId,
+        transferId: segments[4],
+      };
+    }
     if (
       method === 'POST'
       && segments.length === 5
@@ -433,7 +642,7 @@ export function matchCollabCloudRoute(
   }
 
   if (
-    segments[0] !== 'v1'
+    segments[0] !== 'v2'
     || segments[1] !== 'development'
     || segments[2] !== 'bootstrap'
     || segments[3] !== 'attempts'
@@ -481,6 +690,10 @@ export function decodeCollabCloudCapabilityDocument(
   requireSupportedVersion(protocolVersions, COLLAB_PROTOCOL_VERSION, 'canonical-wire');
   const capabilities = sortedUniqueTokens(source.capabilities, 'capabilities');
   const limitsSource = exactRecord(source.limits, 'limits', [
+    'maxCheckpointCoordinationBytes',
+    'maxCheckpointManifestUtf8Bytes',
+    'maxCheckpointRepositoryBundleBytes',
+    'maxCheckpointStagingBytes',
     'maxDevelopmentBootstrapGitBundleBytes',
     'maxDevelopmentBootstrapManifestUtf8Bytes',
     'maxDevelopmentBootstrapReportUtf8Bytes',
@@ -490,6 +703,26 @@ export function decodeCollabCloudCapabilityDocument(
     'maxRepositoryBytes',
   ]);
   const limits = Object.freeze({
+    maxCheckpointCoordinationBytes: positiveSafeInteger(
+      limitsSource.maxCheckpointCoordinationBytes,
+      'maxCheckpointCoordinationBytes',
+      COLLAB_CLOUD_BINDING_LIMITS.maxCheckpointCoordinationBytes,
+    ),
+    maxCheckpointManifestUtf8Bytes: positiveSafeInteger(
+      limitsSource.maxCheckpointManifestUtf8Bytes,
+      'maxCheckpointManifestUtf8Bytes',
+      COLLAB_CLOUD_BINDING_LIMITS.maxCheckpointManifestUtf8Bytes,
+    ),
+    maxCheckpointRepositoryBundleBytes: positiveSafeInteger(
+      limitsSource.maxCheckpointRepositoryBundleBytes,
+      'maxCheckpointRepositoryBundleBytes',
+      COLLAB_CLOUD_BINDING_LIMITS.maxCheckpointRepositoryBundleBytes,
+    ),
+    maxCheckpointStagingBytes: positiveSafeInteger(
+      limitsSource.maxCheckpointStagingBytes,
+      'maxCheckpointStagingBytes',
+      COLLAB_CLOUD_BINDING_LIMITS.maxCheckpointStagingBytes,
+    ),
     maxDevelopmentBootstrapGitBundleBytes: positiveSafeInteger(
       limitsSource.maxDevelopmentBootstrapGitBundleBytes,
       'maxDevelopmentBootstrapGitBundleBytes',

@@ -48,4 +48,4 @@ jobs:
         run: npm run verify
 
       - name: Publish the verified tarball with provenance
-        run: npm publish .context/release/claudian-collab-protocol-1.0.0.tgz --access public --provenance
+        run: npm publish .context/release/claudian-collab-protocol-2.0.0.tgz --access public --provenance

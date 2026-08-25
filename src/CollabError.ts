@@ -19,6 +19,14 @@ export const COLLAB_ERROR_CODES = Object.freeze([
   'stale-ticket',
   'stale-request-metadata',
   'authority-not-synchronized',
+  'authority-transfer-not-found',
+  'authority-transfer-stale',
+  'authority-transfer-cancellation-forbidden',
+  'membership-claim-invalid',
+  'membership-claim-expired',
+  'membership-claim-revoked',
+  'membership-claim-already-redeemed',
+  'project-retired',
   'idempotency-conflict',
   'acceptance-recovery-required',
   'authority-integrity-error',
@@ -121,11 +129,15 @@ export function collabErrorGroup(code: CollabErrorCode): CollabErrorGroup {
     case 'protocol-payload-invalid':
       return 'setup';
     case 'project-not-found':
+    case 'authority-transfer-not-found':
     case 'quota-exceeded':
       return 'path';
     case 'authentication-failed':
     case 'authorization-denied':
     case 'membership-revoked':
+    case 'membership-claim-invalid':
+    case 'membership-claim-expired':
+    case 'membership-claim-revoked':
       return 'authorization';
     case 'stale-main':
     case 'stale-request-head':
@@ -140,6 +152,10 @@ export function collabErrorGroup(code: CollabErrorCode): CollabErrorGroup {
     case 'stale-ticket':
     case 'stale-request-metadata':
     case 'authority-not-synchronized':
+    case 'authority-transfer-stale':
+    case 'authority-transfer-cancellation-forbidden':
+    case 'membership-claim-already-redeemed':
+    case 'project-retired':
     case 'idempotency-conflict':
       return 'state';
     case 'acceptance-recovery-required':

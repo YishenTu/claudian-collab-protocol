@@ -34,10 +34,13 @@ const CONTRACT_FIELDS = new Set([
   'wire',
 ]);
 const WIRE_MODULES = new Set([
+  './CollabAuthorityTransfer',
   './CollabConstants',
   './CollabControlOperationCodecs',
   './CollabError',
   './CollabProtocol',
+  './CollabProjectCheckpoint',
+  './CollabProjectRetirement',
   './CollabRequestTicketRequestCodecs',
   './CollabRequestTicketResponseCodecs',
   './CollabValidation',

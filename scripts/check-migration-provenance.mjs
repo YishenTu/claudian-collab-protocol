@@ -66,6 +66,25 @@ function standaloneEntries() {
     }));
 }
 
+function standaloneEntriesAt(ref) {
+  const paths = git(repositoryRoot, [
+    'ls-tree',
+    '-r',
+    '--name-only',
+    ref,
+    '--',
+    'src',
+    'tests',
+  ]).split('\n').filter(Boolean);
+  return paths
+    .filter(selectedPath)
+    .sort()
+    .map(relativePath => ({
+      path: relativePath,
+      sha256: sha256(gitFile(repositoryRoot, ref, relativePath)),
+    }));
+}
+
 function claudianEntries(claudianRoot, ref) {
   const paths = git(claudianRoot, [
     'ls-tree',
@@ -130,6 +149,19 @@ function standaloneVersions(manifest) {
   };
 }
 
+function standaloneVersionsAt(ref) {
+  return {
+    cloudBinding: exportedInteger(
+      gitFile(repositoryRoot, ref, 'src/CollabCloudBinding.ts').toString('utf8'),
+      'COLLAB_CLOUD_BINDING_VERSION',
+    ),
+    wire: exportedInteger(
+      gitFile(repositoryRoot, ref, 'src/CollabConstants.ts').toString('utf8'),
+      'COLLAB_PROTOCOL_VERSION',
+    ),
+  };
+}
+
 function splitEntries(entries) {
   return {
     sourceFiles: entries.filter(entry => entry.path.startsWith('src/')),
@@ -174,15 +206,39 @@ function readManifest() {
 
 function verifyStandalone() {
   const manifest = readManifest();
-  const entries = splitEntries(standaloneEntries());
-  assertEqual(entries.sourceFiles, manifest.sourceFiles, 'Standalone source');
-  assertEqual(entries.testFixtures, manifest.testFixtures, 'Standalone retained fixtures');
+  const baselineCommit = git(repositoryRoot, [
+    'rev-parse',
+    `${manifest.standaloneBaseline.tag}^{commit}`,
+  ]);
+  if (baselineCommit !== manifest.standaloneBaseline.commit) {
+    throw new Error('Standalone migration baseline tag moved');
+  }
+  const baselineEntries = splitEntries(standaloneEntriesAt(baselineCommit));
+  assertEqual(baselineEntries.sourceFiles, manifest.sourceFiles, 'Standalone baseline source');
+  assertEqual(
+    baselineEntries.testFixtures,
+    manifest.testFixtures,
+    'Standalone baseline retained fixtures',
+  );
+  const baselineVersions = standaloneVersionsAt(baselineCommit);
+  if (
+    baselineVersions.cloudBinding !== manifest.sourceVersions.cloudBinding
+    || baselineVersions.wire !== manifest.sourceVersions.wire
+  ) {
+    throw new Error('Standalone baseline versions differ from migration source');
+  }
   const versions = standaloneVersions(manifest);
   if (
-    versions.cloudBinding !== versions.expectedCloudBinding
-    || versions.wire !== versions.expectedWire
+    versions.cloudBinding < versions.expectedCloudBinding
+    || versions.wire < versions.expectedWire
   ) {
-    throw new Error('Standalone wire or Cloud binding version differs from migration provenance');
+    throw new Error('Standalone wire or Cloud binding version regressed below migration source');
+  }
+  const currentSourcePaths = new Set(
+    splitEntries(standaloneEntries()).sourceFiles.map(entry => entry.path),
+  );
+  if (baselineEntries.sourceFiles.some(entry => !currentSourcePaths.has(entry.path))) {
+    throw new Error('Standalone source inventory regressed below the migration baseline');
   }
   process.stdout.write('Standalone migration provenance: PASS\n');
 }

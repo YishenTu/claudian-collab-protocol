@@ -5,6 +5,10 @@
     "packagePath": "packages/collab-protocol",
     "repository": "https://github.com/YishenTu/claudian.git"
   },
+  "standaloneBaseline": {
+    "commit": "df77de9da7d638d09efb6944731ba37c0e55afd9",
+    "tag": "v1.0.0"
+  },
   "sourceVersions": {
     "cloudBinding": 1,
     "lanBinding": 9,

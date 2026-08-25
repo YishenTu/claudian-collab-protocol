@@ -679,8 +679,13 @@
         "source": "./CollabConstants"
       },
       {
-        "declaration": "export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofBase & ({\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n} | {\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n    readonly sourceHostMemberId: null;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n});",
+        "declaration": "export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofSigningPayload & {\n    readonly certificate: string;\n};",
         "exportName": "CollabAuthorityRelinquishmentProof",
+        "source": "./CollabAuthorityTransfer"
+      },
+      {
+        "declaration": "export type CollabAuthorityRelinquishmentProofSigningPayload = CollabAuthorityRelinquishmentProofSigningPayloadBase & ({\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n} | {\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n    readonly sourceHostMemberId: null;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n});",
+        "exportName": "CollabAuthorityRelinquishmentProofSigningPayload",
         "source": "./CollabAuthorityTransfer"
       },
       {
@@ -1419,8 +1424,13 @@
         "source": "./CollabAuthorityTransfer"
       },
       {
-        "declaration": "export interface CollabTransferredMembershipRedemptionReceipt {\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly memberId: CollabMemberId;\n    readonly operationIntentId: string;\n    readonly projectId: CollabProjectId;\n    readonly receiptId: string;\n    readonly receiptKeyId: string;\n    readonly redeemedAt: CollabIsoTimestamp;\n    readonly signature: string;\n    readonly signatureAlgorithm: 'ed25519';\n    readonly targetAuthorityGeneration: number;\n    readonly transferId: string;\n}",
+        "declaration": "export interface CollabTransferredMembershipRedemptionReceipt extends CollabTransferredMembershipRedemptionReceiptSigningPayload {\n    readonly signature: string;\n}",
         "exportName": "CollabTransferredMembershipRedemptionReceipt",
+        "source": "./CollabAuthorityTransfer"
+      },
+      {
+        "declaration": "export interface CollabTransferredMembershipRedemptionReceiptSigningPayload {\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly memberId: CollabMemberId;\n    readonly operationIntentId: string;\n    readonly projectId: CollabProjectId;\n    readonly receiptId: string;\n    readonly receiptKeyId: string;\n    readonly redeemedAt: CollabIsoTimestamp;\n    readonly signatureAlgorithm: 'ed25519';\n    readonly targetAuthorityGeneration: number;\n    readonly transferId: string;\n}",
+        "exportName": "CollabTransferredMembershipRedemptionReceiptSigningPayload",
         "source": "./CollabAuthorityTransfer"
       },
       {
@@ -1714,6 +1724,11 @@
         "source": "./DevelopmentBootstrap"
       },
       {
+        "declaration": "export declare function encodeCollabAuthorityRelinquishmentProofSigningInput(payload: CollabAuthorityRelinquishmentProofSigningPayload): string;",
+        "exportName": "encodeCollabAuthorityRelinquishmentProofSigningInput",
+        "source": "./CollabAuthorityTransfer"
+      },
+      {
         "declaration": "export declare function encodeCollabProjectCheckpointCoordinationNdjson(records: readonly CollabCheckpointBackupRecord[], profile: CollabCheckpointProfile): string;",
         "exportName": "encodeCollabProjectCheckpointCoordinationNdjson",
         "source": "./CollabProjectCheckpoint"
@@ -1731,6 +1746,11 @@
       {
         "declaration": "export declare function encodeCollabTransferredMembershipClaimBatchDigestInput(batch: CollabTransferredMembershipClaimBatch): string;",
         "exportName": "encodeCollabTransferredMembershipClaimBatchDigestInput",
+        "source": "./CollabAuthorityTransfer"
+      },
+      {
+        "declaration": "export declare function encodeCollabTransferredMembershipRedemptionReceiptSigningInput(payload: CollabTransferredMembershipRedemptionReceiptSigningPayload): string;",
+        "exportName": "encodeCollabTransferredMembershipRedemptionReceiptSigningInput",
         "source": "./CollabAuthorityTransfer"
       },
       {
@@ -1972,10 +1992,12 @@
       "decodeDevelopmentBootstrapManifest",
       "decodeDevelopmentBootstrapReport",
       "developmentBootstrapOperationCodec",
+      "encodeCollabAuthorityRelinquishmentProofSigningInput",
       "encodeCollabProjectCheckpointCoordinationNdjson",
       "encodeCollabProjectCheckpointManifestCanonicalJson",
       "encodeCollabProjectCheckpointManifestDigestInput",
       "encodeCollabTransferredMembershipClaimBatchDigestInput",
+      "encodeCollabTransferredMembershipRedemptionReceiptSigningInput",
       "encodeDevelopmentBootstrapManifestCanonicalJson",
       "isCollabGitOid",
       "isCollabMemberId",
@@ -1991,7 +2013,7 @@
     "runtimeBehaviorDigests": [
       {
         "path": "src/CollabAuthorityTransfer.ts",
-        "sha256": "eca268e36ca1f8e9b179b0c404d09fac80e59b3979f0e533e6ecf4c9951adbed"
+        "sha256": "61536d0ab724d1ba1048711778db6117a84d68f7b21efc31ab9afcb9973411bf"
       },
       {
         "path": "src/CollabCloudBinding.ts",
@@ -2059,7 +2081,7 @@
       },
       {
         "path": "src/index.ts",
-        "sha256": "e13cfdd70b61a969cde1d6e501c988efdc37f4c1289f312db713c203d69ba7e6"
+        "sha256": "fd772b6bb6a121bbb4191dd8f92221ce0469defd49cff62f186fa685c15e70b9"
       },
       {
         "path": "src/types.ts",
@@ -2234,8 +2256,13 @@
           "source": "./CollabConstants"
         },
         {
-          "declaration": "export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofBase & ({\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n} | {\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n    readonly sourceHostMemberId: null;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n});",
+          "declaration": "export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofSigningPayload & {\n    readonly certificate: string;\n};",
           "exportName": "CollabAuthorityRelinquishmentProof",
+          "source": "./CollabAuthorityTransfer"
+        },
+        {
+          "declaration": "export type CollabAuthorityRelinquishmentProofSigningPayload = CollabAuthorityRelinquishmentProofSigningPayloadBase & ({\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n} | {\n    readonly sourceAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'cloud';\n    };\n    readonly sourceHostMemberId: null;\n    readonly targetAuthority: CollabCheckpointAuthority & {\n        readonly kind: 'lan';\n    };\n});",
+          "exportName": "CollabAuthorityRelinquishmentProofSigningPayload",
           "source": "./CollabAuthorityTransfer"
         },
         {
@@ -2779,8 +2806,13 @@
           "source": "./CollabAuthorityTransfer"
         },
         {
-          "declaration": "export interface CollabTransferredMembershipRedemptionReceipt {\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly memberId: CollabMemberId;\n    readonly operationIntentId: string;\n    readonly projectId: CollabProjectId;\n    readonly receiptId: string;\n    readonly receiptKeyId: string;\n    readonly redeemedAt: CollabIsoTimestamp;\n    readonly signature: string;\n    readonly signatureAlgorithm: 'ed25519';\n    readonly targetAuthorityGeneration: number;\n    readonly transferId: string;\n}",
+          "declaration": "export interface CollabTransferredMembershipRedemptionReceipt extends CollabTransferredMembershipRedemptionReceiptSigningPayload {\n    readonly signature: string;\n}",
           "exportName": "CollabTransferredMembershipRedemptionReceipt",
+          "source": "./CollabAuthorityTransfer"
+        },
+        {
+          "declaration": "export interface CollabTransferredMembershipRedemptionReceiptSigningPayload {\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly memberId: CollabMemberId;\n    readonly operationIntentId: string;\n    readonly projectId: CollabProjectId;\n    readonly receiptId: string;\n    readonly receiptKeyId: string;\n    readonly redeemedAt: CollabIsoTimestamp;\n    readonly signatureAlgorithm: 'ed25519';\n    readonly targetAuthorityGeneration: number;\n    readonly transferId: string;\n}",
+          "exportName": "CollabTransferredMembershipRedemptionReceiptSigningPayload",
           "source": "./CollabAuthorityTransfer"
         },
         {
@@ -2909,6 +2941,11 @@
           "source": "./CollabAuthorityTransfer"
         },
         {
+          "declaration": "export declare function encodeCollabAuthorityRelinquishmentProofSigningInput(payload: CollabAuthorityRelinquishmentProofSigningPayload): string;",
+          "exportName": "encodeCollabAuthorityRelinquishmentProofSigningInput",
+          "source": "./CollabAuthorityTransfer"
+        },
+        {
           "declaration": "export declare function encodeCollabProjectCheckpointCoordinationNdjson(records: readonly CollabCheckpointBackupRecord[], profile: CollabCheckpointProfile): string;",
           "exportName": "encodeCollabProjectCheckpointCoordinationNdjson",
           "source": "./CollabProjectCheckpoint"
@@ -2926,6 +2963,11 @@
         {
           "declaration": "export declare function encodeCollabTransferredMembershipClaimBatchDigestInput(batch: CollabTransferredMembershipClaimBatch): string;",
           "exportName": "encodeCollabTransferredMembershipClaimBatchDigestInput",
+          "source": "./CollabAuthorityTransfer"
+        },
+        {
+          "declaration": "export declare function encodeCollabTransferredMembershipRedemptionReceiptSigningInput(payload: CollabTransferredMembershipRedemptionReceiptSigningPayload): string;",
+          "exportName": "encodeCollabTransferredMembershipRedemptionReceiptSigningInput",
           "source": "./CollabAuthorityTransfer"
         },
         {
@@ -3148,7 +3190,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/CollabAuthorityTransfer.ts",
-          "sha256": "eca268e36ca1f8e9b179b0c404d09fac80e59b3979f0e533e6ecf4c9951adbed"
+          "sha256": "61536d0ab724d1ba1048711778db6117a84d68f7b21efc31ab9afcb9973411bf"
         },
         {
           "path": "src/CollabConstants.ts",

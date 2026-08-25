@@ -21,7 +21,9 @@ export {
   decodeCollabTransferredMembershipClaimBatch,
   decodeCollabTransferredMembershipClaimCustodyReceipt,
   decodeCollabTransferredMembershipRedemptionReceipt,
+  encodeCollabAuthorityRelinquishmentProofSigningInput,
   encodeCollabTransferredMembershipClaimBatchDigestInput,
+  encodeCollabTransferredMembershipRedemptionReceiptSigningInput,
 } from './CollabAuthorityTransfer';
 export type {
   AcceptCloudToLanTransferTargetRequest,
@@ -33,6 +35,7 @@ export type {
   CancelProjectAuthorityTransferRequest,
   ClaimTransferredMembershipRequest,
   CollabAuthorityRelinquishmentProof,
+  CollabAuthorityRelinquishmentProofSigningPayload,
   CollabAuthorityTransferCancellablePhase,
   CollabAuthorityTransferCancellationPhase,
   CollabAuthorityTransferDirection,
@@ -48,6 +51,7 @@ export type {
   CollabTransferredMembershipClaimItem,
   CollabTransferredMembershipRedemptionAcknowledgement,
   CollabTransferredMembershipRedemptionReceipt,
+  CollabTransferredMembershipRedemptionReceiptSigningPayload,
   CommitLanToCloudRelinquishmentRequest,
   ConfirmCloudToLanTargetActiveRequest,
   GetProjectAuthorityTransferRequest,

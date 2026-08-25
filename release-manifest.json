@@ -14,11 +14,11 @@
     "files": [
       {
         "path": "dist/CollabAuthorityTransfer.d.ts",
-        "size": 15444
+        "size": 16048
       },
       {
         "path": "dist/CollabAuthorityTransfer.js",
-        "size": 33936
+        "size": 36392
       },
       {
         "path": "dist/CollabCloudBinding.d.ts",
@@ -150,11 +150,11 @@
       },
       {
         "path": "dist/index.d.ts",
-        "size": 10520
+        "size": 10748
       },
       {
         "path": "dist/index.js",
-        "size": 21738
+        "size": 22332
       },
       {
         "path": "dist/types.d.ts",
@@ -174,14 +174,14 @@
       },
       {
         "path": "README.md",
-        "size": 6921
+        "size": 7132
       }
     ],
-    "integrity": "sha512-bSpziO7OnD0ZC+4GZsuDdsmB3oXskQhO385AaqjKPrPx8hQZI8DKkc5vdLhzkYubcTX2n8Kih5YDSiWN15QhTw==",
-    "sha256": "fb5ad9b951bf4809ab93ee9a3541ae4900dd51c94a579f6cab06206d29b29834",
-    "shasum": "5a0387cbe1db03decc444b9936ae61aa28b1d0cb",
-    "size": 53526,
-    "unpackedSize": 336807
+    "integrity": "sha512-/FqEjRoO7RFmsIL5zLhhruemdcBwNpM0LA281ab+RqA6yKFYOzOMrlnIbA6f2K00AOhOGVbcCXaHLzOCiVnEfw==",
+    "sha256": "9730bda9c3d2b49f8c9690d8a3e628801499be4c1bc12b0fae92a27df5219932",
+    "shasum": "59ae19e11bd8c91fff860e8238fff0cce9b177b9",
+    "size": 54150,
+    "unpackedSize": 340900
   },
   "toolchain": {
     "node": "24.16.0",

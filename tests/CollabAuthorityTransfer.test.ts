@@ -5,6 +5,8 @@ import {
   COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES,
   COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES,
   COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES,
+  type CollabAuthorityRelinquishmentProofSigningPayload,
+  type CollabTransferredMembershipRedemptionReceiptSigningPayload,
   decodeCollabAuthorityRelinquishmentProof,
   decodeCollabAuthorityTransferOperationRequest,
   decodeCollabAuthorityTransferProposal,
@@ -13,7 +15,9 @@ import {
   decodeCollabTransferredMembershipClaimBatch,
   decodeCollabTransferredMembershipClaimCustodyReceipt,
   decodeCollabTransferredMembershipRedemptionReceipt,
+  encodeCollabAuthorityRelinquishmentProofSigningInput,
   encodeCollabTransferredMembershipClaimBatchDigestInput,
+  encodeCollabTransferredMembershipRedemptionReceiptSigningInput,
 } from '../src/CollabAuthorityTransfer';
 
 const NOW = '2026-08-25T00:00:00.000Z';
@@ -261,6 +265,43 @@ describe('Project authority transfer contract', () => {
       ...relinquishmentProof(),
       operationIntentId: '',
     })).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('defines domain-separated canonical signing inputs for both proof types', () => {
+    const receipt = redemptionReceipt();
+    const { signature: _signature, ...unsignedReceipt } = receipt;
+    const receiptPayload = unsignedReceipt as
+      CollabTransferredMembershipRedemptionReceiptSigningPayload;
+    const receiptInput = encodeCollabTransferredMembershipRedemptionReceiptSigningInput(
+      receiptPayload,
+    );
+    expect(receiptInput).toBe(JSON.stringify({
+      domain: 'claudian-collab.transferred-membership-redemption-receipt.v1',
+      payload: receiptPayload,
+    }));
+    expect(createHash('sha256').update(receiptInput).digest('hex'))
+      .toBe('fec5c39f3d5cf4f55fc6551eaf54fc4207d7ef6b651d436c964b8dc1bc480daa');
+    expect(() => encodeCollabTransferredMembershipRedemptionReceiptSigningInput({
+      ...receiptPayload,
+      signature: ED25519_SIGNATURE,
+    } as CollabTransferredMembershipRedemptionReceiptSigningPayload))
+      .toThrow('collab.error.protocol-payload-invalid');
+
+    const proof = relinquishmentProof();
+    const { certificate: _certificate, ...unsignedProof } = proof;
+    const proofPayload = unsignedProof as CollabAuthorityRelinquishmentProofSigningPayload;
+    const proofInput = encodeCollabAuthorityRelinquishmentProofSigningInput(proofPayload);
+    expect(proofInput).toBe(JSON.stringify({
+      domain: 'claudian-collab.authority-relinquishment-proof.v1',
+      payload: proofPayload,
+    }));
+    expect(createHash('sha256').update(proofInput).digest('hex'))
+      .toBe('a31525a0a8e43859860ef9e8a94e27449073c12968548a10b87d56339c6dcef5');
+    expect(() => encodeCollabAuthorityRelinquishmentProofSigningInput({
+      ...proofPayload,
+      certificate: ED25519_SIGNATURE,
+    } as unknown as CollabAuthorityRelinquishmentProofSigningPayload))
+      .toThrow('collab.error.protocol-payload-invalid');
   });
 
   it('round-trips a manifest-bound Cloud-to-LAN stage report with exact claim custody', () => {

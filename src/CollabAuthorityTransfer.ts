@@ -121,7 +121,7 @@ export interface CollabTransferredMembershipClaim {
   readonly transferId: string;
 }
 
-export interface CollabTransferredMembershipRedemptionReceipt {
+export interface CollabTransferredMembershipRedemptionReceiptSigningPayload {
   readonly checkpointSha256: string;
   readonly claimSha256: string;
   readonly memberId: CollabMemberId;
@@ -130,16 +130,19 @@ export interface CollabTransferredMembershipRedemptionReceipt {
   readonly receiptId: string;
   readonly receiptKeyId: string;
   readonly redeemedAt: CollabIsoTimestamp;
-  readonly signature: string;
   readonly signatureAlgorithm: 'ed25519';
   readonly targetAuthorityGeneration: number;
   readonly transferId: string;
 }
 
-interface CollabAuthorityRelinquishmentProofBase {
+export interface CollabTransferredMembershipRedemptionReceipt extends
+  CollabTransferredMembershipRedemptionReceiptSigningPayload {
+  readonly signature: string;
+}
+
+interface CollabAuthorityRelinquishmentProofSigningPayloadBase {
   readonly batchRevision: number;
   readonly batchSha256: string;
-  readonly certificate: string;
   readonly certificateAlgorithm: 'ed25519';
   readonly checkpointSha256: string;
   readonly committedAt: CollabIsoTimestamp;
@@ -148,7 +151,8 @@ interface CollabAuthorityRelinquishmentProofBase {
   readonly transferId: string;
 }
 
-export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentProofBase & (
+export type CollabAuthorityRelinquishmentProofSigningPayload =
+  CollabAuthorityRelinquishmentProofSigningPayloadBase & (
   | {
     readonly sourceAuthority: CollabCheckpointAuthority & { readonly kind: 'lan' };
     readonly sourceHostMemberId: CollabMemberId;
@@ -160,6 +164,11 @@ export type CollabAuthorityRelinquishmentProof = CollabAuthorityRelinquishmentPr
     readonly targetAuthority: CollabCheckpointAuthority & { readonly kind: 'lan' };
   }
 );
+
+export type CollabAuthorityRelinquishmentProof =
+  CollabAuthorityRelinquishmentProofSigningPayload & {
+    readonly certificate: string;
+  };
 
 export interface CollabAuthorityTransferStatus {
   readonly batchRevision: number | null;
@@ -654,23 +663,23 @@ export function decodeCollabTransferredMembershipClaim(
   };
 }
 
-export function decodeCollabTransferredMembershipRedemptionReceipt(
-  value: unknown,
-): CollabTransferredMembershipRedemptionReceipt {
-  const source = exactRecord(value, 'redemptionReceipt', [
-    'checkpointSha256',
-    'claimSha256',
-    'memberId',
-    'operationIntentId',
-    'projectId',
-    'receiptId',
-    'receiptKeyId',
-    'redeemedAt',
-    'signature',
-    'signatureAlgorithm',
-    'targetAuthorityGeneration',
-    'transferId',
-  ]);
+const REDEMPTION_RECEIPT_SIGNING_PAYLOAD_KEYS = [
+  'checkpointSha256',
+  'claimSha256',
+  'memberId',
+  'operationIntentId',
+  'projectId',
+  'receiptId',
+  'receiptKeyId',
+  'redeemedAt',
+  'signatureAlgorithm',
+  'targetAuthorityGeneration',
+  'transferId',
+] as const;
+
+function redemptionReceiptSigningPayload(
+  source: UnknownRecord,
+): CollabTransferredMembershipRedemptionReceiptSigningPayload {
   return {
     checkpointSha256: sha256(source, 'checkpointSha256'),
     claimSha256: sha256(source, 'claimSha256'),
@@ -680,30 +689,67 @@ export function decodeCollabTransferredMembershipRedemptionReceipt(
     receiptId: token(source, 'receiptId'),
     receiptKeyId: boundedString(source, 'receiptKeyId', 256),
     redeemedAt: timestamp(source, 'redeemedAt'),
-    signature: fixedBase64url(source, 'signature', 64),
     signatureAlgorithm: literal(source, 'signatureAlgorithm', ['ed25519']),
     targetAuthorityGeneration: positiveInteger(source, 'targetAuthorityGeneration'),
     transferId: token(source, 'transferId'),
   };
 }
 
-export function decodeCollabAuthorityRelinquishmentProof(
+export function encodeCollabTransferredMembershipRedemptionReceiptSigningInput(
+  payload: CollabTransferredMembershipRedemptionReceiptSigningPayload,
+): string {
+  const source = exactRecord(
+    payload,
+    'redemptionReceiptSigningPayload',
+    REDEMPTION_RECEIPT_SIGNING_PAYLOAD_KEYS,
+  );
+  return JSON.stringify({
+    domain: 'claudian-collab.transferred-membership-redemption-receipt.v1',
+    payload: redemptionReceiptSigningPayload(source),
+  });
+}
+
+export function decodeCollabTransferredMembershipRedemptionReceipt(
   value: unknown,
-): CollabAuthorityRelinquishmentProof {
-  const source = exactRecord(value, 'relinquishmentProof', [
-    'batchRevision',
-    'batchSha256',
-    'certificate',
-    'certificateAlgorithm',
-    'checkpointSha256',
-    'committedAt',
-    'operationIntentId',
-    'projectId',
-    'sourceAuthority',
-    'sourceHostMemberId',
-    'targetAuthority',
-    'transferId',
+): CollabTransferredMembershipRedemptionReceipt {
+  const source = exactRecord(value, 'redemptionReceipt', [
+    ...REDEMPTION_RECEIPT_SIGNING_PAYLOAD_KEYS,
+    'signature',
   ]);
+  const payload = redemptionReceiptSigningPayload(source);
+  return {
+    checkpointSha256: payload.checkpointSha256,
+    claimSha256: payload.claimSha256,
+    memberId: payload.memberId,
+    operationIntentId: payload.operationIntentId,
+    projectId: payload.projectId,
+    receiptId: payload.receiptId,
+    receiptKeyId: payload.receiptKeyId,
+    redeemedAt: payload.redeemedAt,
+    signature: fixedBase64url(source, 'signature', 64),
+    signatureAlgorithm: payload.signatureAlgorithm,
+    targetAuthorityGeneration: payload.targetAuthorityGeneration,
+    transferId: payload.transferId,
+  };
+}
+
+const RELINQUISHMENT_PROOF_SIGNING_PAYLOAD_KEYS = [
+  'batchRevision',
+  'batchSha256',
+  'certificateAlgorithm',
+  'checkpointSha256',
+  'committedAt',
+  'operationIntentId',
+  'projectId',
+  'sourceAuthority',
+  'sourceHostMemberId',
+  'targetAuthority',
+  'transferId',
+] as const;
+
+function authorityRelinquishmentProofSigningPayload(
+  source: UnknownRecord,
+): CollabAuthorityRelinquishmentProofSigningPayload {
   const sourceAuthority = authority(source.sourceAuthority, 'sourceAuthority');
   const targetAuthority = authority(source.targetAuthority, 'targetAuthority');
   const sourceHostMemberId = source.sourceHostMemberId === null
@@ -717,7 +763,6 @@ export function decodeCollabAuthorityRelinquishmentProof(
   return {
     batchRevision: positiveInteger(source, 'batchRevision'),
     batchSha256: sha256(source, 'batchSha256'),
-    certificate: fixedBase64url(source, 'certificate', 64),
     certificateAlgorithm: literal(source, 'certificateAlgorithm', ['ed25519']),
     checkpointSha256: sha256(source, 'checkpointSha256'),
     committedAt: timestamp(source, 'committedAt'),
@@ -727,6 +772,44 @@ export function decodeCollabAuthorityRelinquishmentProof(
     sourceHostMemberId,
     targetAuthority,
     transferId: token(source, 'transferId'),
+  } as CollabAuthorityRelinquishmentProofSigningPayload;
+}
+
+export function encodeCollabAuthorityRelinquishmentProofSigningInput(
+  payload: CollabAuthorityRelinquishmentProofSigningPayload,
+): string {
+  const source = exactRecord(
+    payload,
+    'relinquishmentProofSigningPayload',
+    RELINQUISHMENT_PROOF_SIGNING_PAYLOAD_KEYS,
+  );
+  return JSON.stringify({
+    domain: 'claudian-collab.authority-relinquishment-proof.v1',
+    payload: authorityRelinquishmentProofSigningPayload(source),
+  });
+}
+
+export function decodeCollabAuthorityRelinquishmentProof(
+  value: unknown,
+): CollabAuthorityRelinquishmentProof {
+  const source = exactRecord(value, 'relinquishmentProof', [
+    ...RELINQUISHMENT_PROOF_SIGNING_PAYLOAD_KEYS,
+    'certificate',
+  ]);
+  const payload = authorityRelinquishmentProofSigningPayload(source);
+  return {
+    batchRevision: payload.batchRevision,
+    batchSha256: payload.batchSha256,
+    certificate: fixedBase64url(source, 'certificate', 64),
+    certificateAlgorithm: payload.certificateAlgorithm,
+    checkpointSha256: payload.checkpointSha256,
+    committedAt: payload.committedAt,
+    operationIntentId: payload.operationIntentId,
+    projectId: payload.projectId,
+    sourceAuthority: payload.sourceAuthority,
+    sourceHostMemberId: payload.sourceHostMemberId,
+    targetAuthority: payload.targetAuthority,
+    transferId: payload.transferId,
   } as CollabAuthorityRelinquishmentProof;
 }
 

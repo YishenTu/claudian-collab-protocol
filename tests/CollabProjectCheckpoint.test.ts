@@ -497,6 +497,7 @@ describe('Project checkpoint contract', () => {
     manifest({ futureField: true }),
     manifest({ manifestSchemaVersion: 2 }),
     manifest({ protocolVersion: 4 }),
+    manifest({ gitObjectFormat: 'sha256' }),
     manifest({ targetAuthority: { generation: 5, kind: 'cloud' } }),
     manifest({ refs: [
       { name: 'refs/heads/members/member_1', oid: MEMBER },
@@ -792,6 +793,53 @@ describe('Project checkpoint contract', () => {
     }
   });
 
+  it('rejects nonterminal transfer responders and terminal state without a tombstone', () => {
+    const activeTransferStatus = {
+      batchRevision: null,
+      batchSha256: null,
+      checkpointSha256: null,
+      createdAt: NOW,
+      direction: 'cloud-to-lan',
+      expiresAt: '2026-09-24T00:00:00.000Z',
+      phase: 'collecting-readiness',
+      projectId: 'project_1',
+      relinquishmentProof: null,
+      sourceAuthority: { generation: 3, kind: 'cloud' },
+      state: 'active',
+      targetAuthority: { generation: 4, kind: 'lan' },
+      targetUrl: 'https://lan-target.invalid:54545',
+      transferId: 'transfer_1',
+      updatedAt: NOW,
+    };
+    const activeAsTerminal = [
+      ...portableRecords(),
+      ...operationalBackupRecords()
+        .filter(record => record.kind !== 'lifecycle-state')
+        .map(record => record.kind === 'terminal-responder'
+          ? {
+            ...record,
+            recordId: 'transfer_1',
+            value: {
+              ...record.value,
+              operation: 'getProjectAuthorityTransfer',
+              operationId: 'transfer_1',
+              responseJson: JSON.stringify(activeTransferStatus),
+            },
+          }
+          : record),
+    ];
+    const retiredWithoutTombstone = [
+      ...portableRecords(),
+      ...operationalBackupRecords().filter(record => record.kind !== 'tombstone'),
+    ];
+    for (const records of [activeAsTerminal, retiredWithoutTombstone]) {
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
   it('rejects a second Project root and cross-Project operational records', () => {
     const secondProject = {
       ...portableRecords()[0],
@@ -854,6 +902,60 @@ describe('Project checkpoint contract', () => {
         'export',
       )).toThrow('collab.error.protocol-payload-invalid');
     }
+  });
+
+  it('enforces the manifest Git object format across portable and event OIDs', () => {
+    type MutableTestRecord = {
+      kind: string;
+      recordId: string;
+      revision: number;
+      value: Record<string, unknown>;
+    };
+    const portable = portableRecords() as unknown as MutableTestRecord[];
+    const requestIndex = portable.findIndex(record => record.kind === 'request');
+    portable[requestIndex] = {
+      ...portable[requestIndex],
+      value: { ...portable[requestIndex].value, latestHeadOid: '4'.repeat(64) },
+    };
+    const portableDecoded = decodeCollabProjectCheckpointCoordinationNdjson(
+      portable.map(record => JSON.stringify(record)).join('\n') + '\n',
+      'authority-transfer',
+    );
+    expect(() => validateCollabProjectCheckpointConsistency(
+      decodeCollabProjectCheckpointManifest(manifest()),
+      portableDecoded,
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const backupRecords = [
+      ...portableRecords(),
+      ...operationalBackupRecords().map(record => record.kind === 'cloud-event'
+        ? {
+          ...record,
+          value: {
+            event: {
+              kind: 'main.updated',
+              occurredAt: NOW,
+              payload: { mainOid: '5'.repeat(64), requestId: 'request_1' },
+              projectId: 'project_1',
+              protocolVersion: 5,
+              sequence: 1,
+            },
+          },
+        }
+        : record),
+    ];
+    const backupDecoded = decodeCollabProjectCheckpointCoordinationNdjson(
+      backupRecords.map(record => JSON.stringify(record)).join('\n') + '\n',
+      'backup',
+    );
+    expect(() => validateCollabProjectCheckpointConsistency(
+      decodeCollabProjectCheckpointManifest(manifest({
+        profile: 'backup',
+        sourceAuthority: { generation: 3, kind: 'cloud' },
+        targetAuthority: null,
+      })),
+      backupDecoded,
+    )).toThrow('collab.error.protocol-payload-invalid');
   });
 
   it.each([

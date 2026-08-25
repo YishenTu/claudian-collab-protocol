@@ -834,7 +834,7 @@
         "source": "./CollabProjectCheckpoint"
       },
       {
-        "declaration": "export type CollabCheckpointTerminalResponderRecord = CollabCheckpointRecordBase<'terminal-responder', {\n    readonly acknowledgements: readonly CollabCheckpointTerminalAcknowledgement[];\n    readonly eligibleMemberIds: readonly CollabMemberId[];\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly operation: CollabControlOperation;\n    readonly operationId: string;\n    readonly projectId: CollabProjectId;\n    readonly responseJson: string;\n}>;",
+        "declaration": "export type CollabCheckpointTerminalResponderRecord = CollabCheckpointRecordBase<'terminal-responder', {\n    readonly acknowledgements: readonly CollabCheckpointTerminalAcknowledgement[];\n    readonly eligibleMemberIds: readonly CollabMemberId[];\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly operation: 'getProjectAuthorityTransfer' | 'retireProject';\n    readonly operationId: string;\n    readonly projectId: CollabProjectId;\n    readonly responseJson: string;\n}>;",
         "exportName": "CollabCheckpointTerminalResponderRecord",
         "source": "./CollabProjectCheckpoint"
       },
@@ -2004,7 +2004,7 @@
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
-        "sha256": "23ddb2331d2e8b1be5e6ba16e7ccbd30a3695d9de75f5e87861ecc26379d1c04"
+        "sha256": "8bedf61332523e7a7d1748b66bc20f1ccb965b3bf6f0c2657e361da0ba417871"
       },
       {
         "path": "src/CollabProjectRetirement.ts",
@@ -2366,7 +2366,7 @@
           "source": "./CollabProjectCheckpoint"
         },
         {
-          "declaration": "export type CollabCheckpointTerminalResponderRecord = CollabCheckpointRecordBase<'terminal-responder', {\n    readonly acknowledgements: readonly CollabCheckpointTerminalAcknowledgement[];\n    readonly eligibleMemberIds: readonly CollabMemberId[];\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly operation: CollabControlOperation;\n    readonly operationId: string;\n    readonly projectId: CollabProjectId;\n    readonly responseJson: string;\n}>;",
+          "declaration": "export type CollabCheckpointTerminalResponderRecord = CollabCheckpointRecordBase<'terminal-responder', {\n    readonly acknowledgements: readonly CollabCheckpointTerminalAcknowledgement[];\n    readonly eligibleMemberIds: readonly CollabMemberId[];\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly operation: 'getProjectAuthorityTransfer' | 'retireProject';\n    readonly operationId: string;\n    readonly projectId: CollabProjectId;\n    readonly responseJson: string;\n}>;",
           "exportName": "CollabCheckpointTerminalResponderRecord",
           "source": "./CollabProjectCheckpoint"
         },
@@ -3121,7 +3121,7 @@
         },
         {
           "path": "src/CollabProjectCheckpoint.ts",
-          "sha256": "23ddb2331d2e8b1be5e6ba16e7ccbd30a3695d9de75f5e87861ecc26379d1c04"
+          "sha256": "8bedf61332523e7a7d1748b66bc20f1ccb965b3bf6f0c2657e361da0ba417871"
         },
         {
           "path": "src/CollabProjectRetirement.ts",

@@ -309,7 +309,7 @@ export type CollabCheckpointTerminalResponderRecord =
     readonly acknowledgements: readonly CollabCheckpointTerminalAcknowledgement[];
     readonly eligibleMemberIds: readonly CollabMemberId[];
     readonly expiresAt: CollabIsoTimestamp;
-    readonly operation: CollabControlOperation;
+    readonly operation: 'getProjectAuthorityTransfer' | 'retireProject';
     readonly operationId: string;
     readonly projectId: CollabProjectId;
     readonly responseJson: string;
@@ -408,6 +408,13 @@ const PLAINTEXT_CLAIM_RESPONSE_OPERATION_SET: ReadonlySet<CollabControlOperation
   'getTransferredMembershipClaim',
   'rotateTransferredMembershipClaims',
 ]);
+
+function gitOidMatchesFormat(
+  oid: CollabGitOid,
+  format: CollabCheckpointObjectFormat,
+): boolean {
+  return oid.length === (format === 'sha1' ? 40 : 64);
+}
 
 function invalidPayload(field: string): CollabError {
   return new CollabError({ code: 'protocol-payload-invalid', safeContext: { field } });
@@ -596,6 +603,12 @@ function manifestObject(
 ): CollabProjectCheckpointManifest | Omit<CollabProjectCheckpointManifest, 'manifestSha256'> {
   const profile = literal(source, 'profile', COLLAB_CHECKPOINT_PROFILES);
   const expectedMainOid = token(source, 'expectedMainOid', isCollabGitOid);
+  const gitObjectFormat = literal(source, 'gitObjectFormat', ['sha1', 'sha256']);
+  const refs = gitRefs(source.refs, expectedMainOid);
+  if (
+    !gitOidMatchesFormat(expectedMainOid, gitObjectFormat)
+    || refs.some(ref => !gitOidMatchesFormat(ref.oid, gitObjectFormat))
+  ) throw invalidPayload('gitObjectFormat');
   const sourceAuthority = authority(source.sourceAuthority, 'sourceAuthority');
   const targetAuthority = source.targetAuthority === null
     ? null
@@ -614,13 +627,13 @@ function manifestObject(
     coordinationFormatVersion: source.coordinationFormatVersion,
     createdAt: timestamp(source, 'createdAt'),
     expectedMainOid,
-    gitObjectFormat: literal(source, 'gitObjectFormat', ['sha1', 'sha256']),
+    gitObjectFormat,
     manifestSchemaVersion: source.manifestSchemaVersion,
     operationId: token(source, 'operationId'),
     profile,
     projectId: token(source, 'projectId', isCollabProjectId),
     protocolVersion: source.protocolVersion,
-    refs: gitRefs(source.refs, expectedMainOid),
+    refs,
     sourceAuthority,
     targetAuthority,
   };
@@ -1287,6 +1300,22 @@ function terminalResponderRecord(
     response.decoded.projectId !== projectId
     || responseOperationId !== operationId
   ) throw invalidPayload('responseJson');
+  const expiresAt = timestamp(value, 'expiresAt');
+  if (operation === 'retireProject') {
+    if (
+      response.decoded.kind !== 'project-retired'
+      || response.decoded.terminalExpiresAt !== expiresAt
+    ) throw invalidPayload('responseJson');
+  } else if (operation === 'getProjectAuthorityTransfer') {
+    if (
+      response.decoded.direction !== 'cloud-to-lan'
+      || response.decoded.phase !== 'completed'
+      || response.decoded.state !== 'completed'
+      || response.decoded.expiresAt !== expiresAt
+    ) throw invalidPayload('responseJson');
+  } else {
+    throw invalidPayload('operation');
+  }
   if (!Array.isArray(value.eligibleMemberIds)) throw invalidPayload('eligibleMemberIds');
   const eligibleMemberIds = value.eligibleMemberIds.map((item) => {
     if (!isCollabMemberId(item)) throw invalidPayload('eligibleMemberIds');
@@ -1327,7 +1356,7 @@ function terminalResponderRecord(
     value: {
       acknowledgements: Object.freeze(acknowledgements),
       eligibleMemberIds: Object.freeze(eligibleMemberIds),
-      expiresAt: timestamp(value, 'expiresAt'),
+      expiresAt,
       operation,
       operationId,
       projectId,
@@ -1603,6 +1632,21 @@ function validateRecordSequence(
       item.kind === 'principal-binding'
     ))
     .map(item => [item.value.memberId, item.value.principalId]));
+  const terminalResponders = records.filter(
+    (item): item is CollabCheckpointTerminalResponderRecord => (
+      item.kind === 'terminal-responder'
+    ),
+  );
+  const tombstones = records.filter((item): item is CollabCheckpointTombstoneRecord => (
+    item.kind === 'tombstone'
+  ));
+  if (
+    terminalResponders.length > 1
+    || (terminalResponders.length === 1 && (
+      tombstones.length !== 1
+      || terminalResponders[0].value.expiresAt !== tombstones[0].value.terminalExpiresAt
+    ))
+  ) throw invalidPayload('records');
 
   for (const item of records) {
     if (item.kind === 'request' && !members.has(item.value.memberId)) {
@@ -1692,6 +1736,31 @@ export function encodeCollabProjectCheckpointCoordinationNdjson(
     .map(record => JSON.stringify(record)).join('\n') + '\n';
 }
 
+function checkpointRecordGitOids(
+  checkpointRecord: CollabCheckpointBackupRecord,
+): readonly CollabGitOid[] {
+  switch (checkpointRecord.kind) {
+    case 'project': return [checkpointRecord.value.expectedMainOid];
+    case 'request': return [
+      checkpointRecord.value.firstBaseOid,
+      checkpointRecord.value.latestHeadOid,
+      ...(checkpointRecord.value.mergedOid === null
+        ? []
+        : [checkpointRecord.value.mergedOid]),
+    ];
+    case 'ticket-relation': return [
+      checkpointRecord.value.commitOid,
+      ...(checkpointRecord.value.acceptedMergeOid === null
+        ? []
+        : [checkpointRecord.value.acceptedMergeOid]),
+    ];
+    case 'cloud-event': return checkpointRecord.value.event.kind === 'main.updated'
+      ? [checkpointRecord.value.event.payload.mainOid]
+      : [];
+    default: return [];
+  }
+}
+
 export function validateCollabProjectCheckpointConsistency(
   manifest: CollabProjectCheckpointManifest,
   records: readonly CollabCheckpointBackupRecord[],
@@ -1704,6 +1773,9 @@ export function validateCollabProjectCheckpointConsistency(
     || project.value.projectId !== decodedManifest.projectId
     || project.value.authorityGeneration !== decodedManifest.sourceAuthority.generation
     || project.value.expectedMainOid !== decodedManifest.expectedMainOid
+    || records.some(record => checkpointRecordGitOids(record).some(oid => (
+      !gitOidMatchesFormat(oid, decodedManifest.gitObjectFormat)
+    )))
   ) throw invalidPayload('checkpoint');
   const activeMemberRefs = records
     .filter((item): item is CollabCheckpointMemberRecord => (

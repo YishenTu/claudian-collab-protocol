@@ -26,16 +26,15 @@ export const COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION = 2 as const;
 export const COLLAB_CLOUD_CAPABILITIES = Object.freeze([
   'accept',
   'authority-transfer',
-  'authority-transfer-checkpoint',
   'development-bootstrap',
   'git-receive-pack-personal-ref',
   'git-upload-pack',
+  'project-checkpoint-export',
   'project-events',
   'project-retirement',
   'project-snapshot',
   'requests',
   'tickets',
-  'transferred-membership-claims',
 ] as const);
 
 export type CollabCloudCapability = typeof COLLAB_CLOUD_CAPABILITIES[number];
@@ -138,6 +137,13 @@ export type CollabCloudRouteMatch =
     readonly kind: 'authority-transfer-artifact';
     readonly projectId: string;
     readonly transferId: string;
+  }
+  | {
+    readonly artifact: CollabCloudAuthorityTransferArtifact;
+    readonly direction: CollabCloudAuthorityTransferArtifactDirection;
+    readonly exportId: string;
+    readonly kind: 'project-checkpoint-export-artifact';
+    readonly projectId: string;
   }
   | {
     readonly attemptId?: string;
@@ -370,6 +376,31 @@ export function collabCloudAuthorityTransferArtifactRoute(
   );
 }
 
+export function collabCloudProjectCheckpointExportArtifactRoute(
+  projectId: string,
+  exportId: string,
+  direction: CollabCloudAuthorityTransferArtifactDirection,
+  artifact: CollabCloudAuthorityTransferArtifact,
+): CollabCloudRoute {
+  assertProjectId(projectId);
+  assertAttemptId(exportId);
+  if (
+    direction !== 'download' && direction !== 'upload'
+    || !COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(artifact)
+  ) invalidRoute();
+  return route(
+    direction === 'upload' ? 'PUT' : 'GET',
+    `/v2/projects/${projectId}/checkpoint-exports/${exportId}/checkpoint/${artifact}`,
+    {
+      artifact,
+      direction,
+      exportId,
+      kind: 'project-checkpoint-export-artifact',
+      projectId,
+    },
+  );
+}
+
 export function collabDevelopmentBootstrapRoute(
   operation: 'beginDevelopmentBootstrap',
 ): CollabCloudRoute;
@@ -445,6 +476,23 @@ export function matchCollabCloudRoute(
     && isCollabProjectId(segments[2])
   ) {
     const projectId = segments[2];
+    if (
+      (method === 'GET' || method === 'PUT')
+      && segments.length === 7
+      && segments[3] === 'checkpoint-exports'
+      && isCollabOpaqueId(segments[4])
+      && segments[5] === 'checkpoint'
+      && COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(segments[6])
+      && exactQuery(url, [])
+    ) {
+      return {
+        artifact: segments[6] as CollabCloudAuthorityTransferArtifact,
+        direction: method === 'PUT' ? 'upload' : 'download',
+        exportId: segments[4],
+        kind: 'project-checkpoint-export-artifact',
+        projectId,
+      };
+    }
     if (
       (method === 'GET' || method === 'PUT')
       && segments.length === 7

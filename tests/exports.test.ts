@@ -44,6 +44,7 @@ const EXPECTED_VALUE_EXPORTS = [
   'collabCloudCapabilitySupported',
   'collabCloudErrorEnvelope',
   'collabCloudGitRoute',
+  'collabCloudProjectCheckpointExportArtifactRoute',
   'collabCloudProjectEventsRoute',
   'collabCloudProjectOperationRoute',
   'collabCloudSuccessEnvelope',
@@ -89,6 +90,7 @@ const EXPECTED_VALUE_EXPORTS = [
   'parseCollabTicketReferences',
   'sanitizeCollabDiagnosticContext',
   'scanCollabTicketReferences',
+  'validateCollabProjectCheckpointConsistency',
 ] as const;
 
 const EXPECTED_TYPE_EXPORTS = [

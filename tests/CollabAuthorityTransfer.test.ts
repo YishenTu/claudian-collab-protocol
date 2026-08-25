@@ -3,7 +3,9 @@ import {
   COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES,
   COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES,
   decodeCollabAuthorityRelinquishmentProof,
+  decodeCollabAuthorityTransferOperationRequest,
   decodeCollabAuthorityTransferProposal,
+  decodeCollabAuthorityTransferStatus,
   decodeCollabTransferredMembershipClaim,
   decodeCollabTransferredMembershipClaimBatch,
   decodeCollabTransferredMembershipClaimCustodyReceipt,
@@ -50,10 +52,11 @@ function custodyReceipt(overrides: Record<string, unknown> = {}) {
     batchSha256: 'b'.repeat(64),
     checkpointSha256: SHA256,
     committedAt: NOW,
+    custodyAuthority: { generation: 3, kind: 'lan' },
     operationIntentId: 'intent_1',
     projectId: 'project_1',
     receiptId: 'custody_receipt_1',
-    sourceHostMemberId: 'member_1',
+    submittedByMemberId: 'member_1',
     targetAuthorityGeneration: 4,
     transferId: 'transfer_1',
     ...overrides,
@@ -62,8 +65,10 @@ function custodyReceipt(overrides: Record<string, unknown> = {}) {
 
 function redemptionReceipt(overrides: Record<string, unknown> = {}) {
   return {
+    checkpointSha256: SHA256,
     claimSha256: 'c'.repeat(64),
     memberId: 'member_2',
+    operationIntentId: 'claim_intent_1',
     projectId: 'project_1',
     receiptId: 'redemption_receipt_1',
     receiptKeyId: 'receipt-key-2026-08',
@@ -71,6 +76,24 @@ function redemptionReceipt(overrides: Record<string, unknown> = {}) {
     signature: 'c2lnbmF0dXJl',
     signatureAlgorithm: 'ed25519',
     targetAuthorityGeneration: 4,
+    transferId: 'transfer_1',
+    ...overrides,
+  };
+}
+
+function relinquishmentProof(overrides: Record<string, unknown> = {}) {
+  return {
+    batchRevision: 2,
+    batchSha256: 'b'.repeat(64),
+    certificate: 'c291cmNlLXNpZ25hdHVyZQ',
+    certificateAlgorithm: 'ed25519',
+    checkpointSha256: SHA256,
+    committedAt: NOW,
+    operationIntentId: 'relinquish_intent_1',
+    projectId: 'project_1',
+    sourceAuthority: { generation: 3, kind: 'lan' },
+    sourceHostMemberId: 'member_1',
+    targetAuthority: { generation: 4, kind: 'cloud' },
     transferId: 'transfer_1',
     ...overrides,
   };
@@ -169,22 +192,114 @@ describe('Project authority transfer contract', () => {
   });
 
   it('binds a relinquishment proof to the exact source, target, transfer, and checkpoint', () => {
-    const proof = {
-      certificate: 'c291cmNlLXNpZ25hdHVyZQ',
-      certificateAlgorithm: 'ed25519',
-      checkpointSha256: SHA256,
-      committedAt: NOW,
-      projectId: 'project_1',
-      sourceAuthority: { generation: 3, kind: 'lan' },
-      sourceHostMemberId: 'member_1',
-      targetAuthority: { generation: 4, kind: 'cloud' },
-      transferId: 'transfer_1',
-    };
+    const proof = relinquishmentProof();
     expect(decodeCollabAuthorityRelinquishmentProof(proof)).toEqual(proof);
     expect(() => decodeCollabAuthorityRelinquishmentProof({
       ...proof,
       targetAuthority: { generation: 5, kind: 'cloud' },
     })).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('binds signed receipts and relinquishment proofs to checkpoint and operation intent', () => {
+    expect(decodeCollabTransferredMembershipRedemptionReceipt(redemptionReceipt()))
+      .toEqual(redemptionReceipt());
+    expect(() => decodeCollabTransferredMembershipRedemptionReceipt({
+      ...redemptionReceipt(),
+      checkpointSha256: 'd'.repeat(64),
+      futureSwapMarker: true,
+    })).toThrow('collab.error.protocol-payload-invalid');
+    expect(decodeCollabAuthorityRelinquishmentProof(relinquishmentProof()))
+      .toEqual(relinquishmentProof());
+    expect(() => decodeCollabAuthorityRelinquishmentProof({
+      ...relinquishmentProof(),
+      operationIntentId: '',
+    })).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('round-trips a manifest-bound Cloud-to-LAN stage report with exact claim custody', () => {
+    const request = {
+      checkpointSha256: SHA256,
+      claimBatch: claimBatch({
+        projectId: 'project_1',
+        targetAuthorityGeneration: 5,
+        transferId: 'transfer_2',
+      }),
+      idempotencyKey: 'stage_intent_1',
+      projectId: 'project_1',
+      stageSha256: 'd'.repeat(64),
+      targetAuthority: { generation: 5, kind: 'lan' },
+      targetProof: 'dGFyZ2V0LXByb29m',
+      transferId: 'transfer_2',
+    };
+    expect(decodeCollabAuthorityTransferOperationRequest(
+      'reportCloudToLanTargetStaged',
+      request,
+    )).toEqual(request);
+    expect(() => decodeCollabAuthorityTransferOperationRequest(
+      'reportCloudToLanTargetStaged',
+      { ...request, claimBatch: { ...request.claimBatch, checkpointSha256: 'e'.repeat(64) } },
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('requires a client-generated credential hash only for LAN claim redemption', () => {
+    const common = {
+      claim: 'claim_for_member_2',
+      idempotencyKey: 'claim_intent_1',
+      projectId: 'project_1',
+      transferId: 'transfer_1',
+    };
+    const cloudClaim = common;
+    const lanClaim = {
+      ...common,
+      credentialHash: SHA256,
+    };
+    expect(decodeCollabAuthorityTransferOperationRequest(
+      'claimTransferredMembership',
+      cloudClaim,
+    )).toEqual(cloudClaim);
+    expect(decodeCollabAuthorityTransferOperationRequest(
+      'claimTransferredMembership',
+      lanClaim,
+    )).toEqual(lanClaim);
+    expect(() => decodeCollabAuthorityTransferOperationRequest(
+      'claimTransferredMembership',
+      { ...common, credentialHash: 'd'.repeat(63) },
+    )).toThrow('collab.error.protocol-payload-invalid');
+    expect(() => decodeCollabAuthorityTransferOperationRequest(
+      'claimTransferredMembership',
+      { ...cloudClaim, credentialHash: '' },
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('exposes the exact retained claim batch fence in status and rotation', () => {
+    const status = {
+      batchRevision: 2,
+      batchSha256: 'b'.repeat(64),
+      checkpointSha256: SHA256,
+      createdAt: NOW,
+      direction: 'cloud-to-lan',
+      expiresAt: LATER,
+      phase: 'claims-retained',
+      projectId: 'project_1',
+      sourceAuthority: { generation: 4, kind: 'cloud' },
+      state: 'active',
+      targetAuthority: { generation: 5, kind: 'lan' },
+      targetUrl: 'https://lan-target.invalid:54545',
+      transferId: 'transfer_2',
+      updatedAt: NOW,
+    };
+    expect(decodeCollabAuthorityTransferStatus(status)).toEqual(status);
+    const rotate = {
+      expectedBatchRevision: 2,
+      expectedBatchSha256: 'b'.repeat(64),
+      idempotencyKey: 'rotate_intent_1',
+      projectId: 'project_1',
+      transferId: 'transfer_2',
+    };
+    expect(decodeCollabAuthorityTransferOperationRequest(
+      'rotateTransferredMembershipClaims',
+      rotate,
+    )).toEqual(rotate);
   });
 
   it.each([
@@ -193,7 +308,7 @@ describe('Project authority transfer contract', () => {
     redemptionReceipt({ signature: '' }),
     redemptionReceipt({ signatureAlgorithm: 'rsa' }),
   ])('fails closed on modified receipts %#', (input) => {
-    const decoder = Object.hasOwn(input, 'operationIntentId')
+    const decoder = Object.hasOwn(input, 'committedAt')
       ? decodeCollabTransferredMembershipClaimCustodyReceipt
       : decodeCollabTransferredMembershipRedemptionReceipt;
     expect(() => decoder(input)).toThrow('collab.error.protocol-payload-invalid');

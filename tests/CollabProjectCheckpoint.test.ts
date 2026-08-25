@@ -12,12 +12,25 @@ import {
   encodeCollabProjectCheckpointCoordinationNdjson,
   encodeCollabProjectCheckpointManifestCanonicalJson,
   encodeCollabProjectCheckpointManifestDigestInput,
+  validateCollabProjectCheckpointConsistency,
 } from '../src/CollabProjectCheckpoint';
 
 const NOW = '2026-08-25T00:00:00.000Z';
 const MAIN = '1'.repeat(40);
 const MEMBER = '2'.repeat(40);
 const SHA256 = 'a'.repeat(64);
+const MERGE = '3'.repeat(40);
+
+function retirementResult() {
+  return {
+    acknowledgementRequired: true,
+    kind: 'project-retired',
+    projectId: 'project_1',
+    retiredAt: NOW,
+    retirementId: 'retirement_1',
+    terminalExpiresAt: '2026-09-24T00:00:00.000Z',
+  };
+}
 
 function manifest(overrides: Record<string, unknown> = {}) {
   return {
@@ -60,8 +73,10 @@ function portableRecords() {
       recordId: 'project_1',
       revision: 7,
       value: {
+        activatedAt: NOW,
         authorityGeneration: 3,
         createdAt: NOW,
+        expectedMainOid: MAIN,
         managerSetGeneration: 2,
         name: 'Private project',
         projectId: 'project_1',
@@ -79,6 +94,111 @@ function portableRecords() {
         personalRef: 'refs/heads/members/member_1',
         role: 'manager',
         status: 'active',
+        revokedAt: null,
+        updatedAt: NOW,
+      },
+    },
+    {
+      kind: 'member',
+      recordId: 'member_2',
+      revision: 5,
+      value: {
+        activatedAt: NOW,
+        createdAt: NOW,
+        displayName: 'Bob',
+        memberId: 'member_2',
+        personalRef: 'refs/heads/members/member_2',
+        role: 'member',
+        status: 'revoked',
+        revokedAt: '2026-08-25T01:00:00.000Z',
+        updatedAt: '2026-08-25T01:00:00.000Z',
+      },
+    },
+    {
+      kind: 'request',
+      recordId: 'request_1',
+      revision: 3,
+      value: {
+        createdAt: NOW,
+        description: 'Merged work',
+        firstBaseOid: MAIN,
+        latestHeadOid: MEMBER,
+        memberId: 'member_1',
+        mergedOid: MERGE,
+        requestId: 'request_1',
+        status: 'merged',
+        updatedAt: '2026-08-25T01:00:00.000Z',
+      },
+    },
+    {
+      kind: 'request-comment',
+      recordId: 'request_comment_1',
+      revision: 1,
+      value: {
+        authorMemberId: 'member_1',
+        body: 'Ready',
+        commentId: 'request_comment_1',
+        createdAt: NOW,
+        requestId: 'request_1',
+      },
+    },
+    {
+      kind: 'ticket',
+      recordId: 'ticket_1',
+      revision: 4,
+      value: {
+        authorMemberId: 'member_1',
+        body: 'Track the change',
+        closedAt: '2026-08-25T01:00:00.000Z',
+        closedByMemberId: 'member_1',
+        createdAt: NOW,
+        number: 1,
+        status: 'closed',
+        ticketId: 'ticket_1',
+        title: 'Change',
+        updatedAt: '2026-08-25T01:00:00.000Z',
+      },
+    },
+    {
+      kind: 'ticket-comment',
+      recordId: 'ticket_comment_1',
+      revision: 1,
+      value: {
+        authorMemberId: 'member_1',
+        body: 'Done',
+        commentId: 'ticket_comment_1',
+        createdAt: NOW,
+        ticketId: 'ticket_1',
+      },
+    },
+    {
+      kind: 'ticket-relation',
+      recordId: 'relation_1',
+      revision: 2,
+      value: {
+        acceptedAt: '2026-08-25T01:00:00.000Z',
+        acceptedMergeOid: MERGE,
+        commitOid: MEMBER,
+        createdAt: NOW,
+        createdByMemberId: 'member_1',
+        kind: 'resolves',
+        relationId: 'relation_1',
+        requestId: 'request_1',
+        state: 'accepted',
+        ticketId: 'ticket_1',
+        updatedAt: '2026-08-25T01:00:00.000Z',
+      },
+    },
+    {
+      kind: 'ticket-mention',
+      recordId: 'ticket_1:comment:ticket_comment_1:member_2',
+      revision: 1,
+      value: {
+        createdAt: NOW,
+        mentionedMemberId: 'member_2',
+        sourceId: 'ticket_comment_1',
+        sourceKind: 'comment',
+        ticketId: 'ticket_1',
       },
     },
   ];
@@ -93,6 +213,9 @@ function protectedClaimEnvelopeRecord() {
       associatedData: {
         authorityGeneration: 4,
         checkpointSha256: SHA256,
+        claimSha256: 'e'.repeat(64),
+        envelopeVersion: 1,
+        environmentIdentity: 'environment_1',
         memberId: 'member_2',
         projectId: 'project_1',
         transferId: 'transfer_1',
@@ -113,14 +236,6 @@ function protectedClaimEnvelopeRecord() {
 }
 
 function operationalBackupRecords() {
-  const retirementResult = {
-    acknowledgementRequired: true,
-    kind: 'project-retired',
-    projectId: 'project_1',
-    retiredAt: NOW,
-    retirementId: 'retirement_1',
-    terminalExpiresAt: '2026-09-24T00:00:00.000Z',
-  };
   return [
     {
       kind: 'cloud-event',
@@ -142,11 +257,13 @@ function operationalBackupRecords() {
       recordId: 'intent_1',
       revision: 1,
       value: {
-        completedAt: NOW,
+        createdAt: NOW,
+        idempotencyKey: 'intent_1',
+        memberId: 'member_1',
         operation: 'retireProject',
         projectId: 'project_1',
-        requestSha256: SHA256,
-        responseJson: JSON.stringify(retirementResult),
+        requestFingerprint: SHA256,
+        responseJson: JSON.stringify(retirementResult()),
       },
     },
     {
@@ -176,11 +293,15 @@ function operationalBackupRecords() {
       recordId: 'operation_1',
       revision: 1,
       value: {
+        batchRevision: 2,
+        batchSha256: 'b'.repeat(64),
+        checkpointSha256: SHA256,
+        direction: 'lan-to-cloud',
         operationId: 'operation_1',
         operationKind: 'authority-transfer',
         phase: 'claims-retained',
         projectId: 'project_1',
-        stateJson: '{"batchRevision":2}',
+        updatedAt: NOW,
       },
     },
     {
@@ -189,9 +310,10 @@ function operationalBackupRecords() {
       revision: 1,
       value: {
         expiresAt: '2026-09-24T00:00:00.000Z',
+        operation: 'retireProject',
         operationId: 'retirement_1',
         projectId: 'project_1',
-        responseJson: JSON.stringify(retirementResult),
+        responseJson: JSON.stringify(retirementResult()),
       },
     },
     protectedClaimEnvelopeRecord(),
@@ -291,7 +413,32 @@ describe('Project checkpoint contract', () => {
 
     const digestInput = encodeCollabProjectCheckpointManifestDigestInput(decoded);
     expect(digestInput).not.toContain('manifestSha256');
-    expect(createHash('sha256').update(digestInput).digest('hex')).toHaveLength(64);
+    expect(createHash('sha256').update(digestInput).digest('hex'))
+      .toBe('0a92e363b1819358694fb8ce38c8ebdc250e317c08b0c5df9a15f8e0083ef4b4');
+  });
+
+  it('binds one decoded coordination set to the manifest Project and authority fences', () => {
+    const records = decodeCollabProjectCheckpointCoordinationNdjson(
+      portableRecords().map(record => JSON.stringify(record)).join('\n') + '\n',
+      'authority-transfer',
+    );
+    expect(validateCollabProjectCheckpointConsistency(
+      decodeCollabProjectCheckpointManifest(manifest()),
+      records,
+    )).toBe(records);
+    for (const inconsistentManifest of [
+      manifest({ projectId: 'project_2' }),
+      manifest({ expectedMainOid: MEMBER, refs: [
+        { name: 'refs/heads/main', oid: MEMBER },
+        { name: 'refs/heads/members/member_1', oid: MEMBER },
+      ] }),
+      manifest({ sourceAuthority: { generation: 2, kind: 'lan' } }),
+    ]) {
+      expect(() => validateCollabProjectCheckpointConsistency(
+        decodeCollabProjectCheckpointManifest(inconsistentManifest),
+        records,
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
   });
 
   it.each([
@@ -316,7 +463,7 @@ describe('Project checkpoint contract', () => {
       .toThrow('collab.error.protocol-payload-invalid');
   });
 
-  it('round-trips canonical portable records as newline-terminated NDJSON', () => {
+  it('round-trips the complete canonical portable vocabulary as newline-terminated NDJSON', () => {
     const ndjson = portableRecords().map(record => JSON.stringify(record)).join('\n') + '\n';
     const decoded = decodeCollabProjectCheckpointCoordinationNdjson(
       ndjson,
@@ -325,6 +472,37 @@ describe('Project checkpoint contract', () => {
     expect(decoded).toEqual(portableRecords());
     expect(encodeCollabProjectCheckpointCoordinationNdjson(decoded, 'authority-transfer'))
       .toBe(ndjson);
+  });
+
+  it('preserves the valid zero Manager-set generation and rejects impossible history', () => {
+    type MutableTestRecord = {
+      kind: string;
+      recordId: string;
+      revision: number;
+      value: Record<string, unknown>;
+    };
+    const zeroGeneration = portableRecords() as unknown as MutableTestRecord[];
+    zeroGeneration[0] = {
+      ...zeroGeneration[0],
+      value: { ...zeroGeneration[0].value, managerSetGeneration: 0 },
+    };
+    expect(decodeCollabProjectCheckpointCoordinationNdjson(
+      zeroGeneration.map(record => JSON.stringify(record)).join('\n') + '\n',
+      'export',
+    )).toEqual(zeroGeneration);
+
+    const impossibleMember = portableRecords() as unknown as MutableTestRecord[];
+    impossibleMember[1] = {
+      ...impossibleMember[1],
+      value: {
+        ...impossibleMember[1].value,
+        updatedAt: '2026-08-24T00:00:00.000Z',
+      },
+    };
+    expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+      impossibleMember.map(record => JSON.stringify(record)).join('\n') + '\n',
+      'export',
+    )).toThrow('collab.error.protocol-payload-invalid');
   });
 
   it('permits protected claim envelopes only in backups and never plaintext claims', () => {
@@ -350,10 +528,53 @@ describe('Project checkpoint contract', () => {
       .toEqual(records);
     expect(() => decodeCollabProjectCheckpointCoordinationNdjson(ndjson, 'export'))
       .toThrow('collab.error.protocol-payload-invalid');
-    expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
-      ndjson.replace('\\"batchRevision\\":2', '\\"rawClaim\\":\\"secret\\"'),
-      'backup',
-    )).toThrow('collab.error.protocol-payload-invalid');
+    for (const secretField of ['claimToken', 'credentialHash', 'filesystemPath']) {
+      const unsafe = records.map(record => record.kind === 'idempotency-result'
+        ? {
+          ...record,
+          value: {
+            ...record.value,
+            responseJson: JSON.stringify({ ...retirementResult(), [secretField]: 'secret' }),
+          },
+        }
+        : record);
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        unsafe.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it('rejects a second Project root and cross-Project operational records', () => {
+    const secondProject = {
+      ...portableRecords()[0],
+      recordId: 'project_2',
+      value: { ...portableRecords()[0].value, projectId: 'project_2' },
+    };
+    const placement = operationalBackupRecords().find(
+      record => record.kind === 'repository-placement',
+    );
+    expect(placement).toBeDefined();
+    const crossProjectPlacement = {
+      ...placement,
+      value: { ...placement!.value, projectId: 'project_2' },
+    };
+    for (const records of [
+      [portableRecords()[0], secondProject],
+      [...portableRecords(), crossProjectPlacement],
+    ]) {
+      const sorted = records.slice().sort((left, right) => {
+        const leftRecord = left as { readonly kind: string; readonly recordId: string };
+        const rightRecord = right as { readonly kind: string; readonly recordId: string };
+        const kinds = COLLAB_CHECKPOINT_BACKUP_RECORD_KINDS as readonly string[];
+        return kinds.indexOf(leftRecord.kind) - kinds.indexOf(rightRecord.kind)
+          || leftRecord.recordId.localeCompare(rightRecord.recordId, 'en-US');
+      });
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        sorted.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
   });
 
   it.each([

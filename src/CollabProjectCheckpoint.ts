@@ -7,6 +7,11 @@ import {
   COLLAB_MEMBER_REF_PREFIX,
   COLLAB_PROTOCOL_VERSION,
 } from './CollabConstants';
+import {
+  COLLAB_CONTROL_OPERATION_CODECS,
+  type CollabControlOperation,
+  collabControlOperationCodec,
+} from './CollabControlOperationCodecs';
 import { CollabError } from './CollabError';
 import {
   hasUtf8ByteLengthAtMost,
@@ -119,8 +124,10 @@ interface CollabCheckpointRecordBase<Kind extends string, Value> {
 }
 
 export type CollabCheckpointProjectRecord = CollabCheckpointRecordBase<'project', {
+  readonly activatedAt: CollabIsoTimestamp;
   readonly authorityGeneration: number;
   readonly createdAt: CollabIsoTimestamp;
+  readonly expectedMainOid: CollabGitOid;
   readonly managerSetGeneration: number;
   readonly name: string;
   readonly projectId: CollabProjectId;
@@ -133,17 +140,20 @@ export type CollabCheckpointMemberRecord = CollabCheckpointRecordBase<'member', 
   readonly memberId: CollabMemberId;
   readonly personalRef: string;
   readonly role: 'manager' | 'member';
-  readonly status: 'active' | 'left' | 'retired';
+  readonly status: 'active' | 'left' | 'revoked';
+  readonly revokedAt: CollabIsoTimestamp | null;
+  readonly updatedAt: CollabIsoTimestamp;
 }>;
 
 export type CollabCheckpointRequestRecord = CollabCheckpointRecordBase<'request', {
-  readonly baseOid: CollabGitOid;
   readonly createdAt: CollabIsoTimestamp;
   readonly description: string;
-  readonly headOid: CollabGitOid;
+  readonly firstBaseOid: CollabGitOid;
+  readonly latestHeadOid: CollabGitOid;
   readonly memberId: CollabMemberId;
+  readonly mergedOid: CollabGitOid | null;
   readonly requestId: string;
-  readonly status: 'accepted' | 'closed' | 'open';
+  readonly status: 'discarded' | 'merged' | 'open';
   readonly updatedAt: CollabIsoTimestamp;
 }>;
 
@@ -158,6 +168,8 @@ export type CollabCheckpointRequestCommentRecord = CollabCheckpointRecordBase<'r
 export type CollabCheckpointTicketRecord = CollabCheckpointRecordBase<'ticket', {
   readonly authorMemberId: CollabMemberId;
   readonly body: string;
+  readonly closedAt: CollabIsoTimestamp | null;
+  readonly closedByMemberId: CollabMemberId | null;
   readonly createdAt: CollabIsoTimestamp;
   readonly number: number;
   readonly status: 'closed' | 'open';
@@ -175,16 +187,24 @@ export type CollabCheckpointTicketCommentRecord = CollabCheckpointRecordBase<'ti
 }>;
 
 export type CollabCheckpointTicketRelationRecord = CollabCheckpointRecordBase<'ticket-relation', {
+  readonly acceptedAt: CollabIsoTimestamp | null;
+  readonly acceptedMergeOid: CollabGitOid | null;
+  readonly commitOid: CollabGitOid;
   readonly createdAt: CollabIsoTimestamp;
-  readonly relationKind: 'accepted' | 'resolving';
+  readonly createdByMemberId: CollabMemberId;
+  readonly kind: 'references' | 'resolves';
+  readonly relationId: string;
   readonly requestId: string;
+  readonly state: 'accepted' | 'pending';
   readonly ticketId: string;
+  readonly updatedAt: CollabIsoTimestamp;
 }>;
 
 export type CollabCheckpointTicketMentionRecord = CollabCheckpointRecordBase<'ticket-mention', {
   readonly createdAt: CollabIsoTimestamp;
+  readonly mentionedMemberId: CollabMemberId;
   readonly sourceId: string;
-  readonly sourceKind: 'request-comment' | 'request-description';
+  readonly sourceKind: 'comment' | 'description';
   readonly ticketId: string;
 }>;
 
@@ -194,10 +214,12 @@ export type CollabCheckpointCloudEventRecord = CollabCheckpointRecordBase<'cloud
 
 export type CollabCheckpointIdempotencyResultRecord =
   CollabCheckpointRecordBase<'idempotency-result', {
-    readonly completedAt: CollabIsoTimestamp;
-    readonly operation: string;
+    readonly createdAt: CollabIsoTimestamp;
+    readonly idempotencyKey: string;
+    readonly memberId: CollabMemberId;
+    readonly operation: CollabControlOperation;
     readonly projectId: CollabProjectId;
-    readonly requestSha256: string;
+    readonly requestFingerprint: string;
     readonly responseJson: string;
   }>;
 
@@ -219,16 +241,21 @@ export type CollabCheckpointRepositoryPlacementRecord =
 
 export type CollabCheckpointLifecycleStateRecord =
   CollabCheckpointRecordBase<'lifecycle-state', {
+    readonly batchRevision: number | null;
+    readonly batchSha256: string | null;
+    readonly checkpointSha256: string | null;
+    readonly direction: 'cloud-to-lan' | 'lan-to-cloud' | null;
     readonly operationId: string;
     readonly operationKind: 'authority-transfer' | 'backup' | 'delete' | 'retire';
     readonly phase: string;
     readonly projectId: CollabProjectId;
-    readonly stateJson: string;
+    readonly updatedAt: CollabIsoTimestamp;
   }>;
 
 export type CollabCheckpointTerminalResponderRecord =
   CollabCheckpointRecordBase<'terminal-responder', {
     readonly expiresAt: CollabIsoTimestamp;
+    readonly operation: CollabControlOperation;
     readonly operationId: string;
     readonly projectId: CollabProjectId;
     readonly responseJson: string;
@@ -237,6 +264,9 @@ export type CollabCheckpointTerminalResponderRecord =
 export interface CollabProtectedClaimAssociatedData {
   readonly authorityGeneration: number;
   readonly checkpointSha256: string;
+  readonly claimSha256: string;
+  readonly envelopeVersion: number;
+  readonly environmentIdentity: string;
   readonly memberId: CollabMemberId;
   readonly projectId: CollabProjectId;
   readonly transferId: string;
@@ -377,6 +407,14 @@ function positiveInteger(source: UnknownRecord, field: string, maximum?: number)
   return value;
 }
 
+function nonNegativeInteger(source: UnknownRecord, field: string): number {
+  const value = source[field];
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw invalidPayload(field);
+  }
+  return value;
+}
+
 function timestampValue(value: unknown, field: string): CollabIsoTimestamp {
   if (
     typeof value !== 'string'
@@ -411,27 +449,28 @@ function literal<T extends string>(
   return value as T;
 }
 
-function containsForbiddenSecretField(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(containsForbiddenSecretField);
-  if (typeof value !== 'object' || value === null) return false;
-  return Object.entries(value).some(([key, item]) => (
-    /^(?:claim|rawClaim|credential|token|privateKey|secret|path)$/iu.test(key)
-    || containsForbiddenSecretField(item)
-  ));
+function controlOperation(source: UnknownRecord, field: string): CollabControlOperation {
+  const value = source[field];
+  if (typeof value !== 'string' || !Object.hasOwn(COLLAB_CONTROL_OPERATION_CODECS, value)) {
+    throw invalidPayload(field);
+  }
+  return value as CollabControlOperation;
 }
 
-function canonicalSafeJson(source: UnknownRecord, field: string, maximumBytes: number): string {
-  const value = boundedString(source, field, maximumBytes, true);
+function canonicalOperationResponseJson(
+  source: UnknownRecord,
+  field: string,
+  operation: CollabControlOperation,
+): string {
+  const value = boundedString(source, field, 512 * 1024, true);
   let decoded: unknown;
   try {
     decoded = JSON.parse(value) as unknown;
+    const operationResponse = collabControlOperationCodec(operation).decodeResponse(decoded);
+    if (JSON.stringify(operationResponse) !== value) throw invalidPayload(field);
   } catch {
     throw invalidPayload(field);
   }
-  if (
-    JSON.stringify(decoded) !== value
-    || containsForbiddenSecretField(decoded)
-  ) throw invalidPayload(field);
   return value;
 }
 
@@ -615,22 +654,29 @@ function recordEnvelope(
 
 function projectRecord(source: UnknownRecord, recordId: string, revision: number) {
   const value = exactRecord(source.value, 'value', [
+    'activatedAt',
     'authorityGeneration',
     'createdAt',
+    'expectedMainOid',
     'managerSetGeneration',
     'name',
     'projectId',
   ]);
   const projectId = token(value, 'projectId', isCollabProjectId);
   if (recordId !== projectId) throw invalidPayload('recordId');
+  const createdAt = timestamp(value, 'createdAt');
+  const activatedAt = timestamp(value, 'activatedAt');
+  if (Date.parse(activatedAt) < Date.parse(createdAt)) throw invalidPayload('activatedAt');
   return {
     kind: 'project' as const,
     recordId,
     revision,
     value: {
+      activatedAt,
       authorityGeneration: positiveInteger(value, 'authorityGeneration'),
-      createdAt: timestamp(value, 'createdAt'),
-      managerSetGeneration: positiveInteger(value, 'managerSetGeneration'),
+      createdAt,
+      expectedMainOid: token(value, 'expectedMainOid', isCollabGitOid),
+      managerSetGeneration: nonNegativeInteger(value, 'managerSetGeneration'),
       name: boundedString(value, 'name', 1024),
       projectId,
     },
@@ -646,53 +692,84 @@ function memberRecord(source: UnknownRecord, recordId: string, revision: number)
     'personalRef',
     'role',
     'status',
+    'revokedAt',
+    'updatedAt',
   ]);
   const memberId = token(value, 'memberId', isCollabMemberId);
   if (recordId !== memberId) throw invalidPayload('recordId');
   const personalRef = boundedString(value, 'personalRef', 512);
   if (personalRef !== `${COLLAB_MEMBER_REF_PREFIX}${memberId}`) throw invalidPayload('personalRef');
+  const activatedAt = nullableTimestamp(value, 'activatedAt');
+  const revokedAt = nullableTimestamp(value, 'revokedAt');
+  const createdAt = timestamp(value, 'createdAt');
+  const updatedAt = timestamp(value, 'updatedAt');
+  const status = literal(value, 'status', ['active', 'left', 'revoked']);
+  if (
+    (status === 'active' && (activatedAt === null || revokedAt !== null))
+    || (status !== 'active' && revokedAt === null)
+    || Date.parse(updatedAt) < Date.parse(createdAt)
+    || (activatedAt !== null && Date.parse(activatedAt) < Date.parse(createdAt))
+    || (revokedAt !== null && (
+      Date.parse(revokedAt) < Date.parse(createdAt)
+      || Date.parse(revokedAt) > Date.parse(updatedAt)
+    ))
+  ) throw invalidPayload('status');
   return {
     kind: 'member' as const,
     recordId,
     revision,
     value: {
-      activatedAt: nullableTimestamp(value, 'activatedAt'),
-      createdAt: timestamp(value, 'createdAt'),
+      activatedAt,
+      createdAt,
       displayName: boundedString(value, 'displayName', 1024),
       memberId,
       personalRef,
       role: literal(value, 'role', ['manager', 'member']),
-      status: literal(value, 'status', ['active', 'left', 'retired']),
+      status,
+      revokedAt,
+      updatedAt,
     },
   };
 }
 
 function requestRecord(source: UnknownRecord, recordId: string, revision: number) {
   const value = exactRecord(source.value, 'value', [
-    'baseOid',
     'createdAt',
     'description',
-    'headOid',
+    'firstBaseOid',
+    'latestHeadOid',
     'memberId',
+    'mergedOid',
     'requestId',
     'status',
     'updatedAt',
   ]);
   const requestId = token(value, 'requestId');
   if (recordId !== requestId) throw invalidPayload('recordId');
+  const status = literal(value, 'status', ['discarded', 'merged', 'open']);
+  const mergedOid = value.mergedOid === null
+    ? null
+    : token(value, 'mergedOid', isCollabGitOid);
+  const createdAt = timestamp(value, 'createdAt');
+  const updatedAt = timestamp(value, 'updatedAt');
+  if (
+    (status === 'merged') !== (mergedOid !== null)
+    || Date.parse(updatedAt) < Date.parse(createdAt)
+  ) throw invalidPayload('status');
   return {
     kind: 'request' as const,
     recordId,
     revision,
     value: {
-      baseOid: token(value, 'baseOid', isCollabGitOid),
-      createdAt: timestamp(value, 'createdAt'),
+      createdAt,
       description: boundedString(value, 'description', 16 * 1024, true),
-      headOid: token(value, 'headOid', isCollabGitOid),
+      firstBaseOid: token(value, 'firstBaseOid', isCollabGitOid),
+      latestHeadOid: token(value, 'latestHeadOid', isCollabGitOid),
       memberId: token(value, 'memberId', isCollabMemberId),
+      mergedOid,
       requestId,
-      status: literal(value, 'status', ['accepted', 'closed', 'open']),
-      updatedAt: timestamp(value, 'updatedAt'),
+      status,
+      updatedAt,
     },
   };
 }
@@ -725,6 +802,8 @@ function ticketRecord(source: UnknownRecord, recordId: string, revision: number)
   const value = exactRecord(source.value, 'value', [
     'authorMemberId',
     'body',
+    'closedAt',
+    'closedByMemberId',
     'createdAt',
     'number',
     'status',
@@ -734,6 +813,19 @@ function ticketRecord(source: UnknownRecord, recordId: string, revision: number)
   ]);
   const ticketId = token(value, 'ticketId');
   if (recordId !== ticketId) throw invalidPayload('recordId');
+  const status = literal(value, 'status', ['closed', 'open']);
+  const closedAt = nullableTimestamp(value, 'closedAt');
+  const closedByMemberId = value.closedByMemberId === null
+    ? null
+    : token(value, 'closedByMemberId', isCollabMemberId);
+  const createdAt = timestamp(value, 'createdAt');
+  const updatedAt = timestamp(value, 'updatedAt');
+  if (
+    (status === 'open' && (closedAt !== null || closedByMemberId !== null))
+    || (status === 'closed' && (closedAt === null || closedByMemberId === null))
+    || Date.parse(updatedAt) < Date.parse(createdAt)
+    || (closedAt !== null && Date.parse(closedAt) < Date.parse(createdAt))
+  ) throw invalidPayload('status');
   return {
     kind: 'ticket' as const,
     recordId,
@@ -741,12 +833,14 @@ function ticketRecord(source: UnknownRecord, recordId: string, revision: number)
     value: {
       authorMemberId: token(value, 'authorMemberId', isCollabMemberId),
       body: boundedString(value, 'body', 32 * 1024, true),
-      createdAt: timestamp(value, 'createdAt'),
+      closedAt,
+      closedByMemberId,
+      createdAt,
       number: positiveInteger(value, 'number'),
-      status: literal(value, 'status', ['closed', 'open']),
+      status,
       ticketId,
       title: boundedString(value, 'title', 1024),
-      updatedAt: timestamp(value, 'updatedAt'),
+      updatedAt,
     },
   };
 }
@@ -777,20 +871,49 @@ function ticketCommentRecord(source: UnknownRecord, recordId: string, revision: 
 
 function ticketRelationRecord(source: UnknownRecord, recordId: string, revision: number) {
   const value = exactRecord(source.value, 'value', [
+    'acceptedAt',
+    'acceptedMergeOid',
+    'commitOid',
     'createdAt',
-    'relationKind',
+    'createdByMemberId',
+    'kind',
+    'relationId',
     'requestId',
+    'state',
     'ticketId',
+    'updatedAt',
   ]);
+  const relationId = token(value, 'relationId');
+  if (recordId !== relationId) throw invalidPayload('recordId');
+  const state = literal(value, 'state', ['accepted', 'pending']);
+  const acceptedAt = nullableTimestamp(value, 'acceptedAt');
+  const acceptedMergeOid = value.acceptedMergeOid === null
+    ? null
+    : token(value, 'acceptedMergeOid', isCollabGitOid);
+  const createdAt = timestamp(value, 'createdAt');
+  const updatedAt = timestamp(value, 'updatedAt');
+  if (
+    (state === 'pending' && (acceptedAt !== null || acceptedMergeOid !== null))
+    || (state === 'accepted' && (acceptedAt === null || acceptedMergeOid === null))
+    || Date.parse(updatedAt) < Date.parse(createdAt)
+    || (acceptedAt !== null && Date.parse(acceptedAt) < Date.parse(createdAt))
+  ) throw invalidPayload('state');
   return {
     kind: 'ticket-relation' as const,
     recordId,
     revision,
     value: {
-      createdAt: timestamp(value, 'createdAt'),
-      relationKind: literal(value, 'relationKind', ['accepted', 'resolving']),
+      acceptedAt,
+      acceptedMergeOid,
+      commitOid: token(value, 'commitOid', isCollabGitOid),
+      createdAt,
+      createdByMemberId: token(value, 'createdByMemberId', isCollabMemberId),
+      kind: literal(value, 'kind', ['references', 'resolves']),
+      relationId,
       requestId: token(value, 'requestId'),
+      state,
       ticketId: token(value, 'ticketId'),
+      updatedAt,
     },
   };
 }
@@ -798,6 +921,7 @@ function ticketRelationRecord(source: UnknownRecord, recordId: string, revision:
 function ticketMentionRecord(source: UnknownRecord, recordId: string, revision: number) {
   const value = exactRecord(source.value, 'value', [
     'createdAt',
+    'mentionedMemberId',
     'sourceId',
     'sourceKind',
     'ticketId',
@@ -808,8 +932,9 @@ function ticketMentionRecord(source: UnknownRecord, recordId: string, revision: 
     revision,
     value: {
       createdAt: timestamp(value, 'createdAt'),
+      mentionedMemberId: token(value, 'mentionedMemberId', isCollabMemberId),
       sourceId: token(value, 'sourceId'),
-      sourceKind: literal(value, 'sourceKind', ['request-comment', 'request-description']),
+      sourceKind: literal(value, 'sourceKind', ['comment', 'description']),
       ticketId: token(value, 'ticketId'),
     },
   };
@@ -834,22 +959,27 @@ function idempotencyResultRecord(
   revision: number,
 ): CollabCheckpointIdempotencyResultRecord {
   const value = exactRecord(source.value, 'value', [
-    'completedAt',
+    'createdAt',
+    'idempotencyKey',
+    'memberId',
     'operation',
     'projectId',
-    'requestSha256',
+    'requestFingerprint',
     'responseJson',
   ]);
+  const operation = controlOperation(value, 'operation');
   return {
     kind: 'idempotency-result',
     recordId,
     revision,
     value: {
-      completedAt: timestamp(value, 'completedAt'),
-      operation: token(value, 'operation'),
+      createdAt: timestamp(value, 'createdAt'),
+      idempotencyKey: token(value, 'idempotencyKey'),
+      memberId: token(value, 'memberId', isCollabMemberId),
+      operation,
       projectId: token(value, 'projectId', isCollabProjectId),
-      requestSha256: sha256(value, 'requestSha256'),
-      responseJson: canonicalSafeJson(value, 'responseJson', 512 * 1024),
+      requestFingerprint: sha256(value, 'requestFingerprint'),
+      responseJson: canonicalOperationResponseJson(value, 'responseJson', operation),
     },
   };
 }
@@ -910,19 +1040,41 @@ function lifecycleStateRecord(
   revision: number,
 ): CollabCheckpointLifecycleStateRecord {
   const value = exactRecord(source.value, 'value', [
+    'batchRevision',
+    'batchSha256',
+    'checkpointSha256',
+    'direction',
     'operationId',
     'operationKind',
     'phase',
     'projectId',
-    'stateJson',
+    'updatedAt',
   ]);
   const operationId = token(value, 'operationId');
   if (recordId !== operationId) throw invalidPayload('recordId');
+  const batchRevision = value.batchRevision === null
+    ? null
+    : positiveInteger(value, 'batchRevision');
+  const batchSha256 = value.batchSha256 === null ? null : sha256(value, 'batchSha256');
+  const checkpointSha256 = value.checkpointSha256 === null
+    ? null
+    : sha256(value, 'checkpointSha256');
+  const direction = value.direction === null
+    ? null
+    : literal(value, 'direction', ['cloud-to-lan', 'lan-to-cloud']);
+  if (
+    (batchRevision === null) !== (batchSha256 === null)
+    || (batchRevision !== null && checkpointSha256 === null)
+  ) throw invalidPayload('claimBatch');
   return {
     kind: 'lifecycle-state',
     recordId,
     revision,
     value: {
+      batchRevision,
+      batchSha256,
+      checkpointSha256,
+      direction,
       operationId,
       operationKind: literal(value, 'operationKind', [
         'authority-transfer',
@@ -932,7 +1084,7 @@ function lifecycleStateRecord(
       ]),
       phase: boundedString(value, 'phase', 128),
       projectId: token(value, 'projectId', isCollabProjectId),
-      stateJson: canonicalSafeJson(value, 'stateJson', 512 * 1024),
+      updatedAt: timestamp(value, 'updatedAt'),
     },
   };
 }
@@ -944,21 +1096,24 @@ function terminalResponderRecord(
 ): CollabCheckpointTerminalResponderRecord {
   const value = exactRecord(source.value, 'value', [
     'expiresAt',
+    'operation',
     'operationId',
     'projectId',
     'responseJson',
   ]);
   const operationId = token(value, 'operationId');
   if (recordId !== operationId) throw invalidPayload('recordId');
+  const operation = controlOperation(value, 'operation');
   return {
     kind: 'terminal-responder',
     recordId,
     revision,
     value: {
       expiresAt: timestamp(value, 'expiresAt'),
+      operation,
       operationId,
       projectId: token(value, 'projectId', isCollabProjectId),
-      responseJson: canonicalSafeJson(value, 'responseJson', 512 * 1024),
+      responseJson: canonicalOperationResponseJson(value, 'responseJson', operation),
     },
   };
 }
@@ -985,6 +1140,9 @@ function protectedClaimEnvelopeRecord(
   const associatedData = exactRecord(value.associatedData, 'associatedData', [
     'authorityGeneration',
     'checkpointSha256',
+    'claimSha256',
+    'envelopeVersion',
+    'environmentIdentity',
     'memberId',
     'projectId',
     'transferId',
@@ -994,6 +1152,9 @@ function protectedClaimEnvelopeRecord(
   const decodedAssociatedData: CollabProtectedClaimAssociatedData = {
     authorityGeneration: positiveInteger(associatedData, 'authorityGeneration'),
     checkpointSha256: sha256(associatedData, 'checkpointSha256'),
+    claimSha256: sha256(associatedData, 'claimSha256'),
+    envelopeVersion: positiveInteger(associatedData, 'envelopeVersion'),
+    environmentIdentity: token(associatedData, 'environmentIdentity'),
     memberId: token(associatedData, 'memberId', isCollabMemberId),
     projectId: token(associatedData, 'projectId', isCollabProjectId),
     transferId: token(associatedData, 'transferId'),
@@ -1175,6 +1336,9 @@ function validateRecordSequence(
 ): void {
   if (records.length === 0 || records[0].kind !== 'project') throw invalidPayload('records');
   const projectId = records[0].recordId;
+  if (records.filter(item => item.kind === 'project').length !== 1) {
+    throw invalidPayload('records');
+  }
   if (records.some((item, index) => index > 0 && compareRecords(records[index - 1], item) >= 0)) {
     throw invalidPayload('records');
   }
@@ -1183,6 +1347,18 @@ function validateRecordSequence(
   }
   const projectRecordValue = records[0].value;
   if (projectRecordValue.projectId !== projectId) throw invalidPayload('records');
+  for (const item of records) {
+    let itemProjectId: string | null = null;
+    if (item.kind === 'cloud-event') itemProjectId = item.value.event.projectId;
+    else if (item.kind === 'protected-claim-envelope') {
+      itemProjectId = item.value.associatedData.projectId;
+    } else if (!PORTABLE_RECORD_KIND_SET.has(item.kind)) {
+      itemProjectId = (item.value as { readonly projectId?: string }).projectId ?? null;
+    }
+    if (itemProjectId !== null && itemProjectId !== projectId) {
+      throw invalidPayload('records');
+    }
+  }
 }
 
 export function decodeCollabProjectCheckpointCoordinationNdjson(
@@ -1219,4 +1395,20 @@ export function encodeCollabProjectCheckpointCoordinationNdjson(
   const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
   return decodeCollabProjectCheckpointCoordinationNdjson(encoded, profile)
     .map(record => JSON.stringify(record)).join('\n') + '\n';
+}
+
+export function validateCollabProjectCheckpointConsistency(
+  manifest: CollabProjectCheckpointManifest,
+  records: readonly CollabCheckpointBackupRecord[],
+): readonly CollabCheckpointBackupRecord[] {
+  const decodedManifest = decodeCollabProjectCheckpointManifest(manifest);
+  validateRecordSequence(records, decodedManifest.profile);
+  const project = records[0];
+  if (
+    project.kind !== 'project'
+    || project.value.projectId !== decodedManifest.projectId
+    || project.value.authorityGeneration !== decodedManifest.sourceAuthority.generation
+    || project.value.expectedMainOid !== decodedManifest.expectedMainOid
+  ) throw invalidPayload('checkpoint');
+  return records;
 }

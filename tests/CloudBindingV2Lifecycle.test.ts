@@ -8,6 +8,7 @@ import {
   COLLAB_PROTOCOL_VERSION,
   collabCloudAuthorityTransferArtifactRoute,
   collabCloudCapabilityDocument,
+  collabCloudProjectCheckpointExportArtifactRoute,
   collabCloudProjectOperationRoute,
   decodeCollabCloudCapabilityDocument,
   matchCollabCloudRoute,
@@ -45,12 +46,19 @@ describe('Cloud binding v2 lifecycle integration', () => {
     expect(COLLAB_PROTOCOL_VERSION).toBe(5);
     expect(COLLAB_CLOUD_BINDING_VERSION).toBe(2);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
-    expect(COLLAB_CLOUD_CAPABILITIES).toEqual(expect.arrayContaining([
+    expect(COLLAB_CLOUD_CAPABILITIES).toEqual([
+      'accept',
       'authority-transfer',
-      'authority-transfer-checkpoint',
+      'development-bootstrap',
+      'git-receive-pack-personal-ref',
+      'git-upload-pack',
+      'project-checkpoint-export',
+      'project-events',
       'project-retirement',
-      'transferred-membership-claims',
-    ]));
+      'project-snapshot',
+      'requests',
+      'tickets',
+    ]);
     expect(COLLAB_CLOUD_JSON_OPERATIONS).toEqual(expect.arrayContaining([
       'requestLanToCloudTransfer',
       'beginCloudToLanTransfer',
@@ -93,6 +101,28 @@ describe('Cloud binding v2 lifecycle integration', () => {
       'PUT',
       '/v2/projects/project_1/authority-transfers/transfer_1/checkpoint/future.bin',
     )).toBeNull();
+  });
+
+  it('constructs export-scoped upload and download routes for every checkpoint artifact', () => {
+    for (const direction of ['upload', 'download'] as const) {
+      for (const artifact of [
+        'checkpoint.json',
+        'coordination.ndjson',
+        'repository.bundle',
+      ] as const) {
+        const route = collabCloudProjectCheckpointExportArtifactRoute(
+          'project_1',
+          'export_1',
+          direction,
+          artifact,
+        );
+        expect(route.target).toBe(
+          `/v2/projects/project_1/checkpoint-exports/export_1/checkpoint/${artifact}`,
+        );
+        expect(route.method).toBe(direction === 'upload' ? 'PUT' : 'GET');
+        expect(matchCollabCloudRoute(route.method, route.target)).toEqual(route.match);
+      }
+    }
   });
 
   it('moves ordinary operation routes to v2 and rejects the former binding path', () => {

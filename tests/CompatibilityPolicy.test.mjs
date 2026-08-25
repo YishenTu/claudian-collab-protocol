@@ -195,6 +195,21 @@ test('the runtime baseline covers every source module', () => {
   assert.deepEqual(actual, expected);
 });
 
+test('the wire baseline classifies every lifecycle contract module', () => {
+  const wire = generateContractSnapshot().contract.wire;
+  const declarationSources = new Set(wire.declarations.map(entry => entry.source));
+  const runtimePaths = new Set(wire.runtimeBehaviorDigests.map(entry => entry.path));
+
+  for (const moduleName of [
+    'CollabAuthorityTransfer',
+    'CollabProjectCheckpoint',
+    'CollabProjectRetirement',
+  ]) {
+    assert.equal(declarationSources.has(`./${moduleName}`), true);
+    assert.equal(runtimePaths.has(`src/${moduleName}.ts`), true);
+  }
+});
+
 test('an inline type-only root export cannot pass as a patch release', (t) => {
   const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'collab-protocol-declarations-'));
   t.after(() => rmSync(fixtureRoot, { force: true, recursive: true }));

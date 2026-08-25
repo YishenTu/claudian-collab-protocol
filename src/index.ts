@@ -67,6 +67,7 @@ export {
   encodeCollabProjectCheckpointCoordinationNdjson,
   encodeCollabProjectCheckpointManifestCanonicalJson,
   encodeCollabProjectCheckpointManifestDigestInput,
+  validateCollabProjectCheckpointConsistency,
 } from './CollabProjectCheckpoint';
 export type {
   CollabCheckpointArtifactFact,
@@ -132,6 +133,7 @@ export {
   collabCloudCapabilitiesRoute,
   collabCloudErrorEnvelope,
   collabCloudGitRoute,
+  collabCloudProjectCheckpointExportArtifactRoute,
   collabCloudProjectEventsRoute,
   collabCloudProjectOperationRoute,
   collabCloudSuccessEnvelope,

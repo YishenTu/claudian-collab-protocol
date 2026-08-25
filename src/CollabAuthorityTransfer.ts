@@ -85,10 +85,11 @@ export interface CollabTransferredMembershipClaimCustodyReceipt {
   readonly batchSha256: string;
   readonly checkpointSha256: string;
   readonly committedAt: CollabIsoTimestamp;
+  readonly custodyAuthority: CollabCheckpointAuthority;
   readonly operationIntentId: string;
   readonly projectId: CollabProjectId;
   readonly receiptId: string;
-  readonly sourceHostMemberId: CollabMemberId;
+  readonly submittedByMemberId: CollabMemberId;
   readonly targetAuthorityGeneration: number;
   readonly transferId: string;
 }
@@ -103,8 +104,10 @@ export interface CollabTransferredMembershipClaim {
 }
 
 export interface CollabTransferredMembershipRedemptionReceipt {
+  readonly checkpointSha256: string;
   readonly claimSha256: string;
   readonly memberId: CollabMemberId;
+  readonly operationIntentId: string;
   readonly projectId: CollabProjectId;
   readonly receiptId: string;
   readonly receiptKeyId: string;
@@ -116,10 +119,13 @@ export interface CollabTransferredMembershipRedemptionReceipt {
 }
 
 export interface CollabAuthorityRelinquishmentProof {
+  readonly batchRevision: number;
+  readonly batchSha256: string;
   readonly certificate: string;
   readonly certificateAlgorithm: 'ed25519';
   readonly checkpointSha256: string;
   readonly committedAt: CollabIsoTimestamp;
+  readonly operationIntentId: string;
   readonly projectId: CollabProjectId;
   readonly sourceAuthority: CollabCheckpointAuthority;
   readonly sourceHostMemberId: CollabMemberId;
@@ -128,6 +134,8 @@ export interface CollabAuthorityRelinquishmentProof {
 }
 
 export interface CollabAuthorityTransferStatus {
+  readonly batchRevision: number | null;
+  readonly batchSha256: string | null;
   readonly checkpointSha256: string | null;
   readonly createdAt: CollabIsoTimestamp;
   readonly direction: CollabAuthorityTransferDirection;
@@ -177,6 +185,7 @@ export interface GetProjectAuthorityTransferRequest {
 
 export interface RotateTransferredMembershipClaimsRequest extends CollabAuthorityMutationRequest {
   readonly expectedBatchRevision: number;
+  readonly expectedBatchSha256: string;
   readonly transferId: string;
 }
 
@@ -193,10 +202,24 @@ export interface GetTransferredMembershipClaimRequest {
   readonly transferId: string;
 }
 
-export interface ClaimTransferredMembershipRequest extends CollabAuthorityMutationRequest {
+interface ClaimTransferredMembershipRequestBase extends CollabAuthorityMutationRequest {
   readonly claim: string;
   readonly transferId: string;
 }
+
+export interface ClaimTransferredCloudMembershipRequest
+  extends ClaimTransferredMembershipRequestBase {
+  readonly credentialHash?: never;
+}
+
+export interface ClaimTransferredLanMembershipRequest
+  extends ClaimTransferredMembershipRequestBase {
+  readonly credentialHash: string;
+}
+
+export type ClaimTransferredMembershipRequest =
+  | ClaimTransferredCloudMembershipRequest
+  | ClaimTransferredLanMembershipRequest;
 
 export interface AcknowledgeTransferredMembershipClaimRedemptionRequest
   extends CollabAuthorityMutationRequest {
@@ -231,6 +254,8 @@ export interface AcceptCloudToLanTransferTargetRequest extends CollabAuthorityMu
 
 export interface ReportCloudToLanTargetStagedRequest extends CollabAuthorityMutationRequest {
   readonly checkpointSha256: string;
+  readonly claimBatch: CollabTransferredMembershipClaimBatch;
+  readonly stageSha256: string;
   readonly targetAuthority: CollabCheckpointAuthority;
   readonly targetProof: string;
   readonly transferId: string;
@@ -318,7 +343,7 @@ export interface CollabAuthorityTransferOperationMap {
   };
   readonly reportCloudToLanTargetStaged: {
     readonly request: ReportCloudToLanTargetStagedRequest;
-    readonly response: CollabAuthorityTransferStatus;
+    readonly response: CollabTransferredMembershipClaimCustodyReceipt;
   };
   readonly confirmCloudToLanTargetActive: {
     readonly request: ConfirmCloudToLanTargetActiveRequest;
@@ -519,23 +544,30 @@ export function decodeCollabTransferredMembershipClaimCustodyReceipt(
     'batchSha256',
     'checkpointSha256',
     'committedAt',
+    'custodyAuthority',
     'operationIntentId',
     'projectId',
     'receiptId',
-    'sourceHostMemberId',
+    'submittedByMemberId',
     'targetAuthorityGeneration',
     'transferId',
   ]);
+  const custodyAuthority = authority(source.custodyAuthority, 'custodyAuthority');
+  const targetAuthorityGeneration = positiveInteger(source, 'targetAuthorityGeneration');
+  if (targetAuthorityGeneration !== custodyAuthority.generation + 1) {
+    throw invalidPayload('targetAuthorityGeneration');
+  }
   return {
     batchRevision: positiveInteger(source, 'batchRevision'),
     batchSha256: sha256(source, 'batchSha256'),
     checkpointSha256: sha256(source, 'checkpointSha256'),
     committedAt: timestamp(source, 'committedAt'),
+    custodyAuthority,
     operationIntentId: token(source, 'operationIntentId'),
     projectId: token(source, 'projectId', isCollabProjectId),
     receiptId: token(source, 'receiptId'),
-    sourceHostMemberId: token(source, 'sourceHostMemberId', isCollabMemberId),
-    targetAuthorityGeneration: positiveInteger(source, 'targetAuthorityGeneration'),
+    submittedByMemberId: token(source, 'submittedByMemberId', isCollabMemberId),
+    targetAuthorityGeneration,
     transferId: token(source, 'transferId'),
   };
 }
@@ -565,8 +597,10 @@ export function decodeCollabTransferredMembershipRedemptionReceipt(
   value: unknown,
 ): CollabTransferredMembershipRedemptionReceipt {
   const source = exactRecord(value, 'redemptionReceipt', [
+    'checkpointSha256',
     'claimSha256',
     'memberId',
+    'operationIntentId',
     'projectId',
     'receiptId',
     'receiptKeyId',
@@ -577,8 +611,10 @@ export function decodeCollabTransferredMembershipRedemptionReceipt(
     'transferId',
   ]);
   return {
+    checkpointSha256: sha256(source, 'checkpointSha256'),
     claimSha256: sha256(source, 'claimSha256'),
     memberId: token(source, 'memberId', isCollabMemberId),
+    operationIntentId: token(source, 'operationIntentId'),
     projectId: token(source, 'projectId', isCollabProjectId),
     receiptId: token(source, 'receiptId'),
     receiptKeyId: boundedString(source, 'receiptKeyId', 256),
@@ -594,10 +630,13 @@ export function decodeCollabAuthorityRelinquishmentProof(
   value: unknown,
 ): CollabAuthorityRelinquishmentProof {
   const source = exactRecord(value, 'relinquishmentProof', [
+    'batchRevision',
+    'batchSha256',
     'certificate',
     'certificateAlgorithm',
     'checkpointSha256',
     'committedAt',
+    'operationIntentId',
     'projectId',
     'sourceAuthority',
     'sourceHostMemberId',
@@ -611,10 +650,13 @@ export function decodeCollabAuthorityRelinquishmentProof(
     || targetAuthority.generation !== sourceAuthority.generation + 1
   ) throw invalidPayload('targetAuthority');
   return {
+    batchRevision: positiveInteger(source, 'batchRevision'),
+    batchSha256: sha256(source, 'batchSha256'),
     certificate: base64url(source, 'certificate'),
     certificateAlgorithm: literal(source, 'certificateAlgorithm', ['ed25519']),
     checkpointSha256: sha256(source, 'checkpointSha256'),
     committedAt: timestamp(source, 'committedAt'),
+    operationIntentId: token(source, 'operationIntentId'),
     projectId: token(source, 'projectId', isCollabProjectId),
     sourceAuthority,
     sourceHostMemberId: token(source, 'sourceHostMemberId', isCollabMemberId),
@@ -651,6 +693,8 @@ export function decodeCollabAuthorityTransferStatus(
   value: unknown,
 ): CollabAuthorityTransferStatus {
   const source = exactRecord(value, 'transferStatus', [
+    'batchRevision',
+    'batchSha256',
     'checkpointSha256',
     'createdAt',
     'direction',
@@ -683,7 +727,19 @@ export function decodeCollabAuthorityTransferStatus(
   const checkpointSha256 = source.checkpointSha256 === null
     ? null
     : sha256(source, 'checkpointSha256');
+  const batchRevision = source.batchRevision === null
+    ? null
+    : positiveInteger(source, 'batchRevision');
+  const batchSha256 = source.batchSha256 === null
+    ? null
+    : sha256(source, 'batchSha256');
+  if (
+    (batchRevision === null) !== (batchSha256 === null)
+    || (batchRevision !== null && checkpointSha256 === null)
+  ) throw invalidPayload('claimBatch');
   return {
+    batchRevision,
+    batchSha256,
     checkpointSha256,
     createdAt: timestamp(source, 'createdAt'),
     direction,
@@ -776,12 +832,14 @@ function decodeRotateTransferredMembershipClaims(
 ): RotateTransferredMembershipClaimsRequest {
   const source = exactRecord(value, 'request', [
     'expectedBatchRevision',
+    'expectedBatchSha256',
     'idempotencyKey',
     'projectId',
     'transferId',
   ]);
   return {
     expectedBatchRevision: positiveInteger(source, 'expectedBatchRevision'),
+    expectedBatchSha256: sha256(source, 'expectedBatchSha256'),
     ...mutationFields(source),
     transferId: token(source, 'transferId'),
   };
@@ -814,17 +872,22 @@ function decodeGetTransferredMembershipClaim(
 }
 
 function decodeClaimTransferredMembership(value: unknown): ClaimTransferredMembershipRequest {
-  const source = exactRecord(value, 'request', [
-    'claim',
-    'idempotencyKey',
-    'projectId',
-    'transferId',
-  ]);
-  return {
+  const raw = record(value, 'request');
+  const hasCredentialHash = Object.hasOwn(raw, 'credentialHash');
+  const source = exactRecord(value, 'request', hasCredentialHash
+    ? ['claim', 'credentialHash', 'idempotencyKey', 'projectId', 'transferId']
+    : ['claim', 'idempotencyKey', 'projectId', 'transferId']);
+  const common = {
     claim: base64url(source, 'claim'),
     ...mutationFields(source),
     transferId: token(source, 'transferId'),
   };
+  return hasCredentialHash
+    ? {
+      ...common,
+      credentialHash: sha256(source, 'credentialHash'),
+    }
+    : common;
 }
 
 function decodeAcknowledgeTransferredMembershipClaimRedemption(
@@ -902,20 +965,34 @@ function decodeReportCloudToLanTargetStaged(
 ): ReportCloudToLanTargetStagedRequest {
   const source = exactRecord(value, 'request', [
     'checkpointSha256',
+    'claimBatch',
     'idempotencyKey',
     'projectId',
+    'stageSha256',
     'targetAuthority',
     'targetProof',
     'transferId',
   ]);
   const targetAuthority = authority(source.targetAuthority, 'targetAuthority');
   if (targetAuthority.kind !== 'lan') throw invalidPayload('targetAuthority');
+  const common = mutationFields(source);
+  const transferId = token(source, 'transferId');
+  const checkpointSha256 = sha256(source, 'checkpointSha256');
+  const claimBatch = decodeCollabTransferredMembershipClaimBatch(source.claimBatch);
+  if (
+    claimBatch.projectId !== common.projectId
+    || claimBatch.transferId !== transferId
+    || claimBatch.checkpointSha256 !== checkpointSha256
+    || claimBatch.targetAuthorityGeneration !== targetAuthority.generation
+  ) throw invalidPayload('claimBatch');
   return {
-    checkpointSha256: sha256(source, 'checkpointSha256'),
-    ...mutationFields(source),
+    checkpointSha256,
+    claimBatch,
+    ...common,
+    stageSha256: sha256(source, 'stageSha256'),
     targetAuthority,
     targetProof: base64url(source, 'targetProof'),
-    transferId: token(source, 'transferId'),
+    transferId,
   };
 }
 
@@ -1020,6 +1097,7 @@ export function decodeCollabAuthorityTransferOperationResponse<
       case 'rotateTransferredMembershipClaims':
         return decodeCollabTransferredMembershipClaimBatch(value);
       case 'acknowledgeTransferredMembershipClaimBatch':
+      case 'reportCloudToLanTargetStaged':
         return decodeCollabTransferredMembershipClaimCustodyReceipt(value);
       case 'getTransferredMembershipClaim':
         return decodeCollabTransferredMembershipClaim(value);

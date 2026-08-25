@@ -32,6 +32,8 @@ const LIFECYCLE_OPERATIONS = [
 
 function transferStatus(overrides: Record<string, unknown> = {}) {
   return {
+    batchRevision: null,
+    batchSha256: null,
     checkpointSha256: null,
     createdAt: NOW,
     direction: 'lan-to-cloud',
@@ -50,8 +52,10 @@ function transferStatus(overrides: Record<string, unknown> = {}) {
 
 function redemptionReceipt() {
   return {
+    checkpointSha256: SHA256,
     claimSha256: 'c'.repeat(64),
     memberId: 'member_2',
+    operationIntentId: 'claim_intent_1',
     projectId: 'project_1',
     receiptId: 'receipt_1',
     receiptKeyId: 'receipt-key-2026-08',
@@ -65,10 +69,13 @@ function redemptionReceipt() {
 
 function relinquishmentProof() {
   return {
+    batchRevision: 2,
+    batchSha256: 'b'.repeat(64),
     certificate: 'c291cmNlLXNpZ25hdHVyZQ',
     certificateAlgorithm: 'ed25519',
     checkpointSha256: SHA256,
     committedAt: NOW,
+    operationIntentId: 'relinquish_intent_1',
     projectId: 'project_1',
     sourceAuthority: { generation: 3, kind: 'lan' },
     sourceHostMemberId: 'member_1',
@@ -105,6 +112,7 @@ function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number
     getProjectAuthorityTransfer: { projectId: 'project_1', transferId: 'transfer_1' },
     rotateTransferredMembershipClaims: {
       expectedBatchRevision: 1,
+      expectedBatchSha256: 'b'.repeat(64),
       idempotencyKey: 'intent_4',
       projectId: 'project_1',
       transferId: 'transfer_1',
@@ -152,8 +160,19 @@ function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number
     },
     reportCloudToLanTargetStaged: {
       checkpointSha256: SHA256,
+      claimBatch: {
+        batchRevision: 1,
+        batchSha256: 'b'.repeat(64),
+        checkpointSha256: SHA256,
+        claims: [{ claim: 'claim_for_member_2', memberId: 'member_2' }],
+        expiresAt: LATER,
+        projectId: 'project_1',
+        targetAuthorityGeneration: 5,
+        transferId: 'transfer_2',
+      },
       idempotencyKey: 'intent_11',
       projectId: 'project_1',
+      stageSha256: 'd'.repeat(64),
       targetAuthority: { generation: 5, kind: 'lan' },
       targetProof: 'dGFyZ2V0LXByb29m',
       transferId: 'transfer_2',
@@ -255,6 +274,24 @@ describe('Canonical Collab wire protocol v5 lifecycle integration', () => {
       ...request,
       memberId: 'member_2',
     }).status).toBe('invalid');
+  });
+
+  it('returns exact Cloud custody after a Cloud-to-LAN target stage report', () => {
+    const receipt = {
+      batchRevision: 1,
+      batchSha256: 'b'.repeat(64),
+      checkpointSha256: SHA256,
+      committedAt: NOW,
+      custodyAuthority: { generation: 4, kind: 'cloud' },
+      operationIntentId: 'intent_11',
+      projectId: 'project_1',
+      receiptId: 'custody_receipt_1',
+      submittedByMemberId: 'member_1',
+      targetAuthorityGeneration: 5,
+      transferId: 'transfer_2',
+    };
+    expect(collabControlOperationCodec('reportCloudToLanTargetStaged')
+      .decodeResponse(receipt)).toEqual(receipt);
   });
 
   it('integrates Retire without accepting a client role assertion', () => {

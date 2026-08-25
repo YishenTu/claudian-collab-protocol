@@ -14,19 +14,19 @@
     "files": [
       {
         "path": "dist/CollabAuthorityTransfer.d.ts",
-        "size": 12675
+        "size": 13572
       },
       {
         "path": "dist/CollabAuthorityTransfer.js",
-        "size": 25742
+        "size": 28049
       },
       {
         "path": "dist/CollabCloudBinding.d.ts",
-        "size": 7417
+        "size": 7872
       },
       {
         "path": "dist/CollabCloudBinding.js",
-        "size": 22039
+        "size": 23340
       },
       {
         "path": "dist/CollabCloudProjectEvent.d.ts",
@@ -54,7 +54,7 @@
       },
       {
         "path": "dist/CollabControlOperationCodecs.d.ts",
-        "size": 6894
+        "size": 6911
       },
       {
         "path": "dist/CollabControlOperationCodecs.js",
@@ -86,11 +86,11 @@
       },
       {
         "path": "dist/CollabProjectCheckpoint.d.ts",
-        "size": 10790
+        "size": 12215
       },
       {
         "path": "dist/CollabProjectCheckpoint.js",
-        "size": 32667
+        "size": 39418
       },
       {
         "path": "dist/CollabProjectRetirement.d.ts",
@@ -150,11 +150,11 @@
       },
       {
         "path": "dist/index.d.ts",
-        "size": 9991
+        "size": 10084
       },
       {
         "path": "dist/index.js",
-        "size": 19698
+        "size": 20212
       },
       {
         "path": "dist/types.d.ts",
@@ -177,11 +177,11 @@
         "size": 6921
       }
     ],
-    "integrity": "sha512-vU5z77jfN2N+xar1MsTkKG0NzDWSqBJZ3zWtBwTvO5ymppHxpxkjNtTFi1PHIOvE+sqDgYuRMATHRtYUEgd7Lg==",
-    "sha256": "8c746c664b8b0a7577bff8e5c6bb99fde2d6efff557ef38b4d5d0e3921679a32",
-    "shasum": "213308cc6c71c3bed3335cf5b7d81d8a61cd02d5",
-    "size": 46548,
-    "unpackedSize": 291795
+    "integrity": "sha512-cfC3yVVB/zz8VZumSlKm1h4vr0GYiBEaI773lVE8L8e0gB2Gfm1eN6xShXTrCD6P1PwlbDI/rKkWxd4NBJegqg==",
+    "sha256": "b5c2c91c3bdc0e086b4d7294a5d5132c7db95d80f8154f19585cf26640088b56",
+    "shasum": "43a1c2829c07b744a98a9df3f5eba6566108f639",
+    "size": 48579,
+    "unpackedSize": 305555
   },
   "toolchain": {
     "node": "24.16.0",

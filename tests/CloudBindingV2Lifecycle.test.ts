@@ -9,8 +9,10 @@ import {
   collabCloudAuthorityTransferArtifactRoute,
   collabCloudCapabilityDocument,
   collabCloudProjectCheckpointExportArtifactRoute,
+  collabCloudProjectCheckpointExportRoute,
   collabCloudProjectOperationRoute,
   decodeCollabCloudCapabilityDocument,
+  decodeCollabCloudProjectCheckpointExportStatus,
   matchCollabCloudRoute,
 } from '../src/index';
 
@@ -103,25 +105,60 @@ describe('Cloud binding v2 lifecycle integration', () => {
     )).toBeNull();
   });
 
-  it('constructs export-scoped upload and download routes for every checkpoint artifact', () => {
-    for (const direction of ['upload', 'download'] as const) {
-      for (const artifact of [
-        'checkpoint.json',
-        'coordination.ndjson',
-        'repository.bundle',
-      ] as const) {
-        const route = collabCloudProjectCheckpointExportArtifactRoute(
-          'project_1',
-          'export_1',
-          direction,
-          artifact,
-        );
-        expect(route.target).toBe(
-          `/v2/projects/project_1/checkpoint-exports/export_1/checkpoint/${artifact}`,
-        );
-        expect(route.method).toBe(direction === 'upload' ? 'PUT' : 'GET');
-        expect(matchCollabCloudRoute(route.method, route.target)).toEqual(route.match);
-      }
+  it('creates and queries one idempotent export session before downloading artifacts', () => {
+    const begin = collabCloudProjectCheckpointExportRoute('project_1', 'export_1', 'begin');
+    const statusRoute = collabCloudProjectCheckpointExportRoute(
+      'project_1',
+      'export_1',
+      'status',
+    );
+    expect(begin.method).toBe('POST');
+    expect(statusRoute.method).toBe('GET');
+    expect(begin.target).toBe('/v2/projects/project_1/checkpoint-exports/export_1');
+    expect(matchCollabCloudRoute(begin.method, begin.target)).toEqual(begin.match);
+    expect(matchCollabCloudRoute(statusRoute.method, statusRoute.target))
+      .toEqual(statusRoute.match);
+
+    const status = {
+      checkpointSha256: 'a'.repeat(64),
+      createdAt: '2026-08-25T00:00:00.000Z',
+      expiresAt: '2026-08-26T00:00:00.000Z',
+      exportId: 'export_1',
+      projectId: 'project_1',
+      state: 'ready',
+    };
+    expect(decodeCollabCloudProjectCheckpointExportStatus(status)).toEqual(status);
+    expect(decodeCollabCloudProjectCheckpointExportStatus({
+      ...status,
+      checkpointSha256: null,
+      state: 'preparing',
+    })).toEqual({ ...status, checkpointSha256: null, state: 'preparing' });
+    for (const invalidStatus of [
+      { ...status, checkpointSha256: null },
+      { ...status, checkpointSha256: 'a'.repeat(64), state: 'preparing' },
+      { ...status, expiresAt: status.createdAt },
+      { ...status, futureField: true },
+    ]) {
+      expect(() => decodeCollabCloudProjectCheckpointExportStatus(invalidStatus))
+        .toThrow('collab.error.protocol-payload-invalid');
+    }
+
+    for (const artifact of [
+      'checkpoint.json',
+      'coordination.ndjson',
+      'repository.bundle',
+    ] as const) {
+      const route = collabCloudProjectCheckpointExportArtifactRoute(
+        'project_1',
+        'export_1',
+        artifact,
+      );
+      expect(route.target).toBe(
+        `/v2/projects/project_1/checkpoint-exports/export_1/checkpoint/${artifact}`,
+      );
+      expect(route.method).toBe('GET');
+      expect(matchCollabCloudRoute(route.method, route.target)).toEqual(route.match);
+      expect(matchCollabCloudRoute('PUT', route.target)).toBeNull();
     }
   });
 

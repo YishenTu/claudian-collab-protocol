@@ -19,6 +19,7 @@ import {
   COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
   type CollabCheckpointArtifactFact,
 } from './CollabProjectCheckpoint';
+import type { CollabIsoTimestamp, CollabProjectId } from './types';
 
 export const COLLAB_CLOUD_BINDING_VERSION = 2 as const;
 export const COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION = 2 as const;
@@ -110,6 +111,15 @@ export type CollabCloudAuthorityTransferArtifact = CollabCheckpointArtifactFact[
   | 'checkpoint.json';
 export type CollabCloudAuthorityTransferArtifactDirection = 'download' | 'upload';
 
+export interface CollabCloudProjectCheckpointExportStatus {
+  readonly checkpointSha256: string | null;
+  readonly createdAt: CollabIsoTimestamp;
+  readonly expiresAt: CollabIsoTimestamp;
+  readonly exportId: string;
+  readonly projectId: CollabProjectId;
+  readonly state: 'preparing' | 'ready';
+}
+
 export type CollabCloudRouteMatch =
   | { readonly kind: 'capabilities' }
   | {
@@ -139,8 +149,13 @@ export type CollabCloudRouteMatch =
     readonly transferId: string;
   }
   | {
+    readonly exportId: string;
+    readonly kind: 'project-checkpoint-export';
+    readonly operation: 'begin' | 'status';
+    readonly projectId: string;
+  }
+  | {
     readonly artifact: CollabCloudAuthorityTransferArtifact;
-    readonly direction: CollabCloudAuthorityTransferArtifactDirection;
     readonly exportId: string;
     readonly kind: 'project-checkpoint-export-artifact';
     readonly projectId: string;
@@ -191,6 +206,7 @@ const RECOVERY_ACTION_SET: ReadonlySet<string> = new Set([
   'request-access',
 ]);
 const CAPABILITY_TOKEN_PATTERN = /^[a-z][a-z0-9-]{0,63}$/u;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 
 function invalidPayload(field: string): CollabError {
   return new CollabError({
@@ -291,6 +307,16 @@ function isCloudJsonOperation(value: string): value is CollabCloudJsonOperation 
   return CLOUD_JSON_OPERATION_SET.has(value);
 }
 
+function isoTimestamp(value: unknown, field: string): CollabIsoTimestamp {
+  if (
+    typeof value !== 'string'
+    || value.length > 64
+    || Number.isNaN(Date.parse(value))
+    || new Date(value).toISOString() !== value
+  ) throw invalidPayload(field);
+  return value;
+}
+
 export function collabCloudCapabilitiesRoute(): CollabCloudRoute {
   return route('GET', '/collab/capabilities', { kind: 'capabilities' });
 }
@@ -379,26 +405,75 @@ export function collabCloudAuthorityTransferArtifactRoute(
 export function collabCloudProjectCheckpointExportArtifactRoute(
   projectId: string,
   exportId: string,
-  direction: CollabCloudAuthorityTransferArtifactDirection,
   artifact: CollabCloudAuthorityTransferArtifact,
 ): CollabCloudRoute {
   assertProjectId(projectId);
   assertAttemptId(exportId);
-  if (
-    direction !== 'download' && direction !== 'upload'
-    || !COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(artifact)
-  ) invalidRoute();
+  if (!COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(artifact)) invalidRoute();
   return route(
-    direction === 'upload' ? 'PUT' : 'GET',
+    'GET',
     `/v2/projects/${projectId}/checkpoint-exports/${exportId}/checkpoint/${artifact}`,
     {
       artifact,
-      direction,
       exportId,
       kind: 'project-checkpoint-export-artifact',
       projectId,
     },
   );
+}
+
+export function collabCloudProjectCheckpointExportRoute(
+  projectId: string,
+  exportId: string,
+  operation: 'begin' | 'status',
+): CollabCloudRoute {
+  assertProjectId(projectId);
+  assertAttemptId(exportId);
+  if (operation !== 'begin' && operation !== 'status') invalidRoute();
+  return route(
+    operation === 'begin' ? 'POST' : 'GET',
+    `/v2/projects/${projectId}/checkpoint-exports/${exportId}`,
+    { exportId, kind: 'project-checkpoint-export', operation, projectId },
+  );
+}
+
+export function decodeCollabCloudProjectCheckpointExportStatus(
+  value: unknown,
+): CollabCloudProjectCheckpointExportStatus {
+  const source = exactRecord(value, 'checkpointExport', [
+    'checkpointSha256',
+    'createdAt',
+    'expiresAt',
+    'exportId',
+    'projectId',
+    'state',
+  ]);
+  if (!isCollabOpaqueId(source.exportId) || !isCollabProjectId(source.projectId)) {
+    throw invalidPayload('checkpointExport');
+  }
+  const state = source.state;
+  if (state !== 'preparing' && state !== 'ready') throw invalidPayload('state');
+  if (source.checkpointSha256 !== null && typeof source.checkpointSha256 !== 'string') {
+    throw invalidPayload('checkpointSha256');
+  }
+  const checkpointSha256 = source.checkpointSha256;
+  if (
+    (state === 'preparing' && checkpointSha256 !== null)
+    || (state === 'ready' && (
+      typeof checkpointSha256 !== 'string' || !SHA256_PATTERN.test(checkpointSha256)
+    ))
+  ) throw invalidPayload('checkpointSha256');
+  const createdAt = isoTimestamp(source.createdAt, 'createdAt');
+  const expiresAt = isoTimestamp(source.expiresAt, 'expiresAt');
+  if (Date.parse(expiresAt) <= Date.parse(createdAt)) throw invalidPayload('expiresAt');
+  return Object.freeze({
+    checkpointSha256,
+    createdAt,
+    expiresAt,
+    exportId: source.exportId,
+    projectId: source.projectId,
+    state,
+  });
 }
 
 export function collabDevelopmentBootstrapRoute(
@@ -477,7 +552,7 @@ export function matchCollabCloudRoute(
   ) {
     const projectId = segments[2];
     if (
-      (method === 'GET' || method === 'PUT')
+      method === 'GET'
       && segments.length === 7
       && segments[3] === 'checkpoint-exports'
       && isCollabOpaqueId(segments[4])
@@ -487,9 +562,22 @@ export function matchCollabCloudRoute(
     ) {
       return {
         artifact: segments[6] as CollabCloudAuthorityTransferArtifact,
-        direction: method === 'PUT' ? 'upload' : 'download',
         exportId: segments[4],
         kind: 'project-checkpoint-export-artifact',
+        projectId,
+      };
+    }
+    if (
+      (method === 'POST' || method === 'GET')
+      && segments.length === 5
+      && segments[3] === 'checkpoint-exports'
+      && isCollabOpaqueId(segments[4])
+      && exactQuery(url, [])
+    ) {
+      return {
+        exportId: segments[4],
+        kind: 'project-checkpoint-export',
+        operation: method === 'POST' ? 'begin' : 'status',
         projectId,
       };
     }

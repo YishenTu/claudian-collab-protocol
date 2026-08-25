@@ -20,6 +20,7 @@ const MAIN = '1'.repeat(40);
 const MEMBER = '2'.repeat(40);
 const SHA256 = 'a'.repeat(64);
 const MERGE = '3'.repeat(40);
+const MEMBER_THREE = '4'.repeat(40);
 
 function retirementResult() {
   return {
@@ -59,6 +60,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     refs: [
       { name: 'refs/heads/main', oid: MAIN },
       { name: 'refs/heads/members/member_1', oid: MEMBER },
+      { name: 'refs/heads/members/member_3', oid: MEMBER_THREE },
     ],
     sourceAuthority: { generation: 3, kind: 'lan' },
     targetAuthority: { generation: 4, kind: 'cloud' },
@@ -92,6 +94,7 @@ function portableRecords() {
         displayName: 'Alice',
         memberId: 'member_1',
         personalRef: 'refs/heads/members/member_1',
+        projectId: 'project_1',
         role: 'manager',
         status: 'active',
         revokedAt: null,
@@ -108,10 +111,28 @@ function portableRecords() {
         displayName: 'Bob',
         memberId: 'member_2',
         personalRef: 'refs/heads/members/member_2',
+        projectId: 'project_1',
         role: 'member',
         status: 'revoked',
         revokedAt: '2026-08-25T01:00:00.000Z',
         updatedAt: '2026-08-25T01:00:00.000Z',
+      },
+    },
+    {
+      kind: 'member',
+      recordId: 'member_3',
+      revision: 2,
+      value: {
+        activatedAt: NOW,
+        createdAt: NOW,
+        displayName: 'Carol',
+        memberId: 'member_3',
+        personalRef: 'refs/heads/members/member_3',
+        projectId: 'project_1',
+        role: 'member',
+        status: 'active',
+        revokedAt: null,
+        updatedAt: NOW,
       },
     },
     {
@@ -125,6 +146,7 @@ function portableRecords() {
         latestHeadOid: MEMBER,
         memberId: 'member_1',
         mergedOid: MERGE,
+        projectId: 'project_1',
         requestId: 'request_1',
         status: 'merged',
         updatedAt: '2026-08-25T01:00:00.000Z',
@@ -139,6 +161,7 @@ function portableRecords() {
         body: 'Ready',
         commentId: 'request_comment_1',
         createdAt: NOW,
+        projectId: 'project_1',
         requestId: 'request_1',
       },
     },
@@ -153,6 +176,7 @@ function portableRecords() {
         closedByMemberId: 'member_1',
         createdAt: NOW,
         number: 1,
+        projectId: 'project_1',
         status: 'closed',
         ticketId: 'ticket_1',
         title: 'Change',
@@ -168,6 +192,7 @@ function portableRecords() {
         body: 'Done',
         commentId: 'ticket_comment_1',
         createdAt: NOW,
+        projectId: 'project_1',
         ticketId: 'ticket_1',
       },
     },
@@ -182,6 +207,7 @@ function portableRecords() {
         createdAt: NOW,
         createdByMemberId: 'member_1',
         kind: 'resolves',
+        projectId: 'project_1',
         relationId: 'relation_1',
         requestId: 'request_1',
         state: 'accepted',
@@ -196,6 +222,7 @@ function portableRecords() {
       value: {
         createdAt: NOW,
         mentionedMemberId: 'member_2',
+        projectId: 'project_1',
         sourceId: 'ticket_comment_1',
         sourceKind: 'comment',
         ticketId: 'ticket_1',
@@ -207,7 +234,7 @@ function portableRecords() {
 function protectedClaimEnvelopeRecord() {
   return {
     kind: 'protected-claim-envelope',
-    recordId: 'transfer_1:member_2',
+    recordId: 'transfer_1:member_3',
     revision: 1,
     value: {
       associatedData: {
@@ -216,7 +243,7 @@ function protectedClaimEnvelopeRecord() {
         claimSha256: 'e'.repeat(64),
         envelopeVersion: 1,
         environmentIdentity: 'environment_1',
-        memberId: 'member_2',
+        memberId: 'member_3',
         projectId: 'project_1',
         transferId: 'transfer_1',
       },
@@ -226,7 +253,7 @@ function protectedClaimEnvelopeRecord() {
       expiresAt: '2026-09-24T00:00:00.000Z',
       keyId: 'claim-key-2026-08',
       keyVersion: 1,
-      memberId: 'member_2',
+      memberId: 'member_3',
       nonce: 'bm9uY2U',
       receiptKeyId: 'receipt-key-2026-08',
       tag: 'dGFn',
@@ -250,6 +277,16 @@ function operationalBackupRecords() {
           protocolVersion: 5,
           sequence: 1,
         },
+      },
+    },
+    {
+      kind: 'cloud-event-cursor',
+      recordId: 'project_1',
+      revision: 1,
+      value: {
+        currentSequence: 1,
+        projectId: 'project_1',
+        updatedAt: NOW,
       },
     },
     {
@@ -309,6 +346,12 @@ function operationalBackupRecords() {
       recordId: 'retirement_1',
       revision: 1,
       value: {
+        acknowledgements: [{
+          acknowledgedAt: NOW,
+          memberId: 'member_1',
+          principalId: 'principal_1',
+        }],
+        eligibleMemberIds: ['member_1', 'member_3'],
         expiresAt: '2026-09-24T00:00:00.000Z',
         operation: 'retireProject',
         operationId: 'retirement_1',
@@ -386,6 +429,7 @@ describe('Project checkpoint contract', () => {
       'ticket-relation',
       'ticket-mention',
       'cloud-event',
+      'cloud-event-cursor',
       'idempotency-result',
       'principal-binding',
       'repository-placement',
@@ -414,7 +458,7 @@ describe('Project checkpoint contract', () => {
     const digestInput = encodeCollabProjectCheckpointManifestDigestInput(decoded);
     expect(digestInput).not.toContain('manifestSha256');
     expect(createHash('sha256').update(digestInput).digest('hex'))
-      .toBe('0a92e363b1819358694fb8ce38c8ebdc250e317c08b0c5df9a15f8e0083ef4b4');
+      .toBe('124579b3669ef4dc53223e304a8e44bc4a3d3c46dd9c3f9d8cff47837f1ac086');
   });
 
   it('binds one decoded coordination set to the manifest Project and authority fences', () => {
@@ -513,7 +557,7 @@ describe('Project checkpoint contract', () => {
   });
 
   it('permits protected claim envelopes only in backups and never plaintext claims', () => {
-    const backupRecords = [...portableRecords(), protectedClaimEnvelopeRecord()];
+    const backupRecords = [...portableRecords(), ...operationalBackupRecords()];
     const backupNdjson = backupRecords.map(record => JSON.stringify(record)).join('\n') + '\n';
     expect(decodeCollabProjectCheckpointCoordinationNdjson(backupNdjson, 'backup'))
       .toEqual(backupRecords);
@@ -547,6 +591,73 @@ describe('Project checkpoint contract', () => {
         : record);
       expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
         unsafe.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it('requires restore metadata and bounds retained events by the durable cursor', () => {
+    const requiredKinds = [
+      'cloud-event-cursor',
+      'schema-catalog',
+      'server-compatibility',
+      'authority-volume-pair',
+    ];
+    for (const missingKind of requiredKinds) {
+      const records = [
+        ...portableRecords(),
+        ...operationalBackupRecords().filter(record => record.kind !== missingKind),
+      ];
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+
+    const staleCursor = [
+      ...portableRecords(),
+      ...operationalBackupRecords().map(record => record.kind === 'cloud-event-cursor'
+        ? { ...record, value: { ...record.value, currentSequence: 0 } }
+        : record),
+    ];
+    expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+      staleCursor.map(record => JSON.stringify(record)).join('\n') + '\n',
+      'backup',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('preserves a canonical terminal acknowledgement set bound to eligible principals', () => {
+    const invalidAcknowledgementSets = [
+      {
+        acknowledgements: [{
+          acknowledgedAt: NOW,
+          memberId: 'member_2',
+          principalId: 'principal_1',
+        }],
+        eligibleMemberIds: ['member_1', 'member_3'],
+      },
+      {
+        acknowledgements: [{
+          acknowledgedAt: NOW,
+          memberId: 'member_1',
+          principalId: 'principal_wrong',
+        }],
+        eligibleMemberIds: ['member_1', 'member_3'],
+      },
+      {
+        acknowledgements: [],
+        eligibleMemberIds: ['member_3', 'member_1'],
+      },
+    ];
+    for (const invalidSet of invalidAcknowledgementSets) {
+      const records = [
+        ...portableRecords(),
+        ...operationalBackupRecords().map(record => record.kind === 'terminal-responder'
+          ? { ...record, value: { ...record.value, ...invalidSet } }
+          : record),
+      ];
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
         'backup',
       )).toThrow('collab.error.protocol-payload-invalid');
     }
@@ -610,6 +721,38 @@ describe('Project checkpoint contract', () => {
       expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
         sorted.map(record => JSON.stringify(record)).join('\n') + '\n',
         'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it('rejects export-shaped backup profiles and cross-Project or orphan portable rows', () => {
+    const onlyPortable = portableRecords();
+    expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+      onlyPortable.map(record => JSON.stringify(record)).join('\n') + '\n',
+      'backup',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    type MutableTestRecord = {
+      kind: string;
+      recordId: string;
+      revision: number;
+      value: Record<string, unknown>;
+    };
+    const crossProject = portableRecords() as unknown as MutableTestRecord[];
+    crossProject[1] = {
+      ...crossProject[1],
+      value: { ...crossProject[1].value, projectId: 'project_2' },
+    };
+    const orphan = portableRecords() as unknown as MutableTestRecord[];
+    const relationIndex = orphan.findIndex(record => record.kind === 'ticket-relation');
+    orphan[relationIndex] = {
+      ...orphan[relationIndex],
+      value: { ...orphan[relationIndex].value, requestId: 'request_missing' },
+    };
+    for (const records of [crossProject, orphan]) {
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'export',
       )).toThrow('collab.error.protocol-payload-invalid');
     }
   });

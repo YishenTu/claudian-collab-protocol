@@ -63,6 +63,7 @@ export const COLLAB_CHECKPOINT_PORTABLE_RECORD_KINDS = Object.freeze([
 export const COLLAB_CHECKPOINT_BACKUP_RECORD_KINDS = Object.freeze([
   ...COLLAB_CHECKPOINT_PORTABLE_RECORD_KINDS,
   'cloud-event',
+  'cloud-event-cursor',
   'idempotency-result',
   'principal-binding',
   'repository-placement',
@@ -139,6 +140,7 @@ export type CollabCheckpointMemberRecord = CollabCheckpointRecordBase<'member', 
   readonly displayName: string;
   readonly memberId: CollabMemberId;
   readonly personalRef: string;
+  readonly projectId: CollabProjectId;
   readonly role: 'manager' | 'member';
   readonly status: 'active' | 'left' | 'revoked';
   readonly revokedAt: CollabIsoTimestamp | null;
@@ -152,6 +154,7 @@ export type CollabCheckpointRequestRecord = CollabCheckpointRecordBase<'request'
   readonly latestHeadOid: CollabGitOid;
   readonly memberId: CollabMemberId;
   readonly mergedOid: CollabGitOid | null;
+  readonly projectId: CollabProjectId;
   readonly requestId: string;
   readonly status: 'discarded' | 'merged' | 'open';
   readonly updatedAt: CollabIsoTimestamp;
@@ -162,6 +165,7 @@ export type CollabCheckpointRequestCommentRecord = CollabCheckpointRecordBase<'r
   readonly body: string;
   readonly commentId: string;
   readonly createdAt: CollabIsoTimestamp;
+  readonly projectId: CollabProjectId;
   readonly requestId: string;
 }>;
 
@@ -172,6 +176,7 @@ export type CollabCheckpointTicketRecord = CollabCheckpointRecordBase<'ticket', 
   readonly closedByMemberId: CollabMemberId | null;
   readonly createdAt: CollabIsoTimestamp;
   readonly number: number;
+  readonly projectId: CollabProjectId;
   readonly status: 'closed' | 'open';
   readonly ticketId: string;
   readonly title: string;
@@ -183,6 +188,7 @@ export type CollabCheckpointTicketCommentRecord = CollabCheckpointRecordBase<'ti
   readonly body: string;
   readonly commentId: string;
   readonly createdAt: CollabIsoTimestamp;
+  readonly projectId: CollabProjectId;
   readonly ticketId: string;
 }>;
 
@@ -193,6 +199,7 @@ export type CollabCheckpointTicketRelationRecord = CollabCheckpointRecordBase<'t
   readonly createdAt: CollabIsoTimestamp;
   readonly createdByMemberId: CollabMemberId;
   readonly kind: 'references' | 'resolves';
+  readonly projectId: CollabProjectId;
   readonly relationId: string;
   readonly requestId: string;
   readonly state: 'accepted' | 'pending';
@@ -203,6 +210,7 @@ export type CollabCheckpointTicketRelationRecord = CollabCheckpointRecordBase<'t
 export type CollabCheckpointTicketMentionRecord = CollabCheckpointRecordBase<'ticket-mention', {
   readonly createdAt: CollabIsoTimestamp;
   readonly mentionedMemberId: CollabMemberId;
+  readonly projectId: CollabProjectId;
   readonly sourceId: string;
   readonly sourceKind: 'comment' | 'description';
   readonly ticketId: string;
@@ -211,6 +219,13 @@ export type CollabCheckpointTicketMentionRecord = CollabCheckpointRecordBase<'ti
 export type CollabCheckpointCloudEventRecord = CollabCheckpointRecordBase<'cloud-event', {
   readonly event: CollabCloudProjectEvent;
 }>;
+
+export type CollabCheckpointCloudEventCursorRecord =
+  CollabCheckpointRecordBase<'cloud-event-cursor', {
+    readonly currentSequence: number;
+    readonly projectId: CollabProjectId;
+    readonly updatedAt: CollabIsoTimestamp;
+  }>;
 
 export type CollabCheckpointIdempotencyResultRecord =
   CollabCheckpointRecordBase<'idempotency-result', {
@@ -252,8 +267,16 @@ export type CollabCheckpointLifecycleStateRecord =
     readonly updatedAt: CollabIsoTimestamp;
   }>;
 
+export interface CollabCheckpointTerminalAcknowledgement {
+  readonly acknowledgedAt: CollabIsoTimestamp;
+  readonly memberId: CollabMemberId;
+  readonly principalId: string;
+}
+
 export type CollabCheckpointTerminalResponderRecord =
   CollabCheckpointRecordBase<'terminal-responder', {
+    readonly acknowledgements: readonly CollabCheckpointTerminalAcknowledgement[];
+    readonly eligibleMemberIds: readonly CollabMemberId[];
     readonly expiresAt: CollabIsoTimestamp;
     readonly operation: CollabControlOperation;
     readonly operationId: string;
@@ -330,6 +353,7 @@ export type CollabCheckpointPortableRecord =
 export type CollabCheckpointBackupRecord =
   | CollabCheckpointPortableRecord
   | CollabCheckpointCloudEventRecord
+  | CollabCheckpointCloudEventCursorRecord
   | CollabCheckpointIdempotencyResultRecord
   | CollabCheckpointPrincipalBindingRecord
   | CollabCheckpointRepositoryPlacementRecord
@@ -695,6 +719,7 @@ function memberRecord(source: UnknownRecord, recordId: string, revision: number)
     'displayName',
     'memberId',
     'personalRef',
+    'projectId',
     'role',
     'status',
     'revokedAt',
@@ -729,6 +754,7 @@ function memberRecord(source: UnknownRecord, recordId: string, revision: number)
       displayName: boundedString(value, 'displayName', 1024),
       memberId,
       personalRef,
+      projectId: token(value, 'projectId', isCollabProjectId),
       role: literal(value, 'role', ['manager', 'member']),
       status,
       revokedAt,
@@ -745,6 +771,7 @@ function requestRecord(source: UnknownRecord, recordId: string, revision: number
     'latestHeadOid',
     'memberId',
     'mergedOid',
+    'projectId',
     'requestId',
     'status',
     'updatedAt',
@@ -772,6 +799,7 @@ function requestRecord(source: UnknownRecord, recordId: string, revision: number
       latestHeadOid: token(value, 'latestHeadOid', isCollabGitOid),
       memberId: token(value, 'memberId', isCollabMemberId),
       mergedOid,
+      projectId: token(value, 'projectId', isCollabProjectId),
       requestId,
       status,
       updatedAt,
@@ -785,6 +813,7 @@ function requestCommentRecord(source: UnknownRecord, recordId: string, revision:
     'body',
     'commentId',
     'createdAt',
+    'projectId',
     'requestId',
   ]);
   const commentId = token(value, 'commentId');
@@ -798,6 +827,7 @@ function requestCommentRecord(source: UnknownRecord, recordId: string, revision:
       body: boundedString(value, 'body', 16 * 1024, true),
       commentId,
       createdAt: timestamp(value, 'createdAt'),
+      projectId: token(value, 'projectId', isCollabProjectId),
       requestId: token(value, 'requestId'),
     },
   };
@@ -811,6 +841,7 @@ function ticketRecord(source: UnknownRecord, recordId: string, revision: number)
     'closedByMemberId',
     'createdAt',
     'number',
+    'projectId',
     'status',
     'ticketId',
     'title',
@@ -842,6 +873,7 @@ function ticketRecord(source: UnknownRecord, recordId: string, revision: number)
       closedByMemberId,
       createdAt,
       number: positiveInteger(value, 'number'),
+      projectId: token(value, 'projectId', isCollabProjectId),
       status,
       ticketId,
       title: boundedString(value, 'title', 1024),
@@ -856,6 +888,7 @@ function ticketCommentRecord(source: UnknownRecord, recordId: string, revision: 
     'body',
     'commentId',
     'createdAt',
+    'projectId',
     'ticketId',
   ]);
   const commentId = token(value, 'commentId');
@@ -869,6 +902,7 @@ function ticketCommentRecord(source: UnknownRecord, recordId: string, revision: 
       body: boundedString(value, 'body', 16 * 1024, true),
       commentId,
       createdAt: timestamp(value, 'createdAt'),
+      projectId: token(value, 'projectId', isCollabProjectId),
       ticketId: token(value, 'ticketId'),
     },
   };
@@ -882,6 +916,7 @@ function ticketRelationRecord(source: UnknownRecord, recordId: string, revision:
     'createdAt',
     'createdByMemberId',
     'kind',
+    'projectId',
     'relationId',
     'requestId',
     'state',
@@ -914,6 +949,7 @@ function ticketRelationRecord(source: UnknownRecord, recordId: string, revision:
       createdAt,
       createdByMemberId: token(value, 'createdByMemberId', isCollabMemberId),
       kind: literal(value, 'kind', ['references', 'resolves']),
+      projectId: token(value, 'projectId', isCollabProjectId),
       relationId,
       requestId: token(value, 'requestId'),
       state,
@@ -927,6 +963,7 @@ function ticketMentionRecord(source: UnknownRecord, recordId: string, revision: 
   const value = exactRecord(source.value, 'value', [
     'createdAt',
     'mentionedMemberId',
+    'projectId',
     'sourceId',
     'sourceKind',
     'ticketId',
@@ -938,6 +975,7 @@ function ticketMentionRecord(source: UnknownRecord, recordId: string, revision: 
     value: {
       createdAt: timestamp(value, 'createdAt'),
       mentionedMemberId: token(value, 'mentionedMemberId', isCollabMemberId),
+      projectId: token(value, 'projectId', isCollabProjectId),
       sourceId: token(value, 'sourceId'),
       sourceKind: literal(value, 'sourceKind', ['comment', 'description']),
       ticketId: token(value, 'ticketId'),
@@ -956,6 +994,30 @@ function cloudEventRecord(
     throw invalidPayload('event');
   }
   return { kind: 'cloud-event', recordId, revision, value: { event } };
+}
+
+function cloudEventCursorRecord(
+  source: UnknownRecord,
+  recordId: string,
+  revision: number,
+): CollabCheckpointCloudEventCursorRecord {
+  const value = exactRecord(source.value, 'value', [
+    'currentSequence',
+    'projectId',
+    'updatedAt',
+  ]);
+  const projectId = token(value, 'projectId', isCollabProjectId);
+  if (recordId !== projectId) throw invalidPayload('recordId');
+  return {
+    kind: 'cloud-event-cursor',
+    recordId,
+    revision,
+    value: {
+      currentSequence: nonNegativeInteger(value, 'currentSequence'),
+      projectId,
+      updatedAt: timestamp(value, 'updatedAt'),
+    },
+  };
 }
 
 function idempotencyResultRecord(
@@ -1100,6 +1162,8 @@ function terminalResponderRecord(
   revision: number,
 ): CollabCheckpointTerminalResponderRecord {
   const value = exactRecord(source.value, 'value', [
+    'acknowledgements',
+    'eligibleMemberIds',
     'expiresAt',
     'operation',
     'operationId',
@@ -1109,11 +1173,46 @@ function terminalResponderRecord(
   const operationId = token(value, 'operationId');
   if (recordId !== operationId) throw invalidPayload('recordId');
   const operation = controlOperation(value, 'operation');
+  if (!Array.isArray(value.eligibleMemberIds)) throw invalidPayload('eligibleMemberIds');
+  const eligibleMemberIds = value.eligibleMemberIds.map((item) => {
+    if (!isCollabMemberId(item)) throw invalidPayload('eligibleMemberIds');
+    return item;
+  });
+  if (eligibleMemberIds.some((item, index) => (
+    index > 0 && eligibleMemberIds[index - 1].localeCompare(item, 'en-US') >= 0
+  ))) throw invalidPayload('eligibleMemberIds');
+  if (!Array.isArray(value.acknowledgements)) throw invalidPayload('acknowledgements');
+  const acknowledgements = value.acknowledgements.map((item) => {
+    const acknowledgement = exactRecord(item, 'acknowledgement', [
+      'acknowledgedAt',
+      'memberId',
+      'principalId',
+    ]);
+    return {
+      acknowledgedAt: timestamp(acknowledgement, 'acknowledgedAt'),
+      memberId: token(acknowledgement, 'memberId', isCollabMemberId),
+      principalId: token(acknowledgement, 'principalId'),
+    };
+  });
+  const acknowledgementPrincipals = new Set<string>();
+  acknowledgements.forEach((item, index) => {
+    if (
+      !eligibleMemberIds.includes(item.memberId)
+      || (index > 0 && acknowledgements[index - 1].memberId.localeCompare(
+        item.memberId,
+        'en-US',
+      ) >= 0)
+      || acknowledgementPrincipals.has(item.principalId)
+    ) throw invalidPayload('acknowledgements');
+    acknowledgementPrincipals.add(item.principalId);
+  });
   return {
     kind: 'terminal-responder',
     recordId,
     revision,
     value: {
+      acknowledgements: Object.freeze(acknowledgements),
+      eligibleMemberIds: Object.freeze(eligibleMemberIds),
       expiresAt: timestamp(value, 'expiresAt'),
       operation,
       operationId,
@@ -1309,6 +1408,7 @@ function decodeCheckpointRecord(value: unknown): CollabCheckpointBackupRecord {
     case 'ticket-relation': return ticketRelationRecord(source, recordId, revision);
     case 'ticket-mention': return ticketMentionRecord(source, recordId, revision);
     case 'cloud-event': return cloudEventRecord(source, recordId, revision);
+    case 'cloud-event-cursor': return cloudEventCursorRecord(source, recordId, revision);
     case 'idempotency-result': return idempotencyResultRecord(source, recordId, revision);
     case 'principal-binding': return principalBindingRecord(source, recordId, revision);
     case 'repository-placement': return repositoryPlacementRecord(source, recordId, revision);
@@ -1350,19 +1450,95 @@ function validateRecordSequence(
   if (profile !== 'backup' && records.some(item => !PORTABLE_RECORD_KIND_SET.has(item.kind))) {
     throw invalidPayload('profile');
   }
+  if (profile === 'backup') {
+    const requiredKinds: readonly CollabCheckpointBackupRecordKind[] = [
+      'cloud-event-cursor',
+      'schema-catalog',
+      'server-compatibility',
+      'authority-volume-pair',
+    ];
+    if (requiredKinds.some(kind => records.filter(item => item.kind === kind).length !== 1)) {
+      throw invalidPayload('profile');
+    }
+  }
   const projectRecordValue = records[0].value;
   if (projectRecordValue.projectId !== projectId) throw invalidPayload('records');
   for (const item of records) {
-    let itemProjectId: string | null = null;
+    let itemProjectId: string;
     if (item.kind === 'cloud-event') itemProjectId = item.value.event.projectId;
     else if (item.kind === 'protected-claim-envelope') {
       itemProjectId = item.value.associatedData.projectId;
-    } else if (!PORTABLE_RECORD_KIND_SET.has(item.kind)) {
-      itemProjectId = (item.value as { readonly projectId?: string }).projectId ?? null;
-    }
-    if (itemProjectId !== null && itemProjectId !== projectId) {
+    } else itemProjectId = item.value.projectId;
+    if (itemProjectId !== projectId) throw invalidPayload('records');
+  }
+
+  const members = new Map(records
+    .filter((item): item is CollabCheckpointMemberRecord => item.kind === 'member')
+    .map(item => [item.value.memberId, item]));
+  const requests = new Set(records
+    .filter((item): item is CollabCheckpointRequestRecord => item.kind === 'request')
+    .map(item => item.value.requestId));
+  const tickets = new Set(records
+    .filter((item): item is CollabCheckpointTicketRecord => item.kind === 'ticket')
+    .map(item => item.value.ticketId));
+  const ticketComments = new Map(records
+    .filter((item): item is CollabCheckpointTicketCommentRecord => item.kind === 'ticket-comment')
+    .map(item => [item.value.commentId, item.value.ticketId]));
+  const principalBindings = new Map(records
+    .filter((item): item is CollabCheckpointPrincipalBindingRecord => (
+      item.kind === 'principal-binding'
+    ))
+    .map(item => [item.value.memberId, item.value.principalId]));
+
+  for (const item of records) {
+    if (item.kind === 'request' && !members.has(item.value.memberId)) {
       throw invalidPayload('records');
     }
+    if (item.kind === 'request-comment' && (
+      !requests.has(item.value.requestId) || !members.has(item.value.authorMemberId)
+    )) throw invalidPayload('records');
+    if (item.kind === 'ticket' && (
+      !members.has(item.value.authorMemberId)
+      || (item.value.closedByMemberId !== null && !members.has(item.value.closedByMemberId))
+    )) throw invalidPayload('records');
+    if (item.kind === 'ticket-comment' && (
+      !tickets.has(item.value.ticketId) || !members.has(item.value.authorMemberId)
+    )) throw invalidPayload('records');
+    if (item.kind === 'ticket-relation' && (
+      !tickets.has(item.value.ticketId)
+      || !requests.has(item.value.requestId)
+      || !members.has(item.value.createdByMemberId)
+    )) throw invalidPayload('records');
+    if (item.kind === 'ticket-mention' && (
+      !tickets.has(item.value.ticketId)
+      || !members.has(item.value.mentionedMemberId)
+      || (item.value.sourceKind === 'description' && item.value.sourceId !== item.value.ticketId)
+      || (item.value.sourceKind === 'comment'
+        && ticketComments.get(item.value.sourceId) !== item.value.ticketId)
+    )) throw invalidPayload('records');
+    if (
+      (item.kind === 'idempotency-result' || item.kind === 'principal-binding')
+      && !members.has(item.value.memberId)
+    ) throw invalidPayload('records');
+    if (item.kind === 'protected-claim-envelope'
+      && members.get(item.value.memberId)?.value.status !== 'active') {
+      throw invalidPayload('records');
+    }
+    if (item.kind === 'terminal-responder' && (
+      item.value.eligibleMemberIds.some(memberId => !members.has(memberId))
+      || item.value.acknowledgements.some(acknowledgement => (
+        principalBindings.get(acknowledgement.memberId) !== acknowledgement.principalId
+      ))
+    )) throw invalidPayload('records');
+  }
+
+  if (profile === 'backup') {
+    const cursor = records.find((item): item is CollabCheckpointCloudEventCursorRecord => (
+      item.kind === 'cloud-event-cursor'
+    ));
+    if (cursor === undefined || records.some(item => (
+      item.kind === 'cloud-event' && item.value.event.sequence > cursor.value.currentSequence
+    ))) throw invalidPayload('records');
   }
 }
 

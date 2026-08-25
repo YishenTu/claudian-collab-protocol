@@ -303,6 +303,66 @@ describe('Project authority transfer contract', () => {
   });
 
   it.each([
+    { direction: 'lan-to-cloud', phase: 'checkpoint-received' },
+    { direction: 'lan-to-cloud', phase: 'source-relinquished' },
+    { direction: 'cloud-to-lan', phase: 'checkpoint-captured' },
+    { direction: 'cloud-to-lan', phase: 'cloud-relinquished' },
+  ])('rejects $direction $phase status without its durable checkpoint fences', ({
+    direction,
+    phase,
+  }) => {
+    const sourceKind = direction === 'lan-to-cloud' ? 'lan' : 'cloud';
+    const targetKind = direction === 'lan-to-cloud' ? 'cloud' : 'lan';
+    const input = {
+      batchRevision: null,
+      batchSha256: null,
+      checkpointSha256: null,
+      createdAt: NOW,
+      direction,
+      expiresAt: LATER,
+      phase,
+      projectId: 'project_1',
+      sourceAuthority: { generation: 3, kind: sourceKind },
+      state: 'active',
+      targetAuthority: { generation: 4, kind: targetKind },
+      targetUrl: 'https://target.invalid:54545',
+      transferId: 'transfer_1',
+      updatedAt: NOW,
+    };
+    expect(() => decodeCollabAuthorityTransferStatus(input))
+      .toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it.each([
+    { direction: 'lan-to-cloud', phase: 'claims-retained' },
+    { direction: 'lan-to-cloud', phase: 'source-relinquished' },
+    { direction: 'cloud-to-lan', phase: 'claims-retained' },
+    { direction: 'cloud-to-lan', phase: 'cloud-relinquished' },
+  ])('rejects $direction $phase status without the retained claim-batch fence', ({
+    direction,
+    phase,
+  }) => {
+    const sourceKind = direction === 'lan-to-cloud' ? 'lan' : 'cloud';
+    const targetKind = direction === 'lan-to-cloud' ? 'cloud' : 'lan';
+    expect(() => decodeCollabAuthorityTransferStatus({
+      batchRevision: null,
+      batchSha256: null,
+      checkpointSha256: SHA256,
+      createdAt: NOW,
+      direction,
+      expiresAt: LATER,
+      phase,
+      projectId: 'project_1',
+      sourceAuthority: { generation: 3, kind: sourceKind },
+      state: 'active',
+      targetAuthority: { generation: 4, kind: targetKind },
+      targetUrl: 'https://target.invalid:54545',
+      transferId: 'transfer_1',
+      updatedAt: NOW,
+    })).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it.each([
     custodyReceipt({ batchSha256: 'c'.repeat(63) }),
     custodyReceipt({ futureField: true }),
     redemptionReceipt({ signature: '' }),

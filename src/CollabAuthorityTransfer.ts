@@ -674,6 +674,18 @@ const CLOUD_TO_LAN_PHASE_SET: ReadonlySet<string> = new Set(
 const CANCELLATION_PHASE_SET: ReadonlySet<string> = new Set(
   COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES,
 );
+const LAN_TO_CLOUD_CHECKPOINT_REQUIRED_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES.slice(2),
+);
+const CLOUD_TO_LAN_CHECKPOINT_REQUIRED_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES.slice(2),
+);
+const LAN_TO_CLOUD_BATCH_REQUIRED_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES.slice(4),
+);
+const CLOUD_TO_LAN_BATCH_REQUIRED_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES.slice(4),
+);
 
 function transferPhase(
   source: UnknownRecord,
@@ -736,6 +748,18 @@ export function decodeCollabAuthorityTransferStatus(
   if (
     (batchRevision === null) !== (batchSha256 === null)
     || (batchRevision !== null && checkpointSha256 === null)
+    || (
+      (direction === 'lan-to-cloud'
+        ? LAN_TO_CLOUD_CHECKPOINT_REQUIRED_PHASE_SET
+        : CLOUD_TO_LAN_CHECKPOINT_REQUIRED_PHASE_SET).has(phase)
+      && checkpointSha256 === null
+    )
+    || (
+      (direction === 'lan-to-cloud'
+        ? LAN_TO_CLOUD_BATCH_REQUIRED_PHASE_SET
+        : CLOUD_TO_LAN_BATCH_REQUIRED_PHASE_SET).has(phase)
+      && batchRevision === null
+    )
   ) throw invalidPayload('claimBatch');
   return {
     batchRevision,

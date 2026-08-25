@@ -439,6 +439,13 @@ describe('Project checkpoint contract', () => {
         records,
       )).toThrow('collab.error.protocol-payload-invalid');
     }
+    const missingActiveMemberRef = manifest({
+      refs: [{ name: 'refs/heads/main', oid: MAIN }],
+    });
+    expect(() => validateCollabProjectCheckpointConsistency(
+      decodeCollabProjectCheckpointManifest(missingActiveMemberRef),
+      records,
+    )).toThrow('collab.error.protocol-payload-invalid');
   });
 
   it.each([
@@ -540,6 +547,36 @@ describe('Project checkpoint contract', () => {
         : record);
       expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
         unsafe.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it('rejects typed idempotency and terminal responses that contain plaintext claims', () => {
+    const rawClaimResponse = JSON.stringify({
+      batchRevision: 2,
+      batchSha256: 'b'.repeat(64),
+      checkpointSha256: SHA256,
+      claims: [{ claim: 'RAW_SECRET_CLAIM', memberId: 'member_2' }],
+      expiresAt: '2026-09-24T00:00:00.000Z',
+      projectId: 'project_1',
+      targetAuthorityGeneration: 4,
+      transferId: 'transfer_1',
+    });
+    for (const targetKind of ['idempotency-result', 'terminal-responder']) {
+      const records = [...portableRecords(), ...operationalBackupRecords()].map((record) => {
+        if (record.kind !== targetKind) return record;
+        return {
+          ...record,
+          value: {
+            ...record.value,
+            operation: 'rotateTransferredMembershipClaims',
+            responseJson: rawClaimResponse,
+          },
+        };
+      });
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
         'backup',
       )).toThrow('collab.error.protocol-payload-invalid');
     }

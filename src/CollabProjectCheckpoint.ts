@@ -349,6 +349,10 @@ const PORTABLE_RECORD_KIND_SET: ReadonlySet<string> = new Set(
 );
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/u;
+const PLAINTEXT_CLAIM_RESPONSE_OPERATION_SET: ReadonlySet<CollabControlOperation> = new Set([
+  'getTransferredMembershipClaim',
+  'rotateTransferredMembershipClaims',
+]);
 
 function invalidPayload(field: string): CollabError {
   return new CollabError({ code: 'protocol-payload-invalid', safeContext: { field } });
@@ -462,6 +466,7 @@ function canonicalOperationResponseJson(
   field: string,
   operation: CollabControlOperation,
 ): string {
+  if (PLAINTEXT_CLAIM_RESPONSE_OPERATION_SET.has(operation)) throw invalidPayload(field);
   const value = boundedString(source, field, 512 * 1024, true);
   let decoded: unknown;
   try {
@@ -1410,5 +1415,16 @@ export function validateCollabProjectCheckpointConsistency(
     || project.value.authorityGeneration !== decodedManifest.sourceAuthority.generation
     || project.value.expectedMainOid !== decodedManifest.expectedMainOid
   ) throw invalidPayload('checkpoint');
+  const activeMemberRefs = records
+    .filter((item): item is CollabCheckpointMemberRecord => (
+      item.kind === 'member' && item.value.status === 'active'
+    ))
+    .map(item => item.value.personalRef)
+    .sort((left, right) => left.localeCompare(right, 'en-US'));
+  const manifestMemberRefs = decodedManifest.refs.slice(1).map(item => item.name);
+  if (
+    activeMemberRefs.length !== manifestMemberRefs.length
+    || activeMemberRefs.some((item, index) => item !== manifestMemberRefs[index])
+  ) throw invalidPayload('refs');
   return records;
 }

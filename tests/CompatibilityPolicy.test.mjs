@@ -56,6 +56,10 @@ function snapshot({
   };
 }
 
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 test('accepts the 1.0 graduation when the legacy contract is unchanged', () => {
   const legacy = {
     schemaVersion: 1,
@@ -207,6 +211,39 @@ test('the wire baseline classifies every lifecycle contract module', () => {
   ]) {
     assert.equal(declarationSources.has(`./${moduleName}`), true);
     assert.equal(runtimePaths.has(`src/${moduleName}.ts`), true);
+  }
+});
+
+test('each lifecycle module declaration and behavior requires a wire-version bump', () => {
+  const base = generateContractSnapshot();
+  for (const moduleName of [
+    'CollabAuthorityTransfer',
+    'CollabProjectCheckpoint',
+    'CollabProjectRetirement',
+  ]) {
+    const declarationChange = cloneJson(base);
+    declarationChange.packageVersion = '3.0.0';
+    const declaration = declarationChange.contract.wire.declarations.find(
+      entry => entry.source === `./${moduleName}`,
+    );
+    assert.ok(declaration);
+    declaration.declaration += '\nexport type Changed = true;';
+    assert.throws(
+      () => assertVersionedContractChange(base, declarationChange),
+      /wire protocol version must increase/u,
+    );
+
+    const behaviorChange = cloneJson(base);
+    behaviorChange.packageVersion = '3.0.0';
+    const behavior = behaviorChange.contract.wire.runtimeBehaviorDigests.find(
+      entry => entry.path === `src/${moduleName}.ts`,
+    );
+    assert.ok(behavior);
+    behavior.sha256 = 'changed-runtime';
+    assert.throws(
+      () => assertVersionedContractChange(base, behaviorChange),
+      /wire protocol version must increase/u,
+    );
   }
 });
 

@@ -1920,7 +1920,7 @@
     "runtimeBehaviorDigests": [
       {
         "path": "src/CollabAuthorityTransfer.ts",
-        "sha256": "16c97d02d848228254e3c7d867ee0230545c461feff7dd5c0e31a68aa18e7a74"
+        "sha256": "ab8feda2f9d25058924fb46fffbeb7cf7c14d0a52fc80e94f312eaeb9660fa3c"
       },
       {
         "path": "src/CollabCloudBinding.ts",
@@ -1956,7 +1956,7 @@
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
-        "sha256": "6b54b215a69cea9a3e6e485fb383032cd0c0cdc0b5c69b920174883996750569"
+        "sha256": "9c940e7f9a42a0176f21e7330c486950a0e07742de3fa07b27d74598280ec09f"
       },
       {
         "path": "src/CollabProjectRetirement.ts",
@@ -3042,7 +3042,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/CollabAuthorityTransfer.ts",
-          "sha256": "16c97d02d848228254e3c7d867ee0230545c461feff7dd5c0e31a68aa18e7a74"
+          "sha256": "ab8feda2f9d25058924fb46fffbeb7cf7c14d0a52fc80e94f312eaeb9660fa3c"
         },
         {
           "path": "src/CollabConstants.ts",
@@ -3058,7 +3058,7 @@
         },
         {
           "path": "src/CollabProjectCheckpoint.ts",
-          "sha256": "6b54b215a69cea9a3e6e485fb383032cd0c0cdc0b5c69b920174883996750569"
+          "sha256": "9c940e7f9a42a0176f21e7330c486950a0e07742de3fa07b27d74598280ec09f"
         },
         {
           "path": "src/CollabProjectRetirement.ts",

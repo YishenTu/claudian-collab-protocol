@@ -1647,6 +1647,31 @@ function validateRecordSequence(
       || terminalResponders[0].value.expiresAt !== tombstones[0].value.terminalExpiresAt
     ))
   ) throw invalidPayload('records');
+  const tombstone = tombstones[0];
+  const retirementTerminal = terminalResponders.find(item => (
+    item.value.operation === 'retireProject'
+  ));
+  if (retirementTerminal !== undefined) {
+    const response = canonicalOperationResponseJson(
+      { responseJson: retirementTerminal.value.responseJson },
+      'responseJson',
+      'retireProject',
+    ).decoded;
+    if (tombstone === undefined || response.retiredAt !== tombstone.value.retiredAt) {
+      throw invalidPayload('records');
+    }
+  }
+  const retirementEvents = records.filter((item): item is CollabCheckpointCloudEventRecord => (
+    item.kind === 'cloud-event' && item.value.event.kind === 'project.retired'
+  ));
+  if (tombstone !== undefined && retirementEvents.some(item => (
+    item.value.event.kind === 'project.retired'
+    && (
+      item.value.event.payload.retiredAt !== tombstone.value.retiredAt
+      || (retirementTerminal !== undefined
+        && item.value.event.payload.retirementId !== retirementTerminal.value.operationId)
+    )
+  ))) throw invalidPayload('records');
 
   for (const item of records) {
     if (item.kind === 'request' && !members.has(item.value.memberId)) {

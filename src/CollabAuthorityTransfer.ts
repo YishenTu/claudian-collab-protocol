@@ -852,13 +852,20 @@ export function decodeCollabAuthorityTransferStatus(
       || relinquishmentProof.transferId !== source.transferId
     ))
   ) throw invalidPayload('relinquishmentProof');
+  const createdAt = timestamp(source, 'createdAt');
+  const updatedAt = timestamp(source, 'updatedAt');
+  const expiresAt = timestamp(source, 'expiresAt');
+  if (
+    Date.parse(updatedAt) < Date.parse(createdAt)
+    || Date.parse(expiresAt) <= Date.parse(updatedAt)
+  ) throw invalidPayload('transferStatus');
   return {
     batchRevision,
     batchSha256,
     checkpointSha256,
-    createdAt: timestamp(source, 'createdAt'),
+    createdAt,
     direction,
-    expiresAt: timestamp(source, 'expiresAt'),
+    expiresAt,
     phase,
     projectId: token(source, 'projectId', isCollabProjectId),
     relinquishmentProof,
@@ -867,7 +874,7 @@ export function decodeCollabAuthorityTransferStatus(
     targetAuthority,
     targetUrl: absoluteTargetUrl(source),
     transferId: token(source, 'transferId'),
-    updatedAt: timestamp(source, 'updatedAt'),
+    updatedAt,
   };
 }
 

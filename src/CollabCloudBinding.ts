@@ -17,7 +17,7 @@ import {
 } from './CollabValidation';
 import {
   COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
-  type CollabCheckpointArtifactFact,
+  COLLAB_PROJECT_CHECKPOINT_ARTIFACTS,
 } from './CollabProjectCheckpoint';
 import type { CollabIsoTimestamp, CollabProjectId } from './types';
 
@@ -107,8 +107,8 @@ export type DevelopmentBootstrapOperation =
   | 'putDevelopmentBootstrapGitBundle';
 
 export type CollabCloudGitService = 'git-upload-pack' | 'git-receive-pack';
-export type CollabCloudAuthorityTransferArtifact = CollabCheckpointArtifactFact['name']
-  | 'checkpoint.json';
+export type CollabCloudAuthorityTransferArtifact =
+  typeof COLLAB_PROJECT_CHECKPOINT_ARTIFACTS[number];
 export type CollabCloudAuthorityTransferArtifactDirection = 'download' | 'upload';
 
 export interface CollabCloudProjectCheckpointExportStatus {
@@ -194,11 +194,9 @@ type UnknownRecord = Readonly<Record<string, unknown>>;
 
 const CLOUD_CAPABILITY_SET: ReadonlySet<string> = new Set(COLLAB_CLOUD_CAPABILITIES);
 const CLOUD_JSON_OPERATION_SET: ReadonlySet<string> = new Set(COLLAB_CLOUD_JSON_OPERATIONS);
-const COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET: ReadonlySet<string> = new Set([
-  'checkpoint.json',
-  'coordination.ndjson',
-  'repository.bundle',
-]);
+const COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET: ReadonlySet<string> = new Set(
+  COLLAB_PROJECT_CHECKPOINT_ARTIFACTS,
+);
 const COLLAB_ERROR_CODE_SET: ReadonlySet<string> = new Set(COLLAB_ERROR_CODES);
 const RECOVERY_ACTION_SET: ReadonlySet<string> = new Set([
   'retry',

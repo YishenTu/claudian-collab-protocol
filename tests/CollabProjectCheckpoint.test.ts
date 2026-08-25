@@ -888,6 +888,52 @@ describe('Project checkpoint contract', () => {
     }
   });
 
+  it('binds retained retirement facts to the terminal response and tombstone', () => {
+    const terminalMismatch = [
+      ...portableRecords(),
+      ...operationalBackupRecords().map(record => record.kind === 'terminal-responder'
+        ? {
+          ...record,
+          value: {
+            ...record.value,
+            responseJson: JSON.stringify({
+              ...retirementResult(),
+              retiredAt: '2026-08-24T00:00:00.000Z',
+            }),
+          },
+        }
+        : record),
+    ];
+    const eventMismatch = [
+      ...portableRecords(),
+      ...operationalBackupRecords().map(record => record.kind === 'cloud-event'
+        ? {
+          ...record,
+          value: {
+            event: {
+              kind: 'project.retired',
+              occurredAt: NOW,
+              payload: {
+                retiredAt: '2026-08-24T00:00:00.000Z',
+                retirementId: 'retirement_1',
+              },
+              projectId: 'project_1',
+              protocolVersion: 5,
+              sequence: 1,
+            },
+          },
+        }
+        : record),
+    ];
+
+    for (const records of [terminalMismatch, eventMismatch]) {
+      expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
+        'backup',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
   it('rejects a second Project root and cross-Project operational records', () => {
     const secondProject = {
       ...portableRecords()[0],

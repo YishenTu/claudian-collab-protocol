@@ -315,6 +315,13 @@ describe('Project authority transfer contract', () => {
       updatedAt: NOW,
     };
     expect(decodeCollabAuthorityTransferStatus(status)).toEqual(status);
+    for (const invalidChronology of [
+      { ...status, updatedAt: '2026-08-24T00:00:00.000Z' },
+      { ...status, expiresAt: NOW },
+    ]) {
+      expect(() => decodeCollabAuthorityTransferStatus(invalidChronology))
+        .toThrow('collab.error.protocol-payload-invalid');
+    }
     const rotate = {
       expectedBatchRevision: 2,
       expectedBatchSha256: 'b'.repeat(64),

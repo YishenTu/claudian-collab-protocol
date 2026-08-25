@@ -5,6 +5,7 @@ import {
   COLLAB_CLOUD_CAPABILITIES,
   COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION,
   COLLAB_CLOUD_JSON_OPERATIONS,
+  COLLAB_PROJECT_CHECKPOINT_ARTIFACTS,
   COLLAB_PROTOCOL_VERSION,
   collabCloudAuthorityTransferArtifactRoute,
   collabCloudCapabilityDocument,
@@ -143,11 +144,7 @@ describe('Cloud binding v2 lifecycle integration', () => {
         .toThrow('collab.error.protocol-payload-invalid');
     }
 
-    for (const artifact of [
-      'checkpoint.json',
-      'coordination.ndjson',
-      'repository.bundle',
-    ] as const) {
+    for (const artifact of COLLAB_PROJECT_CHECKPOINT_ARTIFACTS) {
       const route = collabCloudProjectCheckpointExportArtifactRoute(
         'project_1',
         'export_1',

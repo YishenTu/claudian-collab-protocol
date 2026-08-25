@@ -23,16 +23,28 @@ export const COLLAB_CLOUD_EVENT_KINDS = Object.freeze([
   'ticket.updated',
   'ticket.comment-added',
   'main.updated',
+  'authority-transfer.updated',
+  'membership.claimed',
+  'project.retired',
 ] as const);
 
 export type CollabCloudEventKind = typeof COLLAB_CLOUD_EVENT_KINDS[number];
 
 export interface CollabCloudEventPayloadMap {
+  readonly 'authority-transfer.updated': { readonly transferId: string };
   readonly 'main.updated': {
     readonly mainOid: CollabGitOid;
     readonly requestId: CollabRequestId;
   };
   readonly 'membership.updated': { readonly memberId: CollabMemberId };
+  readonly 'membership.claimed': {
+    readonly memberId: CollabMemberId;
+    readonly transferId: string;
+  };
+  readonly 'project.retired': {
+    readonly retiredAt: CollabIsoTimestamp;
+    readonly retirementId: string;
+  };
   readonly 'request.comment-added': { readonly requestId: CollabRequestId };
   readonly 'request.updated': { readonly requestId: CollabRequestId };
   readonly 'ticket.comment-added': { readonly ticketId: CollabTicketId };
@@ -130,9 +142,27 @@ function timestamp(source: UnknownRecord, field: string): CollabIsoTimestamp {
 
 function decodePayload(kind: CollabCloudEventKind, value: unknown): unknown {
   switch (kind) {
+    case 'authority-transfer.updated': {
+      const source = exactRecord(value, 'payload', ['transferId']);
+      return { transferId: stringField(source, 'transferId', 128, isCollabOpaqueId) };
+    }
     case 'membership.updated': {
       const source = exactRecord(value, 'payload', ['memberId']);
       return { memberId: stringField(source, 'memberId', 64, isCollabMemberId) };
+    }
+    case 'membership.claimed': {
+      const source = exactRecord(value, 'payload', ['memberId', 'transferId']);
+      return {
+        memberId: stringField(source, 'memberId', 64, isCollabMemberId),
+        transferId: stringField(source, 'transferId', 128, isCollabOpaqueId),
+      };
+    }
+    case 'project.retired': {
+      const source = exactRecord(value, 'payload', ['retiredAt', 'retirementId']);
+      return {
+        retiredAt: timestamp(source, 'retiredAt'),
+        retirementId: stringField(source, 'retirementId', 128, isCollabOpaqueId),
+      };
     }
     case 'request.updated':
     case 'request.comment-added': {

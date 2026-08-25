@@ -121,10 +121,10 @@ const assert = require('node:assert/strict');
 const protocol = require('@claudian-collab/protocol');
 const packageVersion = ${JSON.stringify(installedManifest.version)};
 
-assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 4);
-assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 1);
+assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 5);
+assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 2);
 assert.notEqual(packageVersion, String(protocol.COLLAB_PROTOCOL_VERSION));
-assert.equal(packageVersion, '1.0.0');
+assert.equal(packageVersion, '2.0.0');
 
 const codec = protocol.COLLAB_CONTROL_OPERATION_CODECS.ensureMyRequest;
 const valid = codec.decodeRequest({
@@ -153,6 +153,19 @@ assert.throws(
   () => protocol.collabControlOperationCodec('no-such-operation'),
   error => error instanceof protocol.CollabError && error.code === 'operation-failed',
 );
+
+const transfer = protocol.COLLAB_CONTROL_OPERATION_CODECS.requestLanToCloudTransfer;
+assert.equal(transfer.decodeRequest({
+  expectedAuthorityGeneration: 3,
+  idempotencyKey: 'transfer_1',
+  projectId: 'project_1',
+  targetUrl: 'http://100.64.0.10:8787',
+}).status, 'ok');
+assert.deepEqual(protocol.COLLAB_CHECKPOINT_PROFILES, [
+  'authority-transfer',
+  'backup',
+  'export',
+]);
 
 const unsupported = protocol.decodeCollabProtocolEnvelope({
   protocolVersion: 999,
@@ -188,7 +201,7 @@ const esmOutput = run(process.execPath, [
   '--input-type=module',
   '-e',
   "import { COLLAB_CLOUD_BINDING_VERSION, COLLAB_PROTOCOL_VERSION, collabMemberRef } from '@claudian-collab/protocol';"
-    + " if (COLLAB_PROTOCOL_VERSION !== 4 || COLLAB_CLOUD_BINDING_VERSION !== 1 || collabMemberRef('member_1') !== 'refs/heads/members/member_1') process.exit(1);"
+    + " if (COLLAB_PROTOCOL_VERSION !== 5 || COLLAB_CLOUD_BINDING_VERSION !== 2 || collabMemberRef('member_1') !== 'refs/heads/members/member_1') process.exit(1);"
     + " console.log('esm import OK');",
 ], { cwd: consumerRoot });
 console.log(esmOutput);

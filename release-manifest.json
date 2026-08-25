@@ -6,27 +6,35 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-1.0.0.tgz",
+    "filename": "claudian-collab-protocol-2.0.0.tgz",
     "files": [
       {
+        "path": "dist/CollabAuthorityTransfer.d.ts",
+        "size": 12675
+      },
+      {
+        "path": "dist/CollabAuthorityTransfer.js",
+        "size": 25742
+      },
+      {
         "path": "dist/CollabCloudBinding.d.ts",
-        "size": 6131
+        "size": 7417
       },
       {
         "path": "dist/CollabCloudBinding.js",
-        "size": 18921
+        "size": 22039
       },
       {
         "path": "dist/CollabCloudProjectEvent.d.ts",
-        "size": 1797
+        "size": 2209
       },
       {
         "path": "dist/CollabCloudProjectEvent.js",
-        "size": 4882
+        "size": 5917
       },
       {
         "path": "dist/CollabCloudProjectSnapshot.d.ts",
@@ -46,19 +54,19 @@
       },
       {
         "path": "dist/CollabControlOperationCodecs.d.ts",
-        "size": 3161
+        "size": 6894
       },
       {
         "path": "dist/CollabControlOperationCodecs.js",
-        "size": 3810
+        "size": 6539
       },
       {
         "path": "dist/CollabError.d.ts",
-        "size": 2023
+        "size": 2268
       },
       {
         "path": "dist/CollabError.js",
-        "size": 5478
+        "size": 6104
       },
       {
         "path": "dist/CollabMarkdownProse.d.ts",
@@ -77,8 +85,24 @@
         "size": 2042
       },
       {
+        "path": "dist/CollabProjectCheckpoint.d.ts",
+        "size": 10790
+      },
+      {
+        "path": "dist/CollabProjectCheckpoint.js",
+        "size": 32667
+      },
+      {
+        "path": "dist/CollabProjectRetirement.d.ts",
+        "size": 2511
+      },
+      {
+        "path": "dist/CollabProjectRetirement.js",
+        "size": 5083
+      },
+      {
         "path": "dist/CollabProtocol.d.ts",
-        "size": 5703
+        "size": 5956
       },
       {
         "path": "dist/CollabProtocol.js",
@@ -126,11 +150,11 @@
       },
       {
         "path": "dist/index.d.ts",
-        "size": 5752
+        "size": 9991
       },
       {
         "path": "dist/index.js",
-        "size": 11291
+        "size": 19698
       },
       {
         "path": "dist/types.d.ts",
@@ -150,14 +174,14 @@
       },
       {
         "path": "README.md",
-        "size": 6061
+        "size": 6921
       }
     ],
-    "integrity": "sha512-kNq57tIDzcaMl+o+N4lwETN+QPJybzq4nSD4fjhgdhx/H9qMkJGraf4LX5ELqElMmFG+f5QGxnYQMVLh9/XwdQ==",
-    "sha256": "45bb1ea0c3cac3ed13043294e4109401a9609f5ccf9085f0efd264c795fbc4c5",
-    "shasum": "710a9b28de1c31e08e37aab8be5dbb05c546f57d",
-    "size": 31077,
-    "unpackedSize": 175384
+    "integrity": "sha512-vU5z77jfN2N+xar1MsTkKG0NzDWSqBJZ3zWtBwTvO5ymppHxpxkjNtTFi1PHIOvE+sqDgYuRMATHRtYUEgd7Lg==",
+    "sha256": "8c746c664b8b0a7577bff8e5c6bb99fde2d6efff557ef38b4d5d0e3921679a32",
+    "shasum": "213308cc6c71c3bed3335cf5b7d81d8a61cd02d5",
+    "size": 46548,
+    "unpackedSize": 291795
   },
   "toolchain": {
     "node": "24.16.0",

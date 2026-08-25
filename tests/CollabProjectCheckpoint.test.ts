@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import {
   COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
+  COLLAB_CHECKPOINT_BACKUP_RECORD_KINDS,
   COLLAB_CHECKPOINT_PROFILES,
   COLLAB_PROJECT_CHECKPOINT_ARTIFACTS,
   COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION,
@@ -111,6 +112,134 @@ function protectedClaimEnvelopeRecord() {
   };
 }
 
+function operationalBackupRecords() {
+  const retirementResult = {
+    acknowledgementRequired: true,
+    kind: 'project-retired',
+    projectId: 'project_1',
+    retiredAt: NOW,
+    retirementId: 'retirement_1',
+    terminalExpiresAt: '2026-09-24T00:00:00.000Z',
+  };
+  return [
+    {
+      kind: 'cloud-event',
+      recordId: '00000000000000000001',
+      revision: 1,
+      value: {
+        event: {
+          kind: 'authority-transfer.updated',
+          occurredAt: NOW,
+          payload: { transferId: 'transfer_1' },
+          projectId: 'project_1',
+          protocolVersion: 5,
+          sequence: 1,
+        },
+      },
+    },
+    {
+      kind: 'idempotency-result',
+      recordId: 'intent_1',
+      revision: 1,
+      value: {
+        completedAt: NOW,
+        operation: 'retireProject',
+        projectId: 'project_1',
+        requestSha256: SHA256,
+        responseJson: JSON.stringify(retirementResult),
+      },
+    },
+    {
+      kind: 'principal-binding',
+      recordId: 'member_1',
+      revision: 1,
+      value: {
+        boundAt: NOW,
+        memberId: 'member_1',
+        principalId: 'principal_1',
+        projectId: 'project_1',
+      },
+    },
+    {
+      kind: 'repository-placement',
+      recordId: 'placement_1',
+      revision: 1,
+      value: {
+        nodeId: 'node_1',
+        placementGeneration: 7,
+        projectId: 'project_1',
+        repositoryIdentity: 'repository_1',
+      },
+    },
+    {
+      kind: 'lifecycle-state',
+      recordId: 'operation_1',
+      revision: 1,
+      value: {
+        operationId: 'operation_1',
+        operationKind: 'authority-transfer',
+        phase: 'claims-retained',
+        projectId: 'project_1',
+        stateJson: '{"batchRevision":2}',
+      },
+    },
+    {
+      kind: 'terminal-responder',
+      recordId: 'retirement_1',
+      revision: 1,
+      value: {
+        expiresAt: '2026-09-24T00:00:00.000Z',
+        operationId: 'retirement_1',
+        projectId: 'project_1',
+        responseJson: JSON.stringify(retirementResult),
+      },
+    },
+    protectedClaimEnvelopeRecord(),
+    {
+      kind: 'tombstone',
+      recordId: 'project_1',
+      revision: 1,
+      value: {
+        authorityGeneration: 4,
+        projectId: 'project_1',
+        retiredAt: NOW,
+        terminalExpiresAt: '2026-09-24T00:00:00.000Z',
+      },
+    },
+    {
+      kind: 'schema-catalog',
+      recordId: 'project_1',
+      revision: 1,
+      value: {
+        coordinationSchemaVersion: 6,
+        projectId: 'project_1',
+        repositoryFormatVersion: 1,
+      },
+    },
+    {
+      kind: 'server-compatibility',
+      recordId: 'project_1',
+      revision: 1,
+      value: {
+        maximumBuild: '2.0.0',
+        minimumBuild: '2.0.0',
+        projectId: 'project_1',
+      },
+    },
+    {
+      kind: 'authority-volume-pair',
+      recordId: 'project_1',
+      revision: 1,
+      value: {
+        authorityId: 'authority_1',
+        authorityVolumeIdentity: 'volume_1',
+        projectId: 'project_1',
+        restoreEpoch: 1,
+      },
+    },
+  ];
+}
+
 describe('Project checkpoint contract', () => {
   it('freezes the profiles, artifact names, schema versions, and hard ceilings', () => {
     expect(COLLAB_CHECKPOINT_PROFILES).toEqual([
@@ -125,6 +254,27 @@ describe('Project checkpoint contract', () => {
     ]);
     expect(COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION).toBe(1);
     expect(COLLAB_PROJECT_COORDINATION_FORMAT_VERSION).toBe(1);
+    expect(COLLAB_CHECKPOINT_BACKUP_RECORD_KINDS).toEqual([
+      'project',
+      'member',
+      'request',
+      'request-comment',
+      'ticket',
+      'ticket-comment',
+      'ticket-relation',
+      'ticket-mention',
+      'cloud-event',
+      'idempotency-result',
+      'principal-binding',
+      'repository-placement',
+      'lifecycle-state',
+      'terminal-responder',
+      'protected-claim-envelope',
+      'tombstone',
+      'schema-catalog',
+      'server-compatibility',
+      'authority-volume-pair',
+    ]);
     expect(COLLAB_CHECKPOINT_ARTIFACT_LIMITS).toEqual({
       maxCoordinationBytes: 256 * 1024 * 1024,
       maxManifestBytes: 64 * 1024,
@@ -191,6 +341,19 @@ describe('Project checkpoint contract', () => {
       'backup',
     )).toThrow('collab.error.protocol-payload-invalid');
     expect(backupNdjson).not.toMatch(/privateKey|rawClaim|credential|token/i);
+  });
+
+  it('round-trips Cloud continuity only in the backup profile', () => {
+    const records = [...portableRecords(), ...operationalBackupRecords()];
+    const ndjson = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(decodeCollabProjectCheckpointCoordinationNdjson(ndjson, 'backup'))
+      .toEqual(records);
+    expect(() => decodeCollabProjectCheckpointCoordinationNdjson(ndjson, 'export'))
+      .toThrow('collab.error.protocol-payload-invalid');
+    expect(() => decodeCollabProjectCheckpointCoordinationNdjson(
+      ndjson.replace('\\"batchRevision\\":2', '\\"rawClaim\\":\\"secret\\"'),
+      'backup',
+    )).toThrow('collab.error.protocol-payload-invalid');
   });
 
   it.each([

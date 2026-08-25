@@ -19,14 +19,14 @@ or compatibility rules.
   `collabMemberRef`)
 - Shared limits that client and server must agree on (`COLLAB_LIMITS`)
 - Protocol-version negotiation (`COLLAB_PROTOCOL_VERSION`, envelope decoding)
-- Cloud binding v1 route construction/matching, capability negotiation, strict success/error envelopes, private-development bootstrap, Project snapshot, and redacted event contracts
+- Canonical Project checkpoint profiles, logical records, authority-generation transfer, exact membership claims, target-signed redemption receipts, and Project retirement contracts
+- Cloud binding v2 route construction/matching, bounded checkpoint streams, capability negotiation, strict success/error envelopes, private-development bootstrap, Project snapshot, and redacted event contracts
 - Markdown-derived Ticket-reference and Member-mention semantics shared by
   client rendering and authority derivation
 
 The package owns the declarative Cloud HTTP/WebSocket/Git binding contract, but no transport runtime, request dispatch, trust policy, authentication, authorization, persistence, Git execution, or client-local recovery. It contains no LAN Host admission, invitation trust, mDNS/TLS/discovery, or Host-transfer transport; no Obsidian, Vault, UI, Agent, provider, SQL, or filesystem behavior; and no `IngressPrincipal` or other deployment-ingress contracts.
 
-The current registry contains only the decision-complete, transport-neutral
-request, Ticket, metadata, and Accept operations. Detail DTOs embed the first
+The current registry contains the decision-complete, transport-neutral request, Ticket, metadata, Accept, Project authority-transfer, transferred-membership claim, and Project retirement operations. Detail DTOs embed the first
 page of their comments and accepted relations; `listRequestComments`,
 `listTicketComments`, and `listTicketAcceptedRelations` page the remainder
 with stable opaque cursors, and producers bound pages by the shared count and
@@ -37,7 +37,7 @@ fixed part of the detail so the whole detail stays within
 has one compatible final-serialization limit. Request comments and Ticket
 accepted relations also have shared authority-enforced total limits; summary
 counts let complete consumers reject partial or cross-snapshot assembly.
-Cloud binding v1 adds the authority-neutral Project snapshot, six redacted durable event kinds plus `snapshot.required`, eight capability tokens, the exact ordinary Project/Git route catalog, and six private-development bootstrap bindings. Existing LAN v9 Join, invitation, endpoint, membership lifecycle, Host-transfer, retirement, snapshot, event, and HTTP bindings remain independently application-owned.
+Cloud binding v2 adds the authority-neutral Project snapshot, nine redacted durable event kinds plus `snapshot.required`, twelve capability tokens, the exact ordinary Project/Git route catalog, bounded authority-transfer artifact routes, and six private-development bootstrap bindings. The shared checkpoint container is exactly `checkpoint.json`, `coordination.ndjson`, and `repository.bundle`; portable profiles exclude engine storage, paths, credentials, tokens, private keys, and operational refs, while the backup profile may carry only protected claim-envelope metadata and ciphertext. Existing LAN v9 Join, invitation, endpoint, membership lifecycle, Host-transfer, snapshot, event, and HTTP bindings remain independently application-owned; the dedicated LAN authority-transfer transport binds these shared payloads without creating another shared operation registry.
 
 ## Usage
 
@@ -62,18 +62,18 @@ part of the public surface.
 
 Package SemVer, canonical wire version, and Cloud binding version are independent concepts.
 
-- **Package version** (this `package.json`): `1.0.0`. Patch releases preserve
+- **Package version** (this `package.json`): `2.0.0`. Patch releases preserve
   every existing public declaration and runtime behavior baseline. Minor
   releases may add backward-compatible API. Removing or changing an existing
   declaration, export, runtime behavior, codec, error, limit, ref rule,
   operation, or compatibility rule requires a major release. The package
   version never signals wire compatibility by itself.
-- **Wire version** (`COLLAB_PROTOCOL_VERSION`): currently `4`. The supported
-  range is exactly `[4, 4]`. This is independent from Cloud binding version `1` and the existing application
+- **Wire version** (`COLLAB_PROTOCOL_VERSION`): currently `5`. The supported
+  range is exactly `[5, 5]`. This is independent from Cloud binding version `2` and the existing application
   LAN control version `9`. Any change to an envelope, DTO, or operation
   payload shape, or to the operation inventory, is wire-breaking and requires
   a new wire-protocol version.
-- **Cloud binding version** (`COLLAB_CLOUD_BINDING_VERSION`): currently `1`. It versions Cloud routes and capabilities independently from package and wire versions.
+- **Cloud binding version** (`COLLAB_CLOUD_BINDING_VERSION`): currently `2`. It versions Cloud routes, bounded transfer streams, and capabilities independently from package and wire versions. Binding v1 and wire v4 are unsupported rather than translated or dual-interpreted.
 
 ### Compatibility behavior
 

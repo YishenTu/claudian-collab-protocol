@@ -127,6 +127,209 @@ export interface CollabAuthorityRelinquishmentProof {
   readonly transferId: string;
 }
 
+export interface CollabAuthorityTransferStatus {
+  readonly checkpointSha256: string | null;
+  readonly createdAt: CollabIsoTimestamp;
+  readonly direction: CollabAuthorityTransferDirection;
+  readonly expiresAt: CollabIsoTimestamp;
+  readonly phase:
+    | CollabLanToCloudTransferPhase
+    | CollabCloudToLanTransferPhase
+    | CollabAuthorityTransferCancellationPhase;
+  readonly projectId: CollabProjectId;
+  readonly sourceAuthority: CollabCheckpointAuthority;
+  readonly state: 'active' | 'cancelled' | 'completed';
+  readonly targetAuthority: CollabCheckpointAuthority;
+  readonly targetUrl: string;
+  readonly transferId: string;
+  readonly updatedAt: CollabIsoTimestamp;
+}
+
+interface CollabAuthorityMutationRequest {
+  readonly idempotencyKey: string;
+  readonly projectId: CollabProjectId;
+}
+
+export interface RequestLanToCloudTransferRequest extends CollabAuthorityMutationRequest {
+  readonly expectedAuthorityGeneration: number;
+  readonly targetUrl: string;
+}
+
+export interface AcceptLanToCloudTransferTargetRequest extends CollabAuthorityMutationRequest {
+  readonly expectedAuthorityGeneration: number;
+  readonly targetUrl: string;
+  readonly transferId: string;
+}
+
+export interface BeginLanToCloudTransferRequest extends CollabAuthorityMutationRequest {
+  readonly checkpointManifestSha256: string;
+  readonly expectedSourceAuthorityGeneration: number;
+  readonly sourceHostMemberId: CollabMemberId;
+  readonly sourceProof: string;
+  readonly targetUrl: string;
+  readonly transferId: string;
+}
+
+export interface GetProjectAuthorityTransferRequest {
+  readonly projectId: CollabProjectId;
+  readonly transferId: string;
+}
+
+export interface RotateTransferredMembershipClaimsRequest extends CollabAuthorityMutationRequest {
+  readonly expectedBatchRevision: number;
+  readonly transferId: string;
+}
+
+export interface AcknowledgeTransferredMembershipClaimBatchRequest
+  extends CollabAuthorityMutationRequest {
+  readonly batchRevision: number;
+  readonly batchSha256: string;
+  readonly operationIntentId: string;
+  readonly transferId: string;
+}
+
+export interface GetTransferredMembershipClaimRequest {
+  readonly projectId: CollabProjectId;
+  readonly transferId: string;
+}
+
+export interface ClaimTransferredMembershipRequest extends CollabAuthorityMutationRequest {
+  readonly claim: string;
+  readonly transferId: string;
+}
+
+export interface AcknowledgeTransferredMembershipClaimRedemptionRequest
+  extends CollabAuthorityMutationRequest {
+  readonly receipt: CollabTransferredMembershipRedemptionReceipt;
+  readonly transferId: string;
+}
+
+export interface CollabTransferredMembershipRedemptionAcknowledgement {
+  readonly acknowledgedAt: CollabIsoTimestamp;
+  readonly memberId: CollabMemberId;
+  readonly projectId: CollabProjectId;
+  readonly receiptId: string;
+  readonly transferId: string;
+}
+
+export interface CommitLanToCloudRelinquishmentRequest extends CollabAuthorityMutationRequest {
+  readonly proof: CollabAuthorityRelinquishmentProof;
+  readonly transferId: string;
+}
+
+export interface BeginCloudToLanTransferRequest extends CollabAuthorityMutationRequest {
+  readonly expectedAuthorityGeneration: number;
+  readonly targetHostMemberId: CollabMemberId;
+  readonly targetUrl: string;
+}
+
+export interface AcceptCloudToLanTransferTargetRequest extends CollabAuthorityMutationRequest {
+  readonly targetHostMemberId: CollabMemberId;
+  readonly targetProof: string;
+  readonly transferId: string;
+}
+
+export interface ReportCloudToLanTargetStagedRequest extends CollabAuthorityMutationRequest {
+  readonly checkpointSha256: string;
+  readonly targetAuthority: CollabCheckpointAuthority;
+  readonly targetProof: string;
+  readonly transferId: string;
+}
+
+export interface ConfirmCloudToLanTargetActiveRequest extends CollabAuthorityMutationRequest {
+  readonly targetActivationProof: string;
+  readonly transferId: string;
+}
+
+export interface CancelProjectAuthorityTransferRequest extends CollabAuthorityMutationRequest {
+  readonly expectedPhase: string;
+  readonly transferId: string;
+}
+
+export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze([
+  'requestLanToCloudTransfer',
+  'acceptLanToCloudTransferTarget',
+  'beginLanToCloudTransfer',
+  'getProjectAuthorityTransfer',
+  'rotateTransferredMembershipClaims',
+  'acknowledgeTransferredMembershipClaimBatch',
+  'getTransferredMembershipClaim',
+  'claimTransferredMembership',
+  'acknowledgeTransferredMembershipClaimRedemption',
+  'commitLanToCloudRelinquishment',
+  'beginCloudToLanTransfer',
+  'acceptCloudToLanTransferTarget',
+  'reportCloudToLanTargetStaged',
+  'confirmCloudToLanTargetActive',
+  'cancelProjectAuthorityTransfer',
+] as const);
+
+export type CollabAuthorityTransferOperation =
+  typeof COLLAB_AUTHORITY_TRANSFER_OPERATIONS[number];
+
+export interface CollabAuthorityTransferOperationMap {
+  readonly requestLanToCloudTransfer: {
+    readonly request: RequestLanToCloudTransferRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly acceptLanToCloudTransferTarget: {
+    readonly request: AcceptLanToCloudTransferTargetRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly beginLanToCloudTransfer: {
+    readonly request: BeginLanToCloudTransferRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly getProjectAuthorityTransfer: {
+    readonly request: GetProjectAuthorityTransferRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly rotateTransferredMembershipClaims: {
+    readonly request: RotateTransferredMembershipClaimsRequest;
+    readonly response: CollabTransferredMembershipClaimBatch;
+  };
+  readonly acknowledgeTransferredMembershipClaimBatch: {
+    readonly request: AcknowledgeTransferredMembershipClaimBatchRequest;
+    readonly response: CollabTransferredMembershipClaimCustodyReceipt;
+  };
+  readonly getTransferredMembershipClaim: {
+    readonly request: GetTransferredMembershipClaimRequest;
+    readonly response: CollabTransferredMembershipClaim;
+  };
+  readonly claimTransferredMembership: {
+    readonly request: ClaimTransferredMembershipRequest;
+    readonly response: CollabTransferredMembershipRedemptionReceipt;
+  };
+  readonly acknowledgeTransferredMembershipClaimRedemption: {
+    readonly request: AcknowledgeTransferredMembershipClaimRedemptionRequest;
+    readonly response: CollabTransferredMembershipRedemptionAcknowledgement;
+  };
+  readonly commitLanToCloudRelinquishment: {
+    readonly request: CommitLanToCloudRelinquishmentRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly beginCloudToLanTransfer: {
+    readonly request: BeginCloudToLanTransferRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly acceptCloudToLanTransferTarget: {
+    readonly request: AcceptCloudToLanTransferTargetRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly reportCloudToLanTargetStaged: {
+    readonly request: ReportCloudToLanTargetStagedRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly confirmCloudToLanTargetActive: {
+    readonly request: ConfirmCloudToLanTargetActiveRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly cancelProjectAuthorityTransfer: {
+    readonly request: CancelProjectAuthorityTransferRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+}
+
 type UnknownRecord = Readonly<Record<string, unknown>>;
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
@@ -418,4 +621,415 @@ export function decodeCollabAuthorityRelinquishmentProof(
     targetAuthority,
     transferId: token(source, 'transferId'),
   };
+}
+
+const LAN_TO_CLOUD_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES,
+);
+const CLOUD_TO_LAN_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES,
+);
+const CANCELLATION_PHASE_SET: ReadonlySet<string> = new Set(
+  COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES,
+);
+
+function transferPhase(
+  source: UnknownRecord,
+  direction: CollabAuthorityTransferDirection,
+): CollabAuthorityTransferStatus['phase'] {
+  const value = source.phase;
+  const directionSet = direction === 'lan-to-cloud'
+    ? LAN_TO_CLOUD_PHASE_SET
+    : CLOUD_TO_LAN_PHASE_SET;
+  if (typeof value !== 'string' || (!directionSet.has(value) && !CANCELLATION_PHASE_SET.has(value))) {
+    throw invalidPayload('phase');
+  }
+  return value as CollabAuthorityTransferStatus['phase'];
+}
+
+export function decodeCollabAuthorityTransferStatus(
+  value: unknown,
+): CollabAuthorityTransferStatus {
+  const source = exactRecord(value, 'transferStatus', [
+    'checkpointSha256',
+    'createdAt',
+    'direction',
+    'expiresAt',
+    'phase',
+    'projectId',
+    'sourceAuthority',
+    'state',
+    'targetAuthority',
+    'targetUrl',
+    'transferId',
+    'updatedAt',
+  ]);
+  const direction = literal(source, 'direction', ['cloud-to-lan', 'lan-to-cloud']);
+  const sourceAuthority = authority(source.sourceAuthority, 'sourceAuthority');
+  const targetAuthority = authority(source.targetAuthority, 'targetAuthority');
+  const phase = transferPhase(source, direction);
+  const state = literal(source, 'state', ['active', 'cancelled', 'completed']);
+  if (
+    sourceAuthority.kind === targetAuthority.kind
+    || targetAuthority.generation !== sourceAuthority.generation + 1
+    || (direction === 'lan-to-cloud'
+      && (sourceAuthority.kind !== 'lan' || targetAuthority.kind !== 'cloud'))
+    || (direction === 'cloud-to-lan'
+      && (sourceAuthority.kind !== 'cloud' || targetAuthority.kind !== 'lan'))
+    || (state === 'cancelled' && phase !== 'cancelled')
+    || (state === 'completed' && phase !== 'completed')
+    || (state === 'active' && (phase === 'cancelled' || phase === 'completed'))
+  ) throw invalidPayload('transferStatus');
+  const checkpointSha256 = source.checkpointSha256 === null
+    ? null
+    : sha256(source, 'checkpointSha256');
+  return {
+    checkpointSha256,
+    createdAt: timestamp(source, 'createdAt'),
+    direction,
+    expiresAt: timestamp(source, 'expiresAt'),
+    phase,
+    projectId: token(source, 'projectId', isCollabProjectId),
+    sourceAuthority,
+    state,
+    targetAuthority,
+    targetUrl: absoluteTargetUrl(source),
+    transferId: token(source, 'transferId'),
+    updatedAt: timestamp(source, 'updatedAt'),
+  };
+}
+
+function mutationFields(source: UnknownRecord) {
+  return {
+    idempotencyKey: token(source, 'idempotencyKey'),
+    projectId: token(source, 'projectId', isCollabProjectId),
+  };
+}
+
+function decodeRequestLanToCloudTransfer(value: unknown): RequestLanToCloudTransferRequest {
+  const source = exactRecord(value, 'request', [
+    'expectedAuthorityGeneration',
+    'idempotencyKey',
+    'projectId',
+    'targetUrl',
+  ]);
+  return {
+    expectedAuthorityGeneration: positiveInteger(source, 'expectedAuthorityGeneration'),
+    ...mutationFields(source),
+    targetUrl: absoluteTargetUrl(source),
+  };
+}
+
+function decodeAcceptLanToCloudTransferTarget(
+  value: unknown,
+): AcceptLanToCloudTransferTargetRequest {
+  const source = exactRecord(value, 'request', [
+    'expectedAuthorityGeneration',
+    'idempotencyKey',
+    'projectId',
+    'targetUrl',
+    'transferId',
+  ]);
+  return {
+    expectedAuthorityGeneration: positiveInteger(source, 'expectedAuthorityGeneration'),
+    ...mutationFields(source),
+    targetUrl: absoluteTargetUrl(source),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+function decodeBeginLanToCloudTransfer(value: unknown): BeginLanToCloudTransferRequest {
+  const source = exactRecord(value, 'request', [
+    'checkpointManifestSha256',
+    'expectedSourceAuthorityGeneration',
+    'idempotencyKey',
+    'projectId',
+    'sourceHostMemberId',
+    'sourceProof',
+    'targetUrl',
+    'transferId',
+  ]);
+  return {
+    checkpointManifestSha256: sha256(source, 'checkpointManifestSha256'),
+    expectedSourceAuthorityGeneration: positiveInteger(
+      source,
+      'expectedSourceAuthorityGeneration',
+    ),
+    ...mutationFields(source),
+    sourceHostMemberId: token(source, 'sourceHostMemberId', isCollabMemberId),
+    sourceProof: base64url(source, 'sourceProof'),
+    targetUrl: absoluteTargetUrl(source),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+function decodeGetProjectAuthorityTransfer(value: unknown): GetProjectAuthorityTransferRequest {
+  const source = exactRecord(value, 'request', ['projectId', 'transferId']);
+  return {
+    projectId: token(source, 'projectId', isCollabProjectId),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+function decodeRotateTransferredMembershipClaims(
+  value: unknown,
+): RotateTransferredMembershipClaimsRequest {
+  const source = exactRecord(value, 'request', [
+    'expectedBatchRevision',
+    'idempotencyKey',
+    'projectId',
+    'transferId',
+  ]);
+  return {
+    expectedBatchRevision: positiveInteger(source, 'expectedBatchRevision'),
+    ...mutationFields(source),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+function decodeAcknowledgeTransferredMembershipClaimBatch(
+  value: unknown,
+): AcknowledgeTransferredMembershipClaimBatchRequest {
+  const source = exactRecord(value, 'request', [
+    'batchRevision',
+    'batchSha256',
+    'idempotencyKey',
+    'operationIntentId',
+    'projectId',
+    'transferId',
+  ]);
+  return {
+    batchRevision: positiveInteger(source, 'batchRevision'),
+    batchSha256: sha256(source, 'batchSha256'),
+    ...mutationFields(source),
+    operationIntentId: token(source, 'operationIntentId'),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+function decodeGetTransferredMembershipClaim(
+  value: unknown,
+): GetTransferredMembershipClaimRequest {
+  return decodeGetProjectAuthorityTransfer(value);
+}
+
+function decodeClaimTransferredMembership(value: unknown): ClaimTransferredMembershipRequest {
+  const source = exactRecord(value, 'request', [
+    'claim',
+    'idempotencyKey',
+    'projectId',
+    'transferId',
+  ]);
+  return {
+    claim: base64url(source, 'claim'),
+    ...mutationFields(source),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+function decodeAcknowledgeTransferredMembershipClaimRedemption(
+  value: unknown,
+): AcknowledgeTransferredMembershipClaimRedemptionRequest {
+  const source = exactRecord(value, 'request', [
+    'idempotencyKey',
+    'projectId',
+    'receipt',
+    'transferId',
+  ]);
+  const common = mutationFields(source);
+  const transferId = token(source, 'transferId');
+  const receipt = decodeCollabTransferredMembershipRedemptionReceipt(source.receipt);
+  if (receipt.projectId !== common.projectId || receipt.transferId !== transferId) {
+    throw invalidPayload('receipt');
+  }
+  return { ...common, receipt, transferId };
+}
+
+function decodeCommitLanToCloudRelinquishment(
+  value: unknown,
+): CommitLanToCloudRelinquishmentRequest {
+  const source = exactRecord(value, 'request', [
+    'idempotencyKey',
+    'projectId',
+    'proof',
+    'transferId',
+  ]);
+  const common = mutationFields(source);
+  const transferId = token(source, 'transferId');
+  const proof = decodeCollabAuthorityRelinquishmentProof(source.proof);
+  if (proof.projectId !== common.projectId || proof.transferId !== transferId) {
+    throw invalidPayload('proof');
+  }
+  return { ...common, proof, transferId };
+}
+
+function decodeBeginCloudToLanTransfer(value: unknown): BeginCloudToLanTransferRequest {
+  const source = exactRecord(value, 'request', [
+    'expectedAuthorityGeneration',
+    'idempotencyKey',
+    'projectId',
+    'targetHostMemberId',
+    'targetUrl',
+  ]);
+  return {
+    expectedAuthorityGeneration: positiveInteger(source, 'expectedAuthorityGeneration'),
+    ...mutationFields(source),
+    targetHostMemberId: token(source, 'targetHostMemberId', isCollabMemberId),
+    targetUrl: absoluteTargetUrl(source),
+  };
+}
+
+function decodeAcceptCloudToLanTransferTarget(
+  value: unknown,
+): AcceptCloudToLanTransferTargetRequest {
+  const source = exactRecord(value, 'request', [
+    'idempotencyKey',
+    'projectId',
+    'targetHostMemberId',
+    'targetProof',
+    'transferId',
+  ]);
+  return {
+    ...mutationFields(source),
+    targetHostMemberId: token(source, 'targetHostMemberId', isCollabMemberId),
+    targetProof: base64url(source, 'targetProof'),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+function decodeReportCloudToLanTargetStaged(
+  value: unknown,
+): ReportCloudToLanTargetStagedRequest {
+  const source = exactRecord(value, 'request', [
+    'checkpointSha256',
+    'idempotencyKey',
+    'projectId',
+    'targetAuthority',
+    'targetProof',
+    'transferId',
+  ]);
+  const targetAuthority = authority(source.targetAuthority, 'targetAuthority');
+  if (targetAuthority.kind !== 'lan') throw invalidPayload('targetAuthority');
+  return {
+    checkpointSha256: sha256(source, 'checkpointSha256'),
+    ...mutationFields(source),
+    targetAuthority,
+    targetProof: base64url(source, 'targetProof'),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+function decodeConfirmCloudToLanTargetActive(
+  value: unknown,
+): ConfirmCloudToLanTargetActiveRequest {
+  const source = exactRecord(value, 'request', [
+    'idempotencyKey',
+    'projectId',
+    'targetActivationProof',
+    'transferId',
+  ]);
+  return {
+    ...mutationFields(source),
+    targetActivationProof: base64url(source, 'targetActivationProof'),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+function decodeCancelProjectAuthorityTransfer(
+  value: unknown,
+): CancelProjectAuthorityTransferRequest {
+  const source = exactRecord(value, 'request', [
+    'expectedPhase',
+    'idempotencyKey',
+    'projectId',
+    'transferId',
+  ]);
+  const expectedPhase = source.expectedPhase;
+  if (
+    typeof expectedPhase !== 'string'
+    || (!LAN_TO_CLOUD_PHASE_SET.has(expectedPhase)
+      && !CLOUD_TO_LAN_PHASE_SET.has(expectedPhase)
+      && !CANCELLATION_PHASE_SET.has(expectedPhase))
+  ) throw invalidPayload('expectedPhase');
+  return {
+    expectedPhase,
+    ...mutationFields(source),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+export function decodeCollabAuthorityTransferOperationRequest<
+  Operation extends CollabAuthorityTransferOperation,
+>(
+  operation: Operation,
+  value: unknown,
+): CollabAuthorityTransferOperationMap[Operation]['request'] {
+  const decoded = (() => {
+    switch (operation) {
+      case 'requestLanToCloudTransfer': return decodeRequestLanToCloudTransfer(value);
+      case 'acceptLanToCloudTransferTarget': return decodeAcceptLanToCloudTransferTarget(value);
+      case 'beginLanToCloudTransfer': return decodeBeginLanToCloudTransfer(value);
+      case 'getProjectAuthorityTransfer': return decodeGetProjectAuthorityTransfer(value);
+      case 'rotateTransferredMembershipClaims':
+        return decodeRotateTransferredMembershipClaims(value);
+      case 'acknowledgeTransferredMembershipClaimBatch':
+        return decodeAcknowledgeTransferredMembershipClaimBatch(value);
+      case 'getTransferredMembershipClaim': return decodeGetTransferredMembershipClaim(value);
+      case 'claimTransferredMembership': return decodeClaimTransferredMembership(value);
+      case 'acknowledgeTransferredMembershipClaimRedemption':
+        return decodeAcknowledgeTransferredMembershipClaimRedemption(value);
+      case 'commitLanToCloudRelinquishment':
+        return decodeCommitLanToCloudRelinquishment(value);
+      case 'beginCloudToLanTransfer': return decodeBeginCloudToLanTransfer(value);
+      case 'acceptCloudToLanTransferTarget': return decodeAcceptCloudToLanTransferTarget(value);
+      case 'reportCloudToLanTargetStaged': return decodeReportCloudToLanTargetStaged(value);
+      case 'confirmCloudToLanTargetActive': return decodeConfirmCloudToLanTargetActive(value);
+      case 'cancelProjectAuthorityTransfer': return decodeCancelProjectAuthorityTransfer(value);
+    }
+  })();
+  return decoded;
+}
+
+function decodeRedemptionAcknowledgement(
+  value: unknown,
+): CollabTransferredMembershipRedemptionAcknowledgement {
+  const source = exactRecord(value, 'redemptionAcknowledgement', [
+    'acknowledgedAt',
+    'memberId',
+    'projectId',
+    'receiptId',
+    'transferId',
+  ]);
+  return {
+    acknowledgedAt: timestamp(source, 'acknowledgedAt'),
+    memberId: token(source, 'memberId', isCollabMemberId),
+    projectId: token(source, 'projectId', isCollabProjectId),
+    receiptId: token(source, 'receiptId'),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+export function decodeCollabAuthorityTransferOperationResponse<
+  Operation extends CollabAuthorityTransferOperation,
+>(
+  operation: Operation,
+  value: unknown,
+): CollabAuthorityTransferOperationMap[Operation]['response'] {
+  const decoded = (() => {
+    switch (operation) {
+      case 'rotateTransferredMembershipClaims':
+        return decodeCollabTransferredMembershipClaimBatch(value);
+      case 'acknowledgeTransferredMembershipClaimBatch':
+        return decodeCollabTransferredMembershipClaimCustodyReceipt(value);
+      case 'getTransferredMembershipClaim':
+        return decodeCollabTransferredMembershipClaim(value);
+      case 'claimTransferredMembership':
+        return decodeCollabTransferredMembershipRedemptionReceipt(value);
+      case 'acknowledgeTransferredMembershipClaimRedemption':
+        return decodeRedemptionAcknowledgement(value);
+      default:
+        return decodeCollabAuthorityTransferStatus(value);
+    }
+  })();
+  return decoded;
 }

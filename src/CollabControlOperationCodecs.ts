@@ -1,9 +1,22 @@
+import {
+  COLLAB_AUTHORITY_TRANSFER_OPERATIONS,
+  type CollabAuthorityTransferOperation,
+  decodeCollabAuthorityTransferOperationRequest,
+  decodeCollabAuthorityTransferOperationResponse,
+} from './CollabAuthorityTransfer';
 import { CollabError } from './CollabError';
+import {
+  COLLAB_PROJECT_RETIREMENT_OPERATIONS,
+  type CollabProjectRetirementOperation,
+  decodeCollabProjectRetirementOperationRequest,
+  decodeCollabProjectRetirementOperationResponse,
+} from './CollabProjectRetirement';
 import {
   type CollabControlOperationMap,
   type CollabDecodeResult,
 } from './CollabProtocol';
 import {
+  type CollabRequestTicketOperation,
   decodeCollabRequestTicketOperationRequest,
 } from './CollabRequestTicketRequestCodecs';
 import {
@@ -35,14 +48,61 @@ type CodecMap = {
   >;
 };
 
+const AUTHORITY_TRANSFER_OPERATION_SET: ReadonlySet<string> = new Set(
+  COLLAB_AUTHORITY_TRANSFER_OPERATIONS,
+);
+const PROJECT_RETIREMENT_OPERATION_SET: ReadonlySet<string> = new Set(
+  COLLAB_PROJECT_RETIREMENT_OPERATIONS,
+);
+
+function lifecycleDecodeResult(
+  decode: () => unknown,
+): CollabDecodeResult<unknown> {
+  try {
+    return { status: 'ok', value: decode() };
+  } catch (error) {
+    if (error instanceof CollabError && error.code === 'protocol-payload-invalid') {
+      return { error, status: 'invalid' };
+    }
+    throw error;
+  }
+}
+
 function decodeRequest(
   operation: CollabControlOperation,
   input: unknown,
 ): CollabDecodeResult<unknown> {
-  return decodeCollabRequestTicketOperationRequest(operation, input);
+  if (AUTHORITY_TRANSFER_OPERATION_SET.has(operation)) {
+    return lifecycleDecodeResult(() => decodeCollabAuthorityTransferOperationRequest(
+      operation as CollabAuthorityTransferOperation,
+      input,
+    ));
+  }
+  if (PROJECT_RETIREMENT_OPERATION_SET.has(operation)) {
+    return lifecycleDecodeResult(() => decodeCollabProjectRetirementOperationRequest(
+      operation as CollabProjectRetirementOperation,
+      input,
+    ));
+  }
+  return decodeCollabRequestTicketOperationRequest(
+    operation as CollabRequestTicketOperation,
+    input,
+  );
 }
 
 function decodeResponse(operation: CollabControlOperation, input: unknown): unknown {
+  if (AUTHORITY_TRANSFER_OPERATION_SET.has(operation)) {
+    return decodeCollabAuthorityTransferOperationResponse(
+      operation as CollabAuthorityTransferOperation,
+      input,
+    );
+  }
+  if (PROJECT_RETIREMENT_OPERATION_SET.has(operation)) {
+    return decodeCollabProjectRetirementOperationResponse(
+      operation as CollabProjectRetirementOperation,
+      input,
+    );
+  }
   switch (operation) {
     case 'getRequest': return decodeRequestDetailResponse(input);
     case 'listRequestComments': return decodeCommentPageResponse(input);
@@ -91,6 +151,25 @@ export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
   reopenTicket: codec('reopenTicket'),
   updateMyRequestMetadata: codec('updateMyRequestMetadata'),
   acceptRequest: codec('acceptRequest'),
+  requestLanToCloudTransfer: codec('requestLanToCloudTransfer'),
+  acceptLanToCloudTransferTarget: codec('acceptLanToCloudTransferTarget'),
+  beginLanToCloudTransfer: codec('beginLanToCloudTransfer'),
+  getProjectAuthorityTransfer: codec('getProjectAuthorityTransfer'),
+  rotateTransferredMembershipClaims: codec('rotateTransferredMembershipClaims'),
+  acknowledgeTransferredMembershipClaimBatch:
+    codec('acknowledgeTransferredMembershipClaimBatch'),
+  getTransferredMembershipClaim: codec('getTransferredMembershipClaim'),
+  claimTransferredMembership: codec('claimTransferredMembership'),
+  acknowledgeTransferredMembershipClaimRedemption:
+    codec('acknowledgeTransferredMembershipClaimRedemption'),
+  commitLanToCloudRelinquishment: codec('commitLanToCloudRelinquishment'),
+  beginCloudToLanTransfer: codec('beginCloudToLanTransfer'),
+  acceptCloudToLanTransferTarget: codec('acceptCloudToLanTransferTarget'),
+  reportCloudToLanTargetStaged: codec('reportCloudToLanTargetStaged'),
+  confirmCloudToLanTargetActive: codec('confirmCloudToLanTargetActive'),
+  cancelProjectAuthorityTransfer: codec('cancelProjectAuthorityTransfer'),
+  retireProject: codec('retireProject'),
+  acknowledgeProjectRetirement: codec('acknowledgeProjectRetirement'),
 } as const satisfies CodecMap);
 
 export function collabControlOperationCodec<Operation extends CollabControlOperation>(

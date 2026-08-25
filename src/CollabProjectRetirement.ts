@@ -37,6 +37,31 @@ export interface CollabProjectRetirementAcknowledgement {
   readonly retirementId: string;
 }
 
+export interface CollabProjectRetirementAcknowledgementRequest {
+  readonly idempotencyKey: string;
+  readonly projectId: CollabProjectId;
+  readonly retirementId: string;
+}
+
+export const COLLAB_PROJECT_RETIREMENT_OPERATIONS = Object.freeze([
+  'retireProject',
+  'acknowledgeProjectRetirement',
+] as const);
+
+export type CollabProjectRetirementOperation =
+  typeof COLLAB_PROJECT_RETIREMENT_OPERATIONS[number];
+
+export interface CollabProjectRetirementOperationMap {
+  readonly retireProject: {
+    readonly request: CollabProjectRetirementRequest;
+    readonly response: CollabProjectRetirementResult;
+  };
+  readonly acknowledgeProjectRetirement: {
+    readonly request: CollabProjectRetirementAcknowledgementRequest;
+    readonly response: CollabProjectRetirementAcknowledgement;
+  };
+}
+
 type UnknownRecord = Readonly<Record<string, unknown>>;
 
 function invalidPayload(field: string): CollabError {
@@ -146,4 +171,36 @@ export function decodeCollabProjectRetirementAcknowledgement(
     projectId: token(source, 'projectId', isCollabProjectId),
     retirementId: token(source, 'retirementId'),
   };
+}
+
+export function decodeCollabProjectRetirementOperationRequest<
+  Operation extends CollabProjectRetirementOperation,
+>(
+  operation: Operation,
+  value: unknown,
+): CollabProjectRetirementOperationMap[Operation]['request'] {
+  if (operation === 'retireProject') {
+    return decodeCollabProjectRetirementRequest(value);
+  }
+  const source = exactRecord(value, 'retirementAcknowledgementRequest', [
+    'idempotencyKey',
+    'projectId',
+    'retirementId',
+  ]);
+  return {
+    idempotencyKey: token(source, 'idempotencyKey'),
+    projectId: token(source, 'projectId', isCollabProjectId),
+    retirementId: token(source, 'retirementId'),
+  };
+}
+
+export function decodeCollabProjectRetirementOperationResponse<
+  Operation extends CollabProjectRetirementOperation,
+>(
+  operation: Operation,
+  value: unknown,
+): CollabProjectRetirementOperationMap[Operation]['response'] {
+  return (operation === 'retireProject'
+    ? decodeCollabProjectRetirementResult(value)
+    : decodeCollabProjectRetirementAcknowledgement(value));
 }

@@ -124,7 +124,7 @@ describe('Cloud Project snapshot', () => {
 });
 
 describe('Cloud Project events', () => {
-  it('freezes six redacted durable kinds and decodes their exact payloads', () => {
+  it('freezes nine redacted durable kinds and decodes their exact payloads', () => {
     expect(COLLAB_CLOUD_EVENT_KINDS).toEqual([
       'membership.updated',
       'request.updated',
@@ -132,6 +132,9 @@ describe('Cloud Project events', () => {
       'ticket.updated',
       'ticket.comment-added',
       'main.updated',
+      'authority-transfer.updated',
+      'membership.claimed',
+      'project.retired',
     ]);
     const events = [
       { kind: 'membership.updated', payload: { memberId: 'member_1' } },
@@ -140,13 +143,22 @@ describe('Cloud Project events', () => {
       { kind: 'ticket.updated', payload: { ticketId: 'ticket_1' } },
       { kind: 'ticket.comment-added', payload: { ticketId: 'ticket_1' } },
       { kind: 'main.updated', payload: { mainOid: MAIN, requestId: 'request_1' } },
+      { kind: 'authority-transfer.updated', payload: { transferId: 'transfer_1' } },
+      {
+        kind: 'membership.claimed',
+        payload: { memberId: 'member_1', transferId: 'transfer_1' },
+      },
+      {
+        kind: 'project.retired',
+        payload: { retiredAt: NOW, retirementId: 'retirement_1' },
+      },
     ];
     for (const [index, event] of events.entries()) {
       const envelope = {
         ...event,
         occurredAt: NOW,
         projectId: 'project_1',
-        protocolVersion: 4,
+        protocolVersion: 5,
         sequence: index + 1,
       };
       expect(decodeCollabCloudProjectEventMessage(envelope)).toEqual(envelope);

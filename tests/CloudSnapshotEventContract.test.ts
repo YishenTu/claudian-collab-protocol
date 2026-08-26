@@ -158,7 +158,7 @@ describe('Cloud Project events', () => {
         ...event,
         occurredAt: NOW,
         projectId: 'project_1',
-        protocolVersion: 5,
+        protocolVersion: 6,
         sequence: index + 1,
       };
       expect(decodeCollabCloudProjectEventMessage(envelope)).toEqual(envelope);

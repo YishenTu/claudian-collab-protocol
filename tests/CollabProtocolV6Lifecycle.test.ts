@@ -216,9 +216,9 @@ function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number
   };
 }
 
-describe('Canonical Collab wire protocol v5 lifecycle integration', () => {
+describe('Canonical Collab wire protocol v6 lifecycle integration', () => {
   it('publishes the exact lifecycle operation inventory through one registry', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(5);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(6);
     expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS).slice(-LIFECYCLE_OPERATIONS.length))
       .toEqual(LIFECYCLE_OPERATIONS);
     expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(32);
@@ -334,13 +334,13 @@ describe('Canonical Collab wire protocol v5 lifecycle integration', () => {
   it('fails closed on the former wire version', () => {
     const decoded = decodeCollabProtocolEnvelope({
       data: {},
-      protocolVersion: 4,
+      protocolVersion: 5,
       requestId: 'request_1',
     });
     expect(decoded.status).toBe('unsupported-version');
     expect(decoded).toMatchObject({
-      error: { safeContext: { supportedVersion: 5 } },
-      receivedVersion: 4,
+      error: { safeContext: { supportedVersion: 6 } },
+      receivedVersion: 5,
       status: 'unsupported-version',
     });
   });

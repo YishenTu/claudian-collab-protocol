@@ -674,7 +674,7 @@
         "source": "./CollabProjectCheckpoint"
       },
       {
-        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 5;",
+        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 6;",
         "exportName": "COLLAB_PROTOCOL_VERSION",
         "source": "./CollabConstants"
       },
@@ -2019,7 +2019,7 @@
     "runtimeBehaviorDigests": [
       {
         "path": "src/CollabAuthorityTransfer.ts",
-        "sha256": "61536d0ab724d1ba1048711778db6117a84d68f7b21efc31ab9afcb9973411bf"
+        "sha256": "321cbbc86d59d677aaecc180e38ad19cd618a4aab2b06bcd14ebc08a5c77f4b4"
       },
       {
         "path": "src/CollabCloudBinding.ts",
@@ -2035,7 +2035,7 @@
       },
       {
         "path": "src/CollabConstants.ts",
-        "sha256": "04511dfe6b4b38715fa89717f99cf25959041c90f0276ee64d08a0abe5c7d53f"
+        "sha256": "71cf6b1c73dcb752e45b96432c588f5d8b2c3d0ca261662b3f18bc1aed9f07d5"
       },
       {
         "path": "src/CollabControlOperationCodecs.ts",
@@ -2257,7 +2257,7 @@
           "source": "./CollabProjectCheckpoint"
         },
         {
-          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 5;",
+          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 6;",
           "exportName": "COLLAB_PROTOCOL_VERSION",
           "source": "./CollabConstants"
         },
@@ -3201,11 +3201,11 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/CollabAuthorityTransfer.ts",
-          "sha256": "61536d0ab724d1ba1048711778db6117a84d68f7b21efc31ab9afcb9973411bf"
+          "sha256": "321cbbc86d59d677aaecc180e38ad19cd618a4aab2b06bcd14ebc08a5c77f4b4"
         },
         {
           "path": "src/CollabConstants.ts",
-          "sha256": "04511dfe6b4b38715fa89717f99cf25959041c90f0276ee64d08a0abe5c7d53f"
+          "sha256": "71cf6b1c73dcb752e45b96432c588f5d8b2c3d0ca261662b3f18bc1aed9f07d5"
         },
         {
           "path": "src/CollabControlOperationCodecs.ts",
@@ -3246,7 +3246,7 @@
       ]
     }
   },
-  "packageVersion": "2.0.0",
-  "protocolVersion": 5,
+  "packageVersion": "3.0.0",
+  "protocolVersion": 6,
   "schemaVersion": 2
 }

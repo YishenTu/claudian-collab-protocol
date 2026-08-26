@@ -121,10 +121,10 @@ const assert = require('node:assert/strict');
 const protocol = require('@claudian-collab/protocol');
 const packageVersion = ${JSON.stringify(installedManifest.version)};
 
-assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 5);
+assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 6);
 assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 2);
 assert.notEqual(packageVersion, String(protocol.COLLAB_PROTOCOL_VERSION));
-assert.equal(packageVersion, '2.0.0');
+assert.equal(packageVersion, '3.0.0');
 
 const codec = protocol.COLLAB_CONTROL_OPERATION_CODECS.ensureMyRequest;
 const valid = codec.decodeRequest({
@@ -201,7 +201,7 @@ const esmOutput = run(process.execPath, [
   '--input-type=module',
   '-e',
   "import { COLLAB_CLOUD_BINDING_VERSION, COLLAB_PROTOCOL_VERSION, collabMemberRef } from '@claudian-collab/protocol';"
-    + " if (COLLAB_PROTOCOL_VERSION !== 5 || COLLAB_CLOUD_BINDING_VERSION !== 2 || collabMemberRef('member_1') !== 'refs/heads/members/member_1') process.exit(1);"
+    + " if (COLLAB_PROTOCOL_VERSION !== 6 || COLLAB_CLOUD_BINDING_VERSION !== 2 || collabMemberRef('member_1') !== 'refs/heads/members/member_1') process.exit(1);"
     + " console.log('esm import OK');",
 ], { cwd: consumerRoot });
 console.log(esmOutput);

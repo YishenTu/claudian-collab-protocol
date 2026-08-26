@@ -38,15 +38,15 @@ function capabilities(overrides: Record<string, unknown> = {}) {
     bindingVersions: [2],
     capabilities: [...COLLAB_CLOUD_CAPABILITIES],
     limits: limits(),
-    protocolVersions: [5],
+    protocolVersions: [6],
     schemaVersion: 2,
     ...overrides,
   };
 }
 
 describe('Cloud binding v2 lifecycle integration', () => {
-  it('publishes wire v5, binding v2, lifecycle capabilities, and hard stream limits', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(5);
+  it('publishes wire v6, binding v2, lifecycle capabilities, and hard stream limits', () => {
+    expect(COLLAB_PROTOCOL_VERSION).toBe(6);
     expect(COLLAB_CLOUD_BINDING_VERSION).toBe(2);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
     expect(COLLAB_CLOUD_CAPABILITIES).toEqual([

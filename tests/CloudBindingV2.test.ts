@@ -41,7 +41,7 @@ function capabilityDocument(overrides: Record<string, unknown> = {}) {
       maxJsonPayloadUtf8Bytes: 512 * 1024,
       maxRepositoryBytes: 1024 * 1024 * 1024,
     },
-    protocolVersions: [5],
+    protocolVersions: [6],
     schemaVersion: 2,
     ...overrides,
   };
@@ -49,7 +49,7 @@ function capabilityDocument(overrides: Record<string, unknown> = {}) {
 
 describe('Cloud binding v2', () => {
   it('keeps package, canonical wire, Cloud binding, and LAN binding independent', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(5);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(6);
     expect(COLLAB_CLOUD_BINDING_VERSION).toBe(2);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
     expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(32);

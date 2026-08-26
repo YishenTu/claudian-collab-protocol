@@ -570,7 +570,7 @@ export function decodeCollabTransferredMembershipClaimBatch(
     'targetAuthorityGeneration',
     'transferId',
   ]);
-  if (!Array.isArray(source.claims) || source.claims.length === 0) {
+  if (!Array.isArray(source.claims)) {
     throw invalidPayload('claims');
   }
   const claims = source.claims.map(claimItem);

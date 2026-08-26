@@ -62,18 +62,17 @@ part of the public surface.
 
 Package SemVer, canonical wire version, and Cloud binding version are independent concepts.
 
-- **Package version** (this `package.json`): `2.0.0`. Patch releases preserve
+- **Package version** (this `package.json`): `3.0.0`. Patch releases preserve
   every existing public declaration and runtime behavior baseline. Minor
   releases may add backward-compatible API. Removing or changing an existing
   declaration, export, runtime behavior, codec, error, limit, ref rule,
-  operation, or compatibility rule requires a major release. The package
-  version never signals wire compatibility by itself.
-- **Wire version** (`COLLAB_PROTOCOL_VERSION`): currently `5`. The supported
-  range is exactly `[5, 5]`. This is independent from Cloud binding version `2` and the existing application
+  operation, or compatibility rule requires a major release. Package 3 and wire 6 add an exact empty transfer-claim batch for a Project whose only Member is the already-bound Host. The package version never signals wire compatibility by itself.
+- **Wire version** (`COLLAB_PROTOCOL_VERSION`): currently `6`. The supported
+  range is exactly `[6, 6]`. This is independent from Cloud binding version `2` and the existing application
   LAN control version `9`. Any change to an envelope, DTO, or operation
   payload shape, or to the operation inventory, is wire-breaking and requires
   a new wire-protocol version.
-- **Cloud binding version** (`COLLAB_CLOUD_BINDING_VERSION`): currently `2`. It versions Cloud routes, bounded transfer streams, and capabilities independently from package and wire versions. Binding v1 and wire v4 are unsupported rather than translated or dual-interpreted.
+- **Cloud binding version** (`COLLAB_CLOUD_BINDING_VERSION`): currently `2`. It versions Cloud routes, bounded transfer streams, and capabilities independently from package and wire versions. Binding v1 and wire versions before v6 are unsupported rather than translated or dual-interpreted.
 
 ### Compatibility behavior
 

@@ -194,6 +194,19 @@ describe('Project authority transfer contract', () => {
     expect(createHash('sha256').update(digestInput).digest('hex')).toBe(BATCH_SHA256);
   });
 
+  it('represents a single-member transfer with an exact empty claim batch', () => {
+    const emptyBatch = claimBatch({
+      batchRevision: 1,
+      batchSha256: '48e6234b823b00422d93a47bc0433d837625b5de40c64fa8f5f3c6c338ac0434',
+      claims: [],
+    });
+
+    expect(decodeCollabTransferredMembershipClaimBatch(emptyBatch)).toEqual(emptyBatch);
+    expect(encodeCollabTransferredMembershipClaimBatchDigestInput(emptyBatch)).toBe(
+      '{"batchRevision":1,"checkpointSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claims":[],"expiresAt":"2026-09-24T00:00:00.000Z","projectId":"project_1","targetAuthorityGeneration":4,"transferId":"transfer_1"}',
+    );
+  });
+
   it.each([
     claimBatch({ batchRevision: 0 }),
     claimBatch({ claims: [

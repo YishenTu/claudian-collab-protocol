@@ -155,6 +155,7 @@ export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
   acceptLanToCloudTransferTarget: codec('acceptLanToCloudTransferTarget'),
   beginLanToCloudTransfer: codec('beginLanToCloudTransfer'),
   getProjectAuthorityTransfer: codec('getProjectAuthorityTransfer'),
+  getAuthorityTransferReceiptVerifier: codec('getAuthorityTransferReceiptVerifier'),
   rotateTransferredMembershipClaims: codec('rotateTransferredMembershipClaims'),
   acknowledgeTransferredMembershipClaimBatch:
     codec('acknowledgeTransferredMembershipClaimBatch'),

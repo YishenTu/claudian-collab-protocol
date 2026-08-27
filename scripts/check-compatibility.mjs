@@ -157,10 +157,518 @@ function strongestClassification(classifications) {
   return 'none';
 }
 
-export function classifyPackageApiChange(base, current) {
+const ADDITIVE_CONTROL_DECLARATIONS = new Set([
+  'COLLAB_AUTHORITY_TRANSFER_OPERATIONS',
+  'COLLAB_CONTROL_OPERATION_CODECS',
+  'CollabAuthorityTransferOperationMap',
+]);
+const ADDITIVE_CONTROL_RUNTIME_PATHS = new Set([
+  'src/CollabAuthorityTransfer.ts',
+  'src/CollabControlOperationCodecs.ts',
+]);
+const CONTROL_OPERATION_ADDITION_PROOF = Symbol('control-operation-addition-proof');
+
+function entriesBy(entries, key, label) {
+  keyedEntries(entries, key, label);
+  return new Map(entries.map(entry => [entry[key], entry]));
+}
+
+function declarationStatement(declaration) {
+  const source = ts.createSourceFile(
+    'contract.d.ts',
+    declaration,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  if (source.statements.length !== 1) return null;
+  return { source, statement: source.statements[0] };
+}
+
+function typeLiteralMembers(declaration) {
+  const parsed = declarationStatement(declaration);
+  if (parsed === null) return null;
+  const { source, statement } = parsed;
+  let members;
+  if (ts.isInterfaceDeclaration(statement)) {
+    members = statement.members;
+  } else if (ts.isVariableStatement(statement)) {
+    const [item] = statement.declarationList.declarations;
+    let type = item?.type;
+    if (
+      type
+      && ts.isTypeReferenceNode(type)
+      && ts.isIdentifier(type.typeName)
+      && type.typeName.text === 'Readonly'
+      && type.typeArguments?.length === 1
+    ) [type] = type.typeArguments;
+    if (!type || !ts.isTypeLiteralNode(type)) return null;
+    members = type.members;
+  } else {
+    return null;
+  }
+  const result = new Map();
+  for (const member of members) {
+    if (!ts.isPropertySignature(member) || member.name === undefined) return null;
+    const name = ts.isIdentifier(member.name) || ts.isStringLiteral(member.name)
+      ? member.name.text
+      : null;
+    if (name === null || result.has(name)) return null;
+    result.set(name, member.getText(source).replace(/\s+/gu, ' ').trim());
+  }
+  return result;
+}
+
+function readonlyTupleStrings(declaration) {
+  const parsed = declarationStatement(declaration);
+  if (parsed === null || !ts.isVariableStatement(parsed.statement)) return null;
+  const [item] = parsed.statement.declarationList.declarations;
+  let type = item?.type;
+  if (type && ts.isTypeOperatorNode(type) && type.operator === ts.SyntaxKind.ReadonlyKeyword) {
+    type = type.type;
+  }
+  if (!type || !ts.isTupleTypeNode(type)) return null;
+  const values = [];
+  for (const element of type.elements) {
+    if (!ts.isLiteralTypeNode(element) || !ts.isStringLiteral(element.literal)) return null;
+    values.push(element.literal.text);
+  }
+  return values;
+}
+
+function exactMemberAddition(baseDeclaration, currentDeclaration, addedOperations) {
+  const base = typeLiteralMembers(baseDeclaration);
+  const current = typeLiteralMembers(currentDeclaration);
+  if (base === null || current === null) return false;
+  for (const [name, declaration] of base) {
+    if (current.get(name) !== declaration) return false;
+  }
+  const addedMembers = [...current.keys()].filter(name => !base.has(name)).sort();
+  return stableJson(addedMembers) === stableJson([...addedOperations].sort());
+}
+
+function exactTupleAddition(baseDeclaration, currentDeclaration, addedOperations) {
+  const base = readonlyTupleStrings(baseDeclaration);
+  const current = readonlyTupleStrings(currentDeclaration);
+  if (base === null || current === null) return false;
+  if (stableJson(current.filter(value => !addedOperations.has(value))) !== stableJson(base)) {
+    return false;
+  }
+  return stableJson(current.filter(value => addedOperations.has(value)).sort())
+    === stableJson([...addedOperations].sort());
+}
+
+function unchangedExceptAddedEntries(baseEntries, currentEntries, key, allowedChanged) {
+  const base = entriesBy(baseEntries, key, key);
+  const current = entriesBy(currentEntries, key, key);
+  for (const [name, entry] of base) {
+    if (!current.has(name)) return false;
+    if (stableJson(entry) !== stableJson(current.get(name)) && !allowedChanged.has(name)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sourceFile(source, name) {
+  const parsed = ts.createSourceFile(
+    name,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  return parsed.parseDiagnostics.length === 0 ? parsed : null;
+}
+
+function syntaxFingerprint(node, source, omittedCaseOperations = new Set()) {
+  if (
+    ts.isCaseClause(node)
+    && ts.isStringLiteral(node.expression)
+    && omittedCaseOperations.has(node.expression.text)
+  ) return '';
+  const children = node.getChildren(source);
+  if (children.length === 0) return `${node.kind}:${node.getText(source)}`;
+  return `${node.kind}[${children
+    .map(child => syntaxFingerprint(child, source, omittedCaseOperations))
+    .filter(Boolean)
+    .join('|')}]`;
+}
+
+function statementIdentity(statement, source) {
+  if (ts.isImportDeclaration(statement)) {
+    return `import:${statement.moduleSpecifier.getText(source)}:${syntaxFingerprint(statement, source)}`;
+  }
+  const names = declaredNames(statement);
+  return names.length === 1 ? `declaration:${names[0]}` : null;
+}
+
+function statementMap(source) {
+  const result = new Map();
+  for (const statement of source.statements) {
+    const identity = statementIdentity(statement, source);
+    if (identity === null || result.has(identity)) return null;
+    result.set(identity, statement);
+  }
+  return result;
+}
+
+function variableArrayStrings(statement) {
+  if (!ts.isVariableStatement(statement)) return null;
+  const [declaration] = statement.declarationList.declarations;
+  const initializer = declaration?.initializer;
+  let argument = ts.isCallExpression(initializer) ? initializer.arguments[0] : undefined;
+  if (argument && ts.isAsExpression(argument)) argument = argument.expression;
+  if (
+    !initializer
+    || !ts.isCallExpression(initializer)
+    || initializer.arguments.length !== 1
+    || initializer.expression.getText() !== 'Object.freeze'
+    || !argument
+    || !ts.isArrayLiteralExpression(argument)
+  ) return null;
+  const values = [];
+  for (const element of argument.elements) {
+    if (!ts.isStringLiteral(element)) return null;
+    values.push(element.text);
+  }
+  return values;
+}
+
+function variableObjectMembers(statement, source) {
+  if (!ts.isVariableStatement(statement)) return null;
+  const [declaration] = statement.declarationList.declarations;
+  const initializer = declaration?.initializer;
+  let argument = ts.isCallExpression(initializer) ? initializer.arguments[0] : undefined;
+  while (argument && (ts.isAsExpression(argument) || ts.isSatisfiesExpression(argument))) {
+    argument = argument.expression;
+  }
+  if (
+    !initializer
+    || !ts.isCallExpression(initializer)
+    || initializer.arguments.length !== 1
+    || initializer.expression.getText(source) !== 'Object.freeze'
+    || !argument
+    || !ts.isObjectLiteralExpression(argument)
+  ) return null;
+  const result = new Map();
+  for (const property of argument.properties) {
+    if (!ts.isPropertyAssignment(property)) return null;
+    const name = ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)
+      ? property.name.text
+      : null;
+    if (name === null || result.has(name)) return null;
+    result.set(name, Object.freeze({
+      fingerprint: syntaxFingerprint(property, source),
+      property,
+    }));
+  }
+  return result;
+}
+
+function exactSourceMemberAddition(base, current, addedOperations) {
+  if (!ts.isInterfaceDeclaration(base) || !ts.isInterfaceDeclaration(current)) return false;
+  const baseMembers = new Map();
+  const currentMembers = new Map();
+  for (const [statement, target] of [[base, baseMembers], [current, currentMembers]]) {
+    for (const member of statement.members) {
+      if (!ts.isPropertySignature(member) || member.name === undefined) return false;
+      const name = ts.isIdentifier(member.name) || ts.isStringLiteral(member.name)
+        ? member.name.text
+        : null;
+      if (name === null || target.has(name)) return false;
+      target.set(name, syntaxFingerprint(member, statement.getSourceFile()));
+    }
+  }
+  for (const [name, fingerprint] of baseMembers) {
+    if (currentMembers.get(name) !== fingerprint) return false;
+  }
+  return stableJson([...currentMembers.keys()].filter(name => !baseMembers.has(name)).sort())
+    === stableJson([...addedOperations].sort());
+}
+
+function exactSourceObjectAddition(base, current, baseSource, currentSource, addedOperations) {
+  const baseMembers = variableObjectMembers(base, baseSource);
+  const currentMembers = variableObjectMembers(current, currentSource);
+  if (baseMembers === null || currentMembers === null) return false;
+  for (const [name, item] of baseMembers) {
+    if (currentMembers.get(name)?.fingerprint !== item.fingerprint) return false;
+  }
+  const additions = [...currentMembers.keys()].filter(name => !baseMembers.has(name)).sort();
+  if (stableJson(additions) !== stableJson([...addedOperations].sort())) return false;
+  for (const operation of additions) {
+    const property = currentMembers.get(operation)?.property;
+    const initializer = property?.initializer;
+    if (
+      !initializer
+      || !ts.isCallExpression(initializer)
+      || initializer.typeArguments?.length
+      || !ts.isIdentifier(initializer.expression)
+      || initializer.expression.text !== 'codec'
+      || initializer.arguments.length !== 1
+      || !ts.isStringLiteral(initializer.arguments[0])
+      || initializer.arguments[0].text !== operation
+    ) return false;
+  }
+  return true;
+}
+
+function exactAddedDispatchCases(statement, addedOperations) {
+  if (!ts.isFunctionDeclaration(statement)) return false;
+  const counts = new Map([...addedOperations].map(operation => [operation, 0]));
+  let valid = true;
+  function visit(node) {
+    if (
+      ts.isCaseClause(node)
+      && ts.isStringLiteral(node.expression)
+      && addedOperations.has(node.expression.text)
+    ) {
+      const operation = node.expression.text;
+      counts.set(operation, counts.get(operation) + 1);
+      const [only] = node.statements;
+      const call = only && ts.isReturnStatement(only) ? only.expression : undefined;
+      valid = valid
+        && node.statements.length === 1
+        && call !== undefined
+        && ts.isCallExpression(call)
+        && !call.typeArguments?.length
+        && ts.isIdentifier(call.expression)
+        && /^decode[A-Z][A-Za-z0-9]*$/u.test(call.expression.text)
+        && call.arguments.length === 1
+        && ts.isIdentifier(call.arguments[0])
+        && call.arguments[0].text === 'value';
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(statement);
+  return valid && [...counts.values()].every(count => count === 1);
+}
+
+function compatibleAuthoritySourceAddition(baseSourceText, currentSourceText, addedOperations) {
+  const baseSource = sourceFile(baseSourceText, 'base-authority.ts');
+  const currentSource = sourceFile(currentSourceText, 'current-authority.ts');
+  if (baseSource === null || currentSource === null) return false;
+  const base = statementMap(baseSource);
+  const current = statementMap(currentSource);
+  if (base === null || current === null) return false;
+  const operationInventory = 'declaration:COLLAB_AUTHORITY_TRANSFER_OPERATIONS';
+  const operationMap = 'declaration:CollabAuthorityTransferOperationMap';
+  const dispatchFunctions = new Set([
+    'declaration:decodeCollabAuthorityTransferOperationRequest',
+    'declaration:decodeCollabAuthorityTransferOperationResponse',
+  ]);
+  for (const [identity, baseStatement] of base) {
+    const currentStatement = current.get(identity);
+    if (currentStatement === undefined) return false;
+    if (identity === operationInventory) {
+      const before = variableArrayStrings(baseStatement);
+      const after = variableArrayStrings(currentStatement);
+      if (
+        before === null
+        || after === null
+        || stableJson(after.filter(value => !addedOperations.has(value))) !== stableJson(before)
+        || stableJson(after.filter(value => addedOperations.has(value)).sort())
+          !== stableJson([...addedOperations].sort())
+      ) return false;
+      continue;
+    }
+    if (identity === operationMap) {
+      if (!exactSourceMemberAddition(baseStatement, currentStatement, addedOperations)) {
+        return false;
+      }
+      continue;
+    }
+    if (dispatchFunctions.has(identity)
+      && !exactAddedDispatchCases(currentStatement, addedOperations)) return false;
+    const currentFingerprint = syntaxFingerprint(
+      currentStatement,
+      currentSource,
+      dispatchFunctions.has(identity) ? addedOperations : new Set(),
+    );
+    if (syntaxFingerprint(baseStatement, baseSource) !== currentFingerprint) return false;
+  }
+  for (const [identity, statement] of current) {
+    if (base.has(identity)) continue;
+    if (
+      identity.startsWith('import:')
+      || (!ts.isFunctionDeclaration(statement)
+        && !ts.isInterfaceDeclaration(statement)
+        && !ts.isTypeAliasDeclaration(statement))
+    ) return false;
+  }
+  return true;
+}
+
+function compatibleCodecsSourceAddition(baseSourceText, currentSourceText, addedOperations) {
+  const baseSource = sourceFile(baseSourceText, 'base-codecs.ts');
+  const currentSource = sourceFile(currentSourceText, 'current-codecs.ts');
+  if (baseSource === null || currentSource === null) return false;
+  const base = statementMap(baseSource);
+  const current = statementMap(currentSource);
+  if (base === null || current === null) return false;
+  const registry = 'declaration:COLLAB_CONTROL_OPERATION_CODECS';
+  for (const [identity, baseStatement] of base) {
+    const currentStatement = current.get(identity);
+    if (currentStatement === undefined) return false;
+    if (identity === registry) {
+      if (!exactSourceObjectAddition(
+        baseStatement,
+        currentStatement,
+        baseSource,
+        currentSource,
+        addedOperations,
+      )) return false;
+    } else if (
+      syntaxFingerprint(baseStatement, baseSource)
+      !== syntaxFingerprint(currentStatement, currentSource)
+    ) return false;
+  }
+  return [...current.keys()].every(identity => base.has(identity));
+}
+
+export function proveCompatibleControlOperationAdditionSources({
+  addedOperations,
+  baseAuthoritySource,
+  baseCodecsSource,
+  currentAuthoritySource,
+  currentCodecsSource,
+}) {
+  const operations = new Set(addedOperations);
+  if (
+    operations.size === 0
+    || [...operations].some(operation => !/^[A-Za-z][A-Za-z0-9]*$/u.test(operation))
+    || !compatibleAuthoritySourceAddition(
+      baseAuthoritySource,
+      currentAuthoritySource,
+      operations,
+    )
+    || !compatibleCodecsSourceAddition(baseCodecsSource, currentCodecsSource, operations)
+  ) return null;
+  return Object.freeze({
+    [CONTROL_OPERATION_ADDITION_PROOF]: true,
+    addedOperations: Object.freeze([...operations].sort()),
+    runtimeDigests: Object.freeze({
+      base: Object.freeze({
+        'src/CollabAuthorityTransfer.ts': digestTypeScriptBehavior(baseAuthoritySource),
+        'src/CollabControlOperationCodecs.ts': digestTypeScriptBehavior(baseCodecsSource),
+      }),
+      current: Object.freeze({
+        'src/CollabAuthorityTransfer.ts': digestTypeScriptBehavior(currentAuthoritySource),
+        'src/CollabControlOperationCodecs.ts': digestTypeScriptBehavior(currentCodecsSource),
+      }),
+    }),
+  });
+}
+
+function proofMatchesRuntimeDigests(base, current, proof, addedOperations) {
+  if (
+    proof?.[CONTROL_OPERATION_ADDITION_PROOF] !== true
+    || stableJson(proof.addedOperations) !== stableJson([...addedOperations].sort())
+  ) return false;
+  for (const [side, snapshot] of [['base', base], ['current', current]]) {
+    const publicDigests = entriesBy(
+      snapshot.contract.runtimeBehaviorDigests,
+      'path',
+      'runtime behavior digest',
+    );
+    const wireDigests = entriesBy(
+      snapshot.contract.wire.runtimeBehaviorDigests,
+      'path',
+      'wire runtime behavior digest',
+    );
+    for (const pathName of ADDITIVE_CONTROL_RUNTIME_PATHS) {
+      const expected = proof.runtimeDigests[side][pathName];
+      if (
+        publicDigests.get(pathName)?.sha256 !== expected
+        || wireDigests.get(pathName)?.sha256 !== expected
+      ) return false;
+    }
+  }
+  return true;
+}
+
+function isCompatibleControlOperationAddition(base, current, proof) {
+  const baseOperations = base.contract.wire?.operations;
+  const currentOperations = current.contract.wire?.operations;
+  if (!Array.isArray(baseOperations) || !Array.isArray(currentOperations)) return false;
+  if (
+    baseOperations.some(operation => typeof operation !== 'string')
+    || currentOperations.some(operation => typeof operation !== 'string')
+    || baseOperations.some(operation => !currentOperations.includes(operation))
+  ) return false;
+  const addedOperations = new Set(
+    currentOperations.filter(operation => !baseOperations.includes(operation)),
+  );
+  if (
+    addedOperations.size === 0
+    || [...addedOperations].some(operation => !/^[A-Za-z][A-Za-z0-9]*$/u.test(operation))
+    || !proofMatchesRuntimeDigests(base, current, proof, addedOperations)
+  ) return false;
+
+  const baseDeclarations = entriesBy(
+    base.contract.publicDeclarations,
+    'exportName',
+    'public declaration',
+  );
+  const currentDeclarations = entriesBy(
+    current.contract.publicDeclarations,
+    'exportName',
+    'public declaration',
+  );
+  if (!unchangedExceptAddedEntries(
+    base.contract.publicDeclarations,
+    current.contract.publicDeclarations,
+    'exportName',
+    ADDITIVE_CONTROL_DECLARATIONS,
+  )) return false;
+  if (!unchangedExceptAddedEntries(
+    base.contract.runtimeBehaviorDigests,
+    current.contract.runtimeBehaviorDigests,
+    'path',
+    ADDITIVE_CONTROL_RUNTIME_PATHS,
+  )) return false;
+  if (classifyMapChange(
+    stringEntries(base.contract.publicRuntimeExports, 'public runtime export'),
+    stringEntries(current.contract.publicRuntimeExports, 'public runtime export'),
+  ) === 'major') return false;
+
+  for (const exportName of ADDITIVE_CONTROL_DECLARATIONS) {
+    const before = baseDeclarations.get(exportName)?.declaration;
+    const after = currentDeclarations.get(exportName)?.declaration;
+    if (typeof before !== 'string' || typeof after !== 'string') return false;
+    const valid = exportName === 'COLLAB_AUTHORITY_TRANSFER_OPERATIONS'
+      ? exactTupleAddition(before, after, addedOperations)
+      : exactMemberAddition(before, after, addedOperations);
+    if (!valid) return false;
+  }
+
+  const baseWire = base.contract.wire;
+  const currentWire = current.contract.wire;
+  const wireKeys = new Set([...Object.keys(baseWire), ...Object.keys(currentWire)]);
+  for (const key of wireKeys) {
+    if (key === 'declarations' || key === 'operations' || key === 'runtimeBehaviorDigests') {
+      continue;
+    }
+    if (stableJson(baseWire[key]) !== stableJson(currentWire[key])) return false;
+  }
+  return unchangedExceptAddedEntries(
+    baseWire.declarations,
+    currentWire.declarations,
+    'exportName',
+    ADDITIVE_CONTROL_DECLARATIONS,
+  ) && unchangedExceptAddedEntries(
+    baseWire.runtimeBehaviorDigests,
+    currentWire.runtimeBehaviorDigests,
+    'path',
+    ADDITIVE_CONTROL_RUNTIME_PATHS,
+  );
+}
+
+export function classifyPackageApiChange(base, current, proof = null) {
   validateCurrentSnapshot(base);
   validateCurrentSnapshot(current);
-  return strongestClassification([
+  const classification = strongestClassification([
     classifyMapChange(
       keyedEntries(base.contract.publicDeclarations, 'exportName', 'public declaration'),
       keyedEntries(current.contract.publicDeclarations, 'exportName', 'public declaration'),
@@ -174,6 +682,10 @@ export function classifyPackageApiChange(base, current) {
       keyedEntries(current.contract.runtimeBehaviorDigests, 'path', 'runtime behavior digest'),
     ),
   ]);
+  if (classification === 'major' && isCompatibleControlOperationAddition(base, current, proof)) {
+    return 'minor';
+  }
+  return classification;
 }
 
 function packageReleaseSatisfies(baseValue, currentValue, classification) {
@@ -187,7 +699,7 @@ function packageReleaseSatisfies(baseValue, currentValue, classification) {
   return true;
 }
 
-export function assertVersionedContractChange(base, current) {
+export function assertVersionedContractChange(base, current, proof = null) {
   validateCurrentSnapshot(current);
   const failures = [];
   if (compareSemver(current.packageVersion, base.packageVersion) < 0) {
@@ -208,14 +720,16 @@ export function assertVersionedContractChange(base, current) {
     if (current.cloudBindingVersion < base.cloudBindingVersion) {
       failures.push('Cloud binding version cannot decrease');
     }
-    const classification = classifyPackageApiChange(base, current);
+    const classification = classifyPackageApiChange(base, current, proof);
     if (!packageReleaseSatisfies(base.packageVersion, current.packageVersion, classification)) {
       failures.push(classification === 'major'
         ? 'public API change requires a package major release'
         : 'additive public API requires a package minor or major release');
     }
+    const wireChanged = stableJson(base.contract.wire) !== stableJson(current.contract.wire);
     if (
-      stableJson(base.contract.wire) !== stableJson(current.contract.wire)
+      wireChanged
+      && !isCompatibleControlOperationAddition(base, current, proof)
       && current.protocolVersion <= base.protocolVersion
     ) {
       failures.push('wire protocol version must increase for a wire contract change');
@@ -452,6 +966,44 @@ export function readBaseSnapshot(baseSha, { cwd = repositoryRoot } = {}) {
   }
 }
 
+function readBaseSource(baseSha, relativePath) {
+  try {
+    return execFileSync('git', ['show', `${baseSha}:${relativePath}`], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (error) {
+    const stderr = typeof error?.stderr === 'string' ? error.stderr.trim() : '';
+    throw new Error(
+      `Cannot read base protocol source ${relativePath} at ${baseSha}: ${stderr || error.message}`,
+      { cause: error },
+    );
+  }
+}
+
+function controlOperationAdditionProof(baseSha, base, current) {
+  const baseOperations = base.contract?.wire?.operations;
+  const currentOperations = current.contract?.wire?.operations;
+  if (!Array.isArray(baseOperations) || !Array.isArray(currentOperations)) return null;
+  const addedOperations = currentOperations
+    .filter(operation => !baseOperations.includes(operation));
+  if (addedOperations.length === 0) return null;
+  return proveCompatibleControlOperationAdditionSources({
+    addedOperations,
+    baseAuthoritySource: readBaseSource(baseSha, 'src/CollabAuthorityTransfer.ts'),
+    baseCodecsSource: readBaseSource(baseSha, 'src/CollabControlOperationCodecs.ts'),
+    currentAuthoritySource: readFileSync(
+      path.join(repositoryRoot, 'src/CollabAuthorityTransfer.ts'),
+      'utf8',
+    ),
+    currentCodecsSource: readFileSync(
+      path.join(repositoryRoot, 'src/CollabControlOperationCodecs.ts'),
+      'utf8',
+    ),
+  });
+}
+
 function run() {
   const args = process.argv.slice(2);
   const write = args.includes('--write');
@@ -471,7 +1023,10 @@ function run() {
   }
   if (baseSha) {
     const base = readBaseSnapshot(baseSha);
-    if (base) assertVersionedContractChange(base, committed);
+    if (base) {
+      const proof = controlOperationAdditionProof(baseSha, base, committed);
+      assertVersionedContractChange(base, committed, proof);
+    }
   }
   process.stdout.write('Collab protocol compatibility: PASS\n');
 }

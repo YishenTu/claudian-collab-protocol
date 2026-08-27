@@ -221,6 +221,18 @@ export interface GetProjectAuthorityTransferRequest {
   readonly transferId: string;
 }
 
+export type GetAuthorityTransferReceiptVerifierRequest =
+  GetProjectAuthorityTransferRequest;
+
+export interface CollabAuthorityTransferReceiptVerifier {
+  readonly projectId: CollabProjectId;
+  readonly receiptKeyId: string;
+  readonly receiptPublicKey: string;
+  readonly receiptPublicKeyEncoding: 'base64url-raw';
+  readonly signatureAlgorithm: 'ed25519';
+  readonly transferId: string;
+}
+
 export interface RotateTransferredMembershipClaimsRequest extends CollabAuthorityMutationRequest {
   readonly expectedBatchRevision: number;
   readonly expectedBatchSha256: string;
@@ -315,6 +327,7 @@ export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze([
   'acceptLanToCloudTransferTarget',
   'beginLanToCloudTransfer',
   'getProjectAuthorityTransfer',
+  'getAuthorityTransferReceiptVerifier',
   'rotateTransferredMembershipClaims',
   'acknowledgeTransferredMembershipClaimBatch',
   'getTransferredMembershipClaim',
@@ -347,6 +360,10 @@ export interface CollabAuthorityTransferOperationMap {
   readonly getProjectAuthorityTransfer: {
     readonly request: GetProjectAuthorityTransferRequest;
     readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly getAuthorityTransferReceiptVerifier: {
+    readonly request: GetAuthorityTransferReceiptVerifierRequest;
+    readonly response: CollabAuthorityTransferReceiptVerifier;
   };
   readonly rotateTransferredMembershipClaims: {
     readonly request: RotateTransferredMembershipClaimsRequest;
@@ -1070,6 +1087,31 @@ function decodeGetProjectAuthorityTransfer(value: unknown): GetProjectAuthorityT
   };
 }
 
+function decodeAuthorityTransferReceiptVerifier(
+  value: unknown,
+): CollabAuthorityTransferReceiptVerifier {
+  const source = exactRecord(value, 'receiptVerifier', [
+    'projectId',
+    'receiptKeyId',
+    'receiptPublicKey',
+    'receiptPublicKeyEncoding',
+    'signatureAlgorithm',
+    'transferId',
+  ]);
+  return {
+    projectId: token(source, 'projectId', isCollabProjectId),
+    receiptKeyId: boundedString(source, 'receiptKeyId', 256),
+    receiptPublicKey: fixedBase64url(source, 'receiptPublicKey', 32),
+    receiptPublicKeyEncoding: literal(
+      source,
+      'receiptPublicKeyEncoding',
+      ['base64url-raw'],
+    ),
+    signatureAlgorithm: literal(source, 'signatureAlgorithm', ['ed25519']),
+    transferId: token(source, 'transferId'),
+  };
+}
+
 function decodeRotateTransferredMembershipClaims(
   value: unknown,
 ): RotateTransferredMembershipClaimsRequest {
@@ -1301,6 +1343,8 @@ export function decodeCollabAuthorityTransferOperationRequest<
       case 'acceptLanToCloudTransferTarget': return decodeAcceptLanToCloudTransferTarget(value);
       case 'beginLanToCloudTransfer': return decodeBeginLanToCloudTransfer(value);
       case 'getProjectAuthorityTransfer': return decodeGetProjectAuthorityTransfer(value);
+      case 'getAuthorityTransferReceiptVerifier':
+        return decodeGetProjectAuthorityTransfer(value);
       case 'rotateTransferredMembershipClaims':
         return decodeRotateTransferredMembershipClaims(value);
       case 'acknowledgeTransferredMembershipClaimBatch':
@@ -1359,6 +1403,8 @@ export function decodeCollabAuthorityTransferOperationResponse<
         return decodeCollabTransferredMembershipRedemptionReceipt(value);
       case 'acknowledgeTransferredMembershipClaimRedemption':
         return decodeRedemptionAcknowledgement(value);
+      case 'getAuthorityTransferReceiptVerifier':
+        return decodeAuthorityTransferReceiptVerifier(value);
       default:
         return decodeCollabAuthorityTransferStatus(value);
     }

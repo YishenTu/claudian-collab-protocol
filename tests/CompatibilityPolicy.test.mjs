@@ -16,6 +16,7 @@ import {
   classifyPackageApiChange,
   digestTypeScriptBehavior,
   generateContractSnapshot,
+  proveCompatibleControlOperationAdditionSources,
   publicDeclarationsFromDist,
 } from '../scripts/check-compatibility.mjs';
 
@@ -157,6 +158,243 @@ test('requires independent wire and Cloud binding version increases', () => {
     bindingVersion: 2,
     packageVersion: '2.0.0',
   })));
+});
+
+test('keeps a proven additive control operation on the current wire version', () => {
+  const baseAuthoritySource = `
+    export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze([
+      'getProjectAuthorityTransfer',
+    ] as const);
+    export interface CollabAuthorityTransferOperationMap {
+      readonly getProjectAuthorityTransfer: ExistingOperation;
+    }
+    function decodeExisting(value) { return value; }
+    export function decodeCollabAuthorityTransferOperationRequest(operation, value) {
+      const decoded = (() => {
+        switch (operation) {
+          case 'getProjectAuthorityTransfer': return decodeExisting(value);
+        }
+      })();
+      return decoded;
+    }
+    export function decodeCollabAuthorityTransferOperationResponse(operation, value) {
+      switch (operation) {
+        case 'getProjectAuthorityTransfer': return decodeExisting(value);
+      }
+    }
+  `;
+  const currentAuthoritySource = `
+    export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze([
+      'getProjectAuthorityTransfer',
+      'getAuthorityTransferReceiptVerifier',
+    ] as const);
+    export interface CollabAuthorityTransferOperationMap {
+      readonly getProjectAuthorityTransfer: ExistingOperation;
+      readonly getAuthorityTransferReceiptVerifier: VerifierOperation;
+    }
+    export interface VerifierResponse { readonly receiptPublicKey: string; }
+    function decodeExisting(value) { return value; }
+    function decodeVerifier(value) { return value; }
+    export function decodeCollabAuthorityTransferOperationRequest(operation, value) {
+      const decoded = (() => {
+        switch (operation) {
+          case 'getProjectAuthorityTransfer': return decodeExisting(value);
+          case 'getAuthorityTransferReceiptVerifier': return decodeExisting(value);
+        }
+      })();
+      return decoded;
+    }
+    export function decodeCollabAuthorityTransferOperationResponse(operation, value) {
+      switch (operation) {
+        case 'getProjectAuthorityTransfer': return decodeExisting(value);
+        case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);
+      }
+    }
+  `;
+  const baseCodecsSource = `
+    export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
+      getProjectAuthorityTransfer: codec('getProjectAuthorityTransfer'),
+    });
+  `;
+  const currentCodecsSource = `
+    export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
+      getProjectAuthorityTransfer: codec('getProjectAuthorityTransfer'),
+      getAuthorityTransferReceiptVerifier: codec('getAuthorityTransferReceiptVerifier'),
+    });
+  `;
+  const baseDeclarations = [
+    {
+      declaration: 'export declare const COLLAB_AUTHORITY_TRANSFER_OPERATIONS: readonly ["getProjectAuthorityTransfer"];',
+      exportName: 'COLLAB_AUTHORITY_TRANSFER_OPERATIONS',
+      source: './CollabAuthorityTransfer',
+    },
+    {
+      declaration: 'export interface CollabAuthorityTransferOperationMap { readonly getProjectAuthorityTransfer: { readonly request: ExistingRequest; readonly response: ExistingResponse; }; }',
+      exportName: 'CollabAuthorityTransferOperationMap',
+      source: './CollabAuthorityTransfer',
+    },
+    {
+      declaration: 'export declare const COLLAB_CONTROL_OPERATION_CODECS: Readonly<{ readonly getProjectAuthorityTransfer: ExistingCodec; }>;',
+      exportName: 'COLLAB_CONTROL_OPERATION_CODECS',
+      source: './CollabControlOperationCodecs',
+    },
+  ];
+  const currentDeclarations = [
+    {
+      declaration: 'export declare const COLLAB_AUTHORITY_TRANSFER_OPERATIONS: readonly ["getProjectAuthorityTransfer", "getAuthorityTransferReceiptVerifier"];',
+      exportName: 'COLLAB_AUTHORITY_TRANSFER_OPERATIONS',
+      source: './CollabAuthorityTransfer',
+    },
+    {
+      declaration: 'export interface CollabAuthorityTransferOperationMap { readonly getProjectAuthorityTransfer: { readonly request: ExistingRequest; readonly response: ExistingResponse; }; readonly getAuthorityTransferReceiptVerifier: { readonly request: VerifierRequest; readonly response: VerifierResponse; }; }',
+      exportName: 'CollabAuthorityTransferOperationMap',
+      source: './CollabAuthorityTransfer',
+    },
+    {
+      declaration: 'export declare const COLLAB_CONTROL_OPERATION_CODECS: Readonly<{ readonly getProjectAuthorityTransfer: ExistingCodec; readonly getAuthorityTransferReceiptVerifier: VerifierCodec; }>;',
+      exportName: 'COLLAB_CONTROL_OPERATION_CODECS',
+      source: './CollabControlOperationCodecs',
+    },
+    {
+      declaration: 'export interface VerifierResponse { readonly receiptPublicKey: string; }',
+      exportName: 'VerifierResponse',
+      source: './CollabAuthorityTransfer',
+    },
+  ];
+  const baseRuntime = [
+    {
+      path: 'src/CollabAuthorityTransfer.ts',
+      sha256: digestTypeScriptBehavior(baseAuthoritySource),
+    },
+    {
+      path: 'src/CollabControlOperationCodecs.ts',
+      sha256: digestTypeScriptBehavior(baseCodecsSource),
+    },
+  ];
+  const currentRuntime = [
+    {
+      path: 'src/CollabAuthorityTransfer.ts',
+      sha256: digestTypeScriptBehavior(currentAuthoritySource),
+    },
+    {
+      path: 'src/CollabControlOperationCodecs.ts',
+      sha256: digestTypeScriptBehavior(currentCodecsSource),
+    },
+  ];
+  const baseWire = {
+    declarations: baseDeclarations,
+    operations: ['getProjectAuthorityTransfer'],
+    runtimeBehaviorDigests: baseRuntime,
+  };
+  const currentWire = {
+    declarations: currentDeclarations,
+    operations: [
+      'getAuthorityTransferReceiptVerifier',
+      'getProjectAuthorityTransfer',
+    ],
+    runtimeBehaviorDigests: currentRuntime,
+  };
+  const base = snapshot({
+    declarations: baseDeclarations,
+    runtime: baseRuntime,
+    wire: baseWire,
+  });
+  const current = snapshot({
+    declarations: currentDeclarations,
+    packageVersion: '1.1.0',
+    runtime: currentRuntime,
+    wire: currentWire,
+  });
+
+  const proof = proveCompatibleControlOperationAdditionSources({
+    addedOperations: ['getAuthorityTransferReceiptVerifier'],
+    baseAuthoritySource,
+    baseCodecsSource,
+    currentAuthoritySource,
+    currentCodecsSource,
+  });
+  assert.ok(proof);
+  assert.equal(classifyPackageApiChange(base, current, proof), 'minor');
+  assert.throws(
+    () => assertVersionedContractChange(base, current),
+    /package major release|wire protocol version must increase/u,
+  );
+  assert.doesNotThrow(() => assertVersionedContractChange(base, current, proof));
+
+  const breakingProof = proveCompatibleControlOperationAdditionSources({
+    addedOperations: ['getAuthorityTransferReceiptVerifier'],
+    baseAuthoritySource,
+    baseCodecsSource,
+    currentAuthoritySource: currentAuthoritySource.replace(
+      'function decodeExisting(value) { return value; }',
+      'function decodeExisting(value) { return { changed: value }; }',
+    ),
+    currentCodecsSource,
+  });
+  assert.equal(breakingProof, null);
+  assert.throws(
+    () => assertVersionedContractChange(base, current, breakingProof),
+    /package major release|wire protocol version must increase/u,
+  );
+
+  const sideEffectProof = proveCompatibleControlOperationAdditionSources({
+    addedOperations: ['getAuthorityTransferReceiptVerifier'],
+    baseAuthoritySource,
+    baseCodecsSource,
+    currentAuthoritySource,
+    currentCodecsSource: currentCodecsSource.replace(
+      "codec('getAuthorityTransferReceiptVerifier')",
+      "(globalThis.compromised = true, codec('getAuthorityTransferReceiptVerifier'))",
+    ),
+  });
+  assert.equal(sideEffectProof, null);
+
+  const sideEffectDispatchProof = proveCompatibleControlOperationAdditionSources({
+    addedOperations: ['getAuthorityTransferReceiptVerifier'],
+    baseAuthoritySource,
+    baseCodecsSource,
+    currentAuthoritySource: currentAuthoritySource.replace(
+      "case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);",
+      "case 'getAuthorityTransferReceiptVerifier': globalThis.compromised = true; return decodeVerifier(value);",
+    ),
+    currentCodecsSource,
+  });
+  assert.equal(sideEffectDispatchProof, null);
+
+  const missingDispatchProof = proveCompatibleControlOperationAdditionSources({
+    addedOperations: ['getAuthorityTransferReceiptVerifier'],
+    baseAuthoritySource,
+    baseCodecsSource,
+    currentAuthoritySource: currentAuthoritySource.replace(
+      "case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);",
+      '',
+    ),
+    currentCodecsSource,
+  });
+  assert.equal(missingDispatchProof, null);
+
+  const duplicateDispatchProof = proveCompatibleControlOperationAdditionSources({
+    addedOperations: ['getAuthorityTransferReceiptVerifier'],
+    baseAuthoritySource,
+    baseCodecsSource,
+    currentAuthoritySource: currentAuthoritySource.replace(
+      "case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);",
+      "case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value); case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);",
+    ),
+    currentCodecsSource,
+  });
+  assert.equal(duplicateDispatchProof, null);
+
+  const changedExistingOperation = cloneJson(current);
+  changedExistingOperation.contract.publicDeclarations[1].declaration =
+    changedExistingOperation.contract.publicDeclarations[1].declaration
+      .replace('readonly response: ExistingResponse', 'readonly response: ChangedResponse');
+  changedExistingOperation.contract.wire.declarations[1].declaration =
+    changedExistingOperation.contract.publicDeclarations[1].declaration;
+  assert.throws(
+    () => assertVersionedContractChange(base, changedExistingOperation),
+    /package major release|wire protocol version must increase/u,
+  );
 });
 
 test('fails closed on unknown snapshot structure', () => {

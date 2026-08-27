@@ -16,6 +16,7 @@ const LIFECYCLE_OPERATIONS = [
   'acceptLanToCloudTransferTarget',
   'beginLanToCloudTransfer',
   'getProjectAuthorityTransfer',
+  'getAuthorityTransferReceiptVerifier',
   'rotateTransferredMembershipClaims',
   'acknowledgeTransferredMembershipClaimBatch',
   'getTransferredMembershipClaim',
@@ -122,6 +123,10 @@ function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number
       transferId: 'transfer_1',
     },
     getProjectAuthorityTransfer: { projectId: 'project_1', transferId: 'transfer_1' },
+    getAuthorityTransferReceiptVerifier: {
+      projectId: 'project_1',
+      transferId: 'transfer_1',
+    },
     rotateTransferredMembershipClaims: {
       expectedBatchRevision: 1,
       expectedBatchSha256: 'b'.repeat(64),
@@ -221,7 +226,7 @@ describe('Canonical Collab wire protocol v6 lifecycle integration', () => {
     expect(COLLAB_PROTOCOL_VERSION).toBe(6);
     expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS).slice(-LIFECYCLE_OPERATIONS.length))
       .toEqual(LIFECYCLE_OPERATIONS);
-    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(32);
+    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(33);
   });
 
   it('strictly decodes every lifecycle request without accepting authority extensions', () => {
@@ -287,6 +292,27 @@ describe('Canonical Collab wire protocol v6 lifecycle integration', () => {
       ...request,
       memberId: 'member_2',
     }).status).toBe('invalid');
+  });
+
+  it('returns the exact receipt verifier that a source must pin before relinquishment', () => {
+    const request = { projectId: 'project_1', transferId: 'transfer_1' };
+    const verifier = {
+      projectId: 'project_1',
+      receiptKeyId: 'receipt-key-2026-08',
+      receiptPublicKey: 'A'.repeat(43),
+      receiptPublicKeyEncoding: 'base64url-raw',
+      signatureAlgorithm: 'ed25519',
+      transferId: 'transfer_1',
+    };
+    const codec = collabControlOperationCodec('getAuthorityTransferReceiptVerifier');
+    expect(codec.decodeRequest(request)).toEqual({ status: 'ok', value: request });
+    expect(codec.decodeResponse(verifier)).toEqual(verifier);
+    expect(() => codec.decodeResponse({ ...verifier, receiptKeyId: 'rotated-key' }))
+      .not.toThrow();
+    expect(() => codec.decodeResponse({ ...verifier, receiptPublicKey: 'A'.repeat(42) }))
+      .toThrow('collab.error.protocol-payload-invalid');
+    expect(() => codec.decodeResponse({ ...verifier, futureField: true }))
+      .toThrow('collab.error.protocol-payload-invalid');
   });
 
   it('returns exact Cloud custody after a Cloud-to-LAN target stage report', () => {

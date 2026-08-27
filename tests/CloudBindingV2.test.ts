@@ -52,7 +52,7 @@ describe('Cloud binding v2', () => {
     expect(COLLAB_PROTOCOL_VERSION).toBe(6);
     expect(COLLAB_CLOUD_BINDING_VERSION).toBe(2);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
-    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(32);
+    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(33);
     expect(COLLAB_CLOUD_JSON_OPERATIONS).toEqual([
       'getProjectSnapshot',
       ...Object.keys(COLLAB_CONTROL_OPERATION_CODECS),

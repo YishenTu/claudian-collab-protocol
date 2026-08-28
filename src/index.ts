@@ -118,6 +118,38 @@ export type {
 } from './CollabProjectCheckpoint';
 
 export {
+  COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION,
+  COLLAB_PROJECT_BACKUP_RECORD_KINDS,
+  collabProjectBackupIdempotencyRecordId,
+  decodeCollabProjectBackupCheckpointCoordinationNdjson,
+  decodeCollabProjectBackupCheckpointManifest,
+  encodeCollabProjectBackupCheckpointCoordinationNdjson,
+  encodeCollabProjectBackupCheckpointManifestCanonicalJson,
+  encodeCollabProjectBackupCheckpointManifestDigestInput,
+  validateCollabProjectBackupCheckpointConsistency,
+} from './CollabProjectBackupCheckpoint';
+export type {
+  CollabProjectBackupAuthorityTransferRecoveryRecord,
+  CollabProjectBackupCheckpointManifest,
+  CollabProjectBackupCloudToLanTargetEvidence,
+  CollabProjectBackupContinuityRecord,
+  CollabProjectBackupInactiveRepositoryPublication,
+  CollabProjectBackupLanToCloudSourceEvidence,
+  CollabProjectBackupLeaveFormerPrincipalReplayRecord,
+  CollabProjectBackupLifecycleJournalRecord,
+  CollabProjectBackupLifecycleKind,
+  CollabProjectBackupLifecycleState,
+  CollabProjectBackupRecord,
+  CollabProjectBackupRecordKind,
+  CollabProjectBackupTerminalPrincipalRecord,
+  CollabProjectBackupTerminalResponderReplayRecord,
+  CollabProjectBackupTransferClaimBatchReceiptRecord,
+  CollabProjectBackupTransferredMembershipClaimRecord,
+  CollabProjectBackupTransferReceiptKeyRecord,
+  CollabProjectBackupTransferRedemptionReceiptRecord,
+} from './CollabProjectBackupCheckpoint';
+
+export {
   COLLAB_PROJECT_RETIREMENT_OPERATIONS,
   COLLAB_PROJECT_RETIREMENT_RESULT_KINDS,
   decodeCollabProjectRetirementAcknowledgement,

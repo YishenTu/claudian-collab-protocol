@@ -59,7 +59,7 @@ export function createReleaseRecord({
   sha256,
 }) {
   assert(packageManifest.name === '@claudian-collab/protocol', 'unexpected package name');
-  assert(packageManifest.version === '3.1.0', 'unexpected package version');
+  assert(packageManifest.version === '3.2.0', 'unexpected package version');
   assert(
     packageManifest.publishConfig?.access === 'public'
       && packageManifest.publishConfig?.provenance === true,

@@ -1,6 +1,6 @@
 # @claudian-collab/protocol
 
-The canonical shared Collab wire contract, produced from the
+The canonical shared Collab wire and offline backup contract, produced from the
 [claudian-collab-protocol](https://github.com/YishenTu/claudian-collab-protocol) repository. Both Claudian
 (LAN client and Host) and Claudian Cloud Server consume this package; neither
 may maintain copied types, operation registries, codec maps, shared constants,
@@ -19,7 +19,7 @@ or compatibility rules.
   `collabMemberRef`)
 - Shared limits that client and server must agree on (`COLLAB_LIMITS`)
 - Protocol-version negotiation (`COLLAB_PROTOCOL_VERSION`, envelope decoding)
-- Canonical Project checkpoint profiles, logical records, authority-generation transfer, exact membership claims, target-signed redemption receipts, and Project retirement contracts
+- Canonical Project checkpoint profiles, logical records, authority-generation transfer, exact membership claims, target-signed redemption receipts, offline backup operational continuity, and Project retirement contracts
 - Cloud binding v2 route construction/matching, bounded checkpoint streams, capability negotiation, strict success/error envelopes, private-development bootstrap, Project snapshot, and redacted event contracts
 - Markdown-derived Ticket-reference and Member-mention semantics shared by
   client rendering and authority derivation
@@ -37,7 +37,7 @@ fixed part of the detail so the whole detail stays within
 has one compatible final-serialization limit. Request comments and Ticket
 accepted relations also have shared authority-enforced total limits; summary
 counts let complete consumers reject partial or cross-snapshot assembly.
-Cloud binding v2 adds the authority-neutral Project snapshot, nine redacted durable event kinds plus `snapshot.required`, eleven capability tokens, the exact ordinary Project/Git route catalog, bounded authority-transfer artifact routes, and six private-development bootstrap bindings. The shared checkpoint container is exactly `checkpoint.json`, `coordination.ndjson`, and `repository.bundle`; portable profiles exclude engine storage, paths, credentials, tokens, private keys, and operational refs, while the backup profile may carry only protected claim-envelope metadata and ciphertext. Domain-separated canonical UTF-8 inputs define protected-claim AEAD associated data and bind every declared field of transferred-membership redemption receipts and authority-relinquishment proofs before consumer-owned Ed25519 signing or verification. Existing LAN v9 Join, invitation, endpoint, membership lifecycle, Host-transfer, snapshot, event, and HTTP bindings remain independently application-owned; the dedicated LAN authority-transfer transport binds these shared payloads without creating another shared operation registry.
+Cloud binding v2 adds the authority-neutral Project snapshot, nine redacted durable event kinds plus `snapshot.required`, eleven capability tokens, the exact ordinary Project/Git route catalog, bounded authority-transfer artifact routes, and six private-development bootstrap bindings. The shared checkpoint container is exactly `checkpoint.json`, `coordination.ndjson`, and `repository.bundle`; authority-transfer and export retain wire-visible coordination format v1, while offline backup format v2 adds lifecycle journals, recovery evidence, claim hashes, public receipt verifiers, exact custody/redemption receipts, terminal replay facts, and protected claim-envelope metadata plus ciphertext. Portable profiles exclude engine storage, paths, credentials, tokens, private keys, and operational refs, and backups exclude raw claims and private keys. Domain-separated canonical UTF-8 inputs define protected-claim AEAD associated data and bind every declared field of transferred-membership redemption receipts and authority-relinquishment proofs before consumer-owned Ed25519 signing or verification. Existing LAN v9 Join, invitation, endpoint, membership lifecycle, Host-transfer, snapshot, event, and HTTP bindings remain independently application-owned; the dedicated LAN authority-transfer transport binds these shared payloads without creating another shared operation registry.
 
 ## Usage
 
@@ -62,7 +62,7 @@ part of the public surface.
 
 Package SemVer, canonical wire version, and Cloud binding version are independent concepts.
 
-- **Package version** (this `package.json`): `3.1.0`. Patch releases preserve
+- **Package version** (this `package.json`): `3.2.0`. Patch releases preserve
   every existing public declaration and runtime behavior baseline. Minor
   releases may add backward-compatible API. Removing or changing an existing
   declaration, export, runtime behavior, codec, error, limit, ref rule,
@@ -70,7 +70,9 @@ Package SemVer, canonical wire version, and Cloud binding version are independen
   proven additive control operation may use a package minor release without a
   wire-version increase; existing operation declarations and fixtures must stay
   exact. Package 3 and wire 6 support exact transfer-claim batches and a
-  source-pinned target receipt verifier. The package version never signals wire
+  source-pinned target receipt verifier. Package 3.2 adds offline backup
+  coordination format v2 without changing authority-transfer/export format v1,
+  canonical wire v6, or Cloud binding v2. The package version never signals wire
   compatibility by itself.
 - **Wire version** (`COLLAB_PROTOCOL_VERSION`): currently `6`. The supported
   range is exactly `[6, 6]`. This is independent from Cloud binding version `2` and the existing application

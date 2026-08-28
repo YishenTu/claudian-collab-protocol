@@ -167,6 +167,10 @@ const ADDITIVE_CONTROL_RUNTIME_PATHS = new Set([
   'src/CollabControlOperationCodecs.ts',
 ]);
 const CONTROL_OPERATION_ADDITION_PROOF = Symbol('control-operation-addition-proof');
+const PROJECT_BACKUP_MODULE_ADDITION_PROOF = Symbol('project-backup-module-addition-proof');
+const PROJECT_BACKUP_MODULE = './CollabProjectBackupCheckpoint';
+const PROJECT_BACKUP_MODULE_PATH = 'src/CollabProjectBackupCheckpoint.ts';
+const INDEX_MODULE_PATH = 'src/index.ts';
 
 function entriesBy(entries, key, label) {
   keyedEntries(entries, key, label);
@@ -561,6 +565,144 @@ export function proveCompatibleControlOperationAdditionSources({
   });
 }
 
+function backupIndexExports(source) {
+  const parsed = sourceFile(source, 'index.ts');
+  if (parsed === null) return null;
+  const exportedNames = new Set();
+  const runtimeNames = new Set();
+  const retainedFingerprints = [];
+  for (const statement of parsed.statements) {
+    if (
+      !ts.isExportDeclaration(statement)
+      || !statement.moduleSpecifier
+      || !ts.isStringLiteral(statement.moduleSpecifier)
+      || statement.moduleSpecifier.text !== PROJECT_BACKUP_MODULE
+    ) {
+      retainedFingerprints.push(syntaxFingerprint(statement, parsed));
+      continue;
+    }
+    if (!statement.exportClause || !ts.isNamedExports(statement.exportClause)) return null;
+    for (const element of statement.exportClause.elements) {
+      if (element.propertyName || exportedNames.has(element.name.text)) return null;
+      exportedNames.add(element.name.text);
+      if (!statement.isTypeOnly && !element.isTypeOnly) runtimeNames.add(element.name.text);
+    }
+  }
+  return Object.freeze({
+    exportedNames: Object.freeze([...exportedNames].sort()),
+    retainedFingerprints: Object.freeze(retainedFingerprints),
+    runtimeNames: Object.freeze([...runtimeNames].sort()),
+  });
+}
+
+function exportedModuleDeclarations(source) {
+  const parsed = sourceFile(source, 'CollabProjectBackupCheckpoint.ts');
+  if (parsed === null) return null;
+  const names = new Set();
+  for (const statement of parsed.statements) {
+    if (!hasModifier(statement, ts.SyntaxKind.ExportKeyword)) continue;
+    if (hasModifier(statement, ts.SyntaxKind.DefaultKeyword)) return null;
+    for (const name of declaredNames(statement)) {
+      if (names.has(name)) return null;
+      names.add(name);
+    }
+  }
+  return names;
+}
+
+export function proveCompatibleProjectBackupModuleAdditionSources({
+  baseCheckpointSource,
+  baseIndexSource,
+  currentCheckpointSource,
+  currentIndexSource,
+  currentModuleSource,
+}) {
+  const base = backupIndexExports(baseIndexSource);
+  const current = backupIndexExports(currentIndexSource);
+  const moduleDeclarations = exportedModuleDeclarations(currentModuleSource);
+  if (
+    base === null
+    || current === null
+    || moduleDeclarations === null
+    || baseCheckpointSource !== currentCheckpointSource
+    || base.exportedNames.length !== 0
+    || current.exportedNames.length === 0
+    || stableJson(base.retainedFingerprints) !== stableJson(current.retainedFingerprints)
+    || current.exportedNames.some(name => !moduleDeclarations.has(name))
+  ) return null;
+  return Object.freeze({
+    [PROJECT_BACKUP_MODULE_ADDITION_PROOF]: true,
+    checkpointSourceSha256: createHash('sha256')
+      .update(currentCheckpointSource, 'utf8')
+      .digest('hex'),
+    exportedNames: current.exportedNames,
+    runtimeDigests: Object.freeze({
+      baseIndex: digestTypeScriptBehavior(baseIndexSource),
+      currentIndex: digestTypeScriptBehavior(currentIndexSource),
+      currentModule: digestTypeScriptBehavior(currentModuleSource),
+    }),
+    runtimeNames: current.runtimeNames,
+  });
+}
+
+function isCompatibleProjectBackupModuleAddition(base, current, proof) {
+  if (proof?.[PROJECT_BACKUP_MODULE_ADDITION_PROOF] !== true) return false;
+  const baseDeclarations = entriesBy(
+    base.contract.publicDeclarations,
+    'exportName',
+    'public declaration',
+  );
+  const currentDeclarations = entriesBy(
+    current.contract.publicDeclarations,
+    'exportName',
+    'public declaration',
+  );
+  for (const [name, declaration] of baseDeclarations) {
+    if (stableJson(currentDeclarations.get(name)) !== stableJson(declaration)) return false;
+  }
+  const addedDeclarations = [...currentDeclarations.entries()]
+    .filter(([name]) => !baseDeclarations.has(name));
+  if (
+    stableJson(addedDeclarations.map(([name]) => name).sort())
+      !== stableJson(proof.exportedNames)
+    || addedDeclarations.some(([, declaration]) => declaration.source !== PROJECT_BACKUP_MODULE)
+  ) return false;
+
+  const baseRuntimeExports = new Set(base.contract.publicRuntimeExports);
+  if ([...baseRuntimeExports].some(name => !current.contract.publicRuntimeExports.includes(name))) {
+    return false;
+  }
+  const addedRuntimeExports = current.contract.publicRuntimeExports
+    .filter(name => !baseRuntimeExports.has(name))
+    .sort();
+  if (stableJson(addedRuntimeExports) !== stableJson(proof.runtimeNames)) return false;
+
+  const baseDigests = entriesBy(
+    base.contract.runtimeBehaviorDigests,
+    'path',
+    'runtime behavior digest',
+  );
+  const currentDigests = entriesBy(
+    current.contract.runtimeBehaviorDigests,
+    'path',
+    'runtime behavior digest',
+  );
+  for (const [pathName, digest] of baseDigests) {
+    if (pathName === INDEX_MODULE_PATH) continue;
+    if (stableJson(currentDigests.get(pathName)) !== stableJson(digest)) return false;
+  }
+  const addedDigestPaths = [...currentDigests.keys()]
+    .filter(pathName => !baseDigests.has(pathName));
+  if (
+    stableJson(addedDigestPaths) !== stableJson([PROJECT_BACKUP_MODULE_PATH])
+    || baseDigests.get(INDEX_MODULE_PATH)?.sha256 !== proof.runtimeDigests.baseIndex
+    || currentDigests.get(INDEX_MODULE_PATH)?.sha256 !== proof.runtimeDigests.currentIndex
+    || currentDigests.get(PROJECT_BACKUP_MODULE_PATH)?.sha256
+      !== proof.runtimeDigests.currentModule
+  ) return false;
+  return true;
+}
+
 function proofMatchesRuntimeDigests(base, current, proof, addedOperations) {
   if (
     proof?.[CONTROL_OPERATION_ADDITION_PROOF] !== true
@@ -685,6 +827,10 @@ export function classifyPackageApiChange(base, current, proof = null) {
   if (classification === 'major' && isCompatibleControlOperationAddition(base, current, proof)) {
     return 'minor';
   }
+  if (
+    classification === 'major'
+    && isCompatibleProjectBackupModuleAddition(base, current, proof)
+  ) return 'minor';
   return classification;
 }
 
@@ -1004,6 +1150,40 @@ function controlOperationAdditionProof(baseSha, base, current) {
   });
 }
 
+function projectBackupModuleAdditionProof(baseSha, base, current) {
+  const basePaths = new Set(
+    base.contract?.runtimeBehaviorDigests?.map(item => item.path) ?? [],
+  );
+  const currentPaths = new Set(
+    current.contract?.runtimeBehaviorDigests?.map(item => item.path) ?? [],
+  );
+  if (
+    basePaths.has(PROJECT_BACKUP_MODULE_PATH)
+    || !currentPaths.has(PROJECT_BACKUP_MODULE_PATH)
+  ) return null;
+  return proveCompatibleProjectBackupModuleAdditionSources({
+    baseCheckpointSource: readBaseSource(baseSha, 'src/CollabProjectCheckpoint.ts'),
+    baseIndexSource: readBaseSource(baseSha, INDEX_MODULE_PATH),
+    currentCheckpointSource: readFileSync(
+      path.join(repositoryRoot, 'src/CollabProjectCheckpoint.ts'),
+      'utf8',
+    ),
+    currentIndexSource: readFileSync(path.join(repositoryRoot, INDEX_MODULE_PATH), 'utf8'),
+    currentModuleSource: readFileSync(
+      path.join(repositoryRoot, PROJECT_BACKUP_MODULE_PATH),
+      'utf8',
+    ),
+  });
+}
+
+function compatibleAdditionProof(baseSha, base, current) {
+  const control = controlOperationAdditionProof(baseSha, base, current);
+  const backup = projectBackupModuleAdditionProof(baseSha, base, current);
+  if (control === null) return backup;
+  if (backup === null) return control;
+  return Object.freeze({ ...control, ...backup });
+}
+
 function run() {
   const args = process.argv.slice(2);
   const write = args.includes('--write');
@@ -1024,7 +1204,7 @@ function run() {
   if (baseSha) {
     const base = readBaseSnapshot(baseSha);
     if (base) {
-      const proof = controlOperationAdditionProof(baseSha, base, committed);
+      const proof = compatibleAdditionProof(baseSha, base, committed);
       assertVersionedContractChange(base, committed, proof);
     }
   }

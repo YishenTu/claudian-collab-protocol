@@ -17,6 +17,7 @@ import {
   digestTypeScriptBehavior,
   generateContractSnapshot,
   proveCompatibleControlOperationAdditionSources,
+  proveCompatibleProjectBackupModuleAdditionSources,
   publicDeclarationsFromDist,
 } from '../scripts/check-compatibility.mjs';
 
@@ -158,6 +159,90 @@ test('requires independent wire and Cloud binding version increases', () => {
     bindingVersion: 2,
     packageVersion: '2.0.0',
   })));
+});
+
+test('keeps a proven additive offline backup module outside wire v6', () => {
+  const baseIndexSource = `
+    export { existing } from './Existing';
+    export type { Existing } from './Existing';
+  `;
+  const currentIndexSource = `${baseIndexSource}
+    export { backupVersion, decodeBackup } from './CollabProjectBackupCheckpoint';
+    export type { BackupRecord } from './CollabProjectBackupCheckpoint';
+  `;
+  const backupModuleSource = `
+    export const backupVersion = 2;
+    export function decodeBackup(value) { return value; }
+    export interface BackupRecord { readonly value: string; }
+  `;
+  const baseDeclarations = [
+    { declaration: 'export declare const existing = 1;', exportName: 'existing', source: './Existing' },
+    { declaration: 'export interface Existing {}', exportName: 'Existing', source: './Existing' },
+  ];
+  const addedDeclarations = [
+    { declaration: 'export interface BackupRecord { readonly value: string; }', exportName: 'BackupRecord', source: './CollabProjectBackupCheckpoint' },
+    { declaration: 'export declare const backupVersion = 2;', exportName: 'backupVersion', source: './CollabProjectBackupCheckpoint' },
+    { declaration: 'export declare function decodeBackup(value: unknown): unknown;', exportName: 'decodeBackup', source: './CollabProjectBackupCheckpoint' },
+  ];
+  const baseRuntime = [
+    { path: 'src/Existing.ts', sha256: 'existing-runtime' },
+    { path: 'src/index.ts', sha256: digestTypeScriptBehavior(baseIndexSource) },
+  ];
+  const currentRuntime = [
+    ...baseRuntime.filter(item => item.path !== 'src/index.ts'),
+    {
+      path: 'src/CollabProjectBackupCheckpoint.ts',
+      sha256: digestTypeScriptBehavior(backupModuleSource),
+    },
+    { path: 'src/index.ts', sha256: digestTypeScriptBehavior(currentIndexSource) },
+  ];
+  const wire = {
+    declarations: baseDeclarations,
+    operations: ['getRequest'],
+    runtimeBehaviorDigests: [{ path: 'src/Existing.ts', sha256: 'existing-runtime' }],
+  };
+  const base = snapshot({
+    declarations: baseDeclarations,
+    runtime: baseRuntime,
+    runtimeExports: ['existing'],
+    wire,
+  });
+  const current = snapshot({
+    declarations: [...baseDeclarations, ...addedDeclarations],
+    packageVersion: '1.1.0',
+    runtime: currentRuntime,
+    runtimeExports: ['backupVersion', 'decodeBackup', 'existing'],
+    wire,
+  });
+  const proof = proveCompatibleProjectBackupModuleAdditionSources({
+    baseCheckpointSource: 'export const format = 1;\n',
+    baseIndexSource,
+    currentCheckpointSource: 'export const format = 1;\n',
+    currentIndexSource,
+    currentModuleSource: backupModuleSource,
+  });
+  assert.ok(proof);
+  assert.equal(classifyPackageApiChange(base, current, proof), 'minor');
+  assert.doesNotThrow(() => assertVersionedContractChange(base, current, proof));
+  assert.equal(base.contract.wire, current.contract.wire);
+
+  assert.equal(proveCompatibleProjectBackupModuleAdditionSources({
+    baseCheckpointSource: 'export const format = 1;\n',
+    baseIndexSource,
+    currentCheckpointSource: 'export const format = 1;\n',
+    currentIndexSource: currentIndexSource.replace(
+      "export { existing } from './Existing';",
+      "export { changed } from './Existing';",
+    ),
+    currentModuleSource: backupModuleSource,
+  }), null);
+  assert.equal(proveCompatibleProjectBackupModuleAdditionSources({
+    baseCheckpointSource: 'export const format = 1;\n',
+    baseIndexSource,
+    currentCheckpointSource: 'export const format = 1; // changed bytes\n',
+    currentIndexSource,
+    currentModuleSource: backupModuleSource,
+  }), null);
 });
 
 test('keeps a proven additive control operation on the current wire version', () => {

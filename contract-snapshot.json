@@ -639,6 +639,16 @@
         "source": "./CollabConstants"
       },
       {
+        "declaration": "export declare const COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION: 2;",
+        "exportName": "COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export declare const COLLAB_PROJECT_BACKUP_RECORD_KINDS: readonly (\"member\" | \"request\" | \"ticket\" | \"project\" | \"request-comment\" | \"ticket-comment\" | \"ticket-relation\" | \"ticket-mention\" | \"cloud-event\" | \"cloud-event-cursor\" | \"idempotency-result\" | \"principal-binding\" | \"repository-placement\" | \"lifecycle-state\" | \"terminal-responder\" | \"protected-claim-envelope\" | \"tombstone\" | \"schema-catalog\" | \"server-compatibility\" | \"authority-volume-pair\" | \"lifecycle-journal\" | \"authority-transfer-recovery\" | \"transferred-membership-claim\" | \"transfer-receipt-key\" | \"transfer-claim-batch-receipt\" | \"transfer-redemption-receipt\" | \"terminal-principal\" | \"terminal-responder-replay\" | \"leave-former-principal-replay\")[];",
+        "exportName": "COLLAB_PROJECT_BACKUP_RECORD_KINDS",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
         "declaration": "export declare const COLLAB_PROJECT_CHECKPOINT_ARTIFACTS: readonly [\"checkpoint.json\", \"coordination.ndjson\", \"repository.bundle\"];",
         "exportName": "COLLAB_PROJECT_CHECKPOINT_ARTIFACTS",
         "source": "./CollabProjectCheckpoint"
@@ -1219,6 +1229,101 @@
         "source": "./types"
       },
       {
+        "declaration": "export type CollabProjectBackupAuthorityTransferRecoveryRecord = BackupRecordBase<'authority-transfer-recovery', {\n    readonly cancellationRequestSha256: string | null;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly inactivePublication: CollabProjectBackupInactiveRepositoryPublication | null;\n    readonly projectId: CollabProjectId;\n    readonly relinquishmentProof: CollabAuthorityRelinquishmentProof | null;\n    readonly sourceAuthority: CollabCheckpointAuthority;\n    readonly sourceHostMemberId: CollabMemberId | null;\n    readonly sourceEvidence: CollabProjectBackupLanToCloudSourceEvidence | null;\n    readonly sourceReopenSha256: string | null;\n    readonly stageSha256: string | null;\n    readonly targetActivationProof: string | null;\n    readonly targetActivationRequestSha256: string | null;\n    readonly targetAuthority: CollabCheckpointAuthority;\n    readonly targetHostMemberId: CollabMemberId | null;\n    readonly targetEvidence: CollabProjectBackupCloudToLanTargetEvidence | null;\n    readonly targetUrl: string;\n    readonly transferId: string;\n    readonly updatedAt: CollabIsoTimestamp;\n}>;",
+        "exportName": "CollabProjectBackupAuthorityTransferRecoveryRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupCheckpointManifest = Omit<CollabProjectCheckpointManifest, 'coordinationFormatVersion' | 'profile'> & {\n    readonly coordinationFormatVersion: typeof COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION;\n    readonly profile: 'backup';\n};",
+        "exportName": "CollabProjectBackupCheckpointManifest",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export interface CollabProjectBackupCloudToLanTargetEvidence {\n    readonly acceptanceIntentId: string;\n    readonly principalId: string;\n    readonly proof: string;\n    readonly receiptKeyId: string;\n    readonly receiptPublicKey: string;\n    readonly schemaVersion: 1;\n}",
+        "exportName": "CollabProjectBackupCloudToLanTargetEvidence",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupContinuityRecord = CollabProjectBackupLifecycleJournalRecord | CollabProjectBackupAuthorityTransferRecoveryRecord | CollabProjectBackupTransferredMembershipClaimRecord | CollabProjectBackupTransferReceiptKeyRecord | CollabProjectBackupTransferClaimBatchReceiptRecord | CollabProjectBackupTransferRedemptionReceiptRecord | CollabProjectBackupTerminalPrincipalRecord | CollabProjectBackupTerminalResponderReplayRecord | CollabProjectBackupLeaveFormerPrincipalReplayRecord;",
+        "exportName": "CollabProjectBackupContinuityRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export declare function collabProjectBackupIdempotencyRecordId(input: Readonly<{\n    readonly idempotencyKey: string;\n    readonly memberId: CollabMemberId;\n    readonly operation: CollabControlOperation;\n    readonly projectId: CollabProjectId;\n}>): string;",
+        "exportName": "collabProjectBackupIdempotencyRecordId",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export interface CollabProjectBackupInactiveRepositoryPublication {\n    readonly artifactKey: string;\n    readonly bundleByteCount: number;\n    readonly bundleSha256: string;\n    readonly objectFormat: 'sha1' | 'sha256';\n    readonly operationId: string;\n    readonly placementGeneration: number;\n    readonly projectId: CollabProjectId;\n    readonly publicationMarkerSha256: string;\n    readonly refs: readonly CollabCheckpointGitRef[];\n    readonly repositoryStorageKey: string;\n    readonly status: 'inactive';\n    readonly storageNodeId: string;\n    readonly validationMarkerSha256: string;\n}",
+        "exportName": "CollabProjectBackupInactiveRepositoryPublication",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export interface CollabProjectBackupLanToCloudSourceEvidence {\n    readonly checkpointManifestSha256: string;\n    readonly principalId: string;\n    readonly proof: string;\n    readonly receiptKeyId: string;\n    readonly receiptPublicKey: string;\n    readonly schemaVersion: 1;\n}",
+        "exportName": "CollabProjectBackupLanToCloudSourceEvidence",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupLeaveFormerPrincipalReplayRecord = BackupRecordBase<'leave-former-principal-replay', {\n    readonly completedAt: CollabIsoTimestamp | null;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expectedPersonalRefOid: string;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly intentId: string;\n    readonly memberId: CollabMemberId;\n    readonly operationId: string;\n    readonly principalSha256: string;\n    readonly projectId: CollabProjectId;\n    readonly requestFingerprint: string;\n    readonly resultSha256: string | null;\n    readonly state: 'completed' | 'recovering';\n}>;",
+        "exportName": "CollabProjectBackupLeaveFormerPrincipalReplayRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupLifecycleJournalRecord = BackupRecordBase<'lifecycle-journal', {\n    readonly actorMemberId: CollabMemberId | null;\n    readonly batchRevision: number | null;\n    readonly batchSha256: string | null;\n    readonly checkpointSha256: string | null;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly direction: 'cloud-to-lan' | 'lan-to-cloud' | null;\n    readonly expectedAuthorityGeneration: number;\n    readonly expectedPersonalRefOid: string | null;\n    readonly idempotencyKey: string;\n    readonly operationId: string;\n    readonly operationKind: CollabProjectBackupLifecycleKind;\n    readonly phase: string;\n    readonly projectId: CollabProjectId;\n    readonly recoveryFromPhase: string | null;\n    readonly requestFingerprint: string;\n    readonly resultSha256: string | null;\n    readonly scheduledAt: CollabIsoTimestamp;\n    readonly state: CollabProjectBackupLifecycleState;\n    readonly updatedAt: CollabIsoTimestamp;\n}>;",
+        "exportName": "CollabProjectBackupLifecycleJournalRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupLifecycleKind = 'authority-transfer' | 'backup' | 'delete' | 'export' | 'leave' | 'retire';",
+        "exportName": "CollabProjectBackupLifecycleKind",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupLifecycleState = 'active' | 'cancelled' | 'completed' | 'recovery-required';",
+        "exportName": "CollabProjectBackupLifecycleState",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupRecord = CollabProjectBackupBaseRecord | CollabProjectBackupContinuityRecord;",
+        "exportName": "CollabProjectBackupRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupRecordKind = typeof COLLAB_PROJECT_BACKUP_RECORD_KINDS[number];",
+        "exportName": "CollabProjectBackupRecordKind",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupTerminalPrincipalRecord = BackupRecordBase<'terminal-principal', {\n    readonly acknowledgedAt: CollabIsoTimestamp | null;\n    readonly memberId: CollabMemberId;\n    readonly operationId: string;\n    readonly operationKind: 'authority-transfer' | 'retire';\n    readonly principalId: string;\n    readonly projectId: CollabProjectId;\n}>;",
+        "exportName": "CollabProjectBackupTerminalPrincipalRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupTerminalResponderReplayRecord = BackupRecordBase<'terminal-responder-replay', {\n    readonly memberId: CollabMemberId;\n    readonly operationId: string;\n    readonly projectId: CollabProjectId;\n    readonly requestSha256: string;\n}>;",
+        "exportName": "CollabProjectBackupTerminalResponderReplayRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupTransferClaimBatchReceiptRecord = BackupRecordBase<'transfer-claim-batch-receipt', {\n    readonly receipt: CollabTransferredMembershipClaimCustodyReceipt;\n}>;",
+        "exportName": "CollabProjectBackupTransferClaimBatchReceiptRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupTransferReceiptKeyRecord = BackupRecordBase<'transfer-receipt-key', CollabAuthorityTransferReceiptVerifier & {\n    readonly createdAt: CollabIsoTimestamp;\n}>;",
+        "exportName": "CollabProjectBackupTransferReceiptKeyRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupTransferRedemptionReceiptRecord = BackupRecordBase<'transfer-redemption-receipt', {\n    readonly acknowledgedAt: CollabIsoTimestamp | null;\n    readonly projectId: CollabProjectId;\n    readonly receipt: CollabTransferredMembershipRedemptionReceipt;\n}>;",
+        "exportName": "CollabProjectBackupTransferRedemptionReceiptRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupTransferredMembershipClaimRecord = BackupRecordBase<'transferred-membership-claim', {\n    readonly batchRevision: number;\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly memberId: CollabMemberId;\n    readonly operationIntentId: string | null;\n    readonly projectId: CollabProjectId;\n    readonly redemptionReceiptId: string | null;\n    readonly state: 'redeemed' | 'revoked' | 'unclaimed';\n    readonly targetPrincipalId: string | null;\n    readonly transferId: string;\n    readonly updatedAt: CollabIsoTimestamp;\n}>;",
+        "exportName": "CollabProjectBackupTransferredMembershipClaimRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
         "declaration": "export interface CollabProjectCheckpointManifest {\n    readonly artifacts: readonly CollabCheckpointArtifactFact[];\n    readonly coordinationFormatVersion: typeof COLLAB_PROJECT_COORDINATION_FORMAT_VERSION;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expectedMainOid: CollabGitOid;\n    readonly gitObjectFormat: CollabCheckpointObjectFormat;\n    readonly manifestSchemaVersion: typeof COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION;\n    readonly manifestSha256: string;\n    readonly operationId: string;\n    readonly profile: CollabCheckpointProfile;\n    readonly projectId: CollabProjectId;\n    readonly protocolVersion: typeof COLLAB_PROTOCOL_VERSION;\n    readonly refs: readonly CollabCheckpointGitRef[];\n    readonly sourceAuthority: CollabCheckpointAuthority;\n    readonly targetAuthority: CollabCheckpointAuthority | null;\n}",
         "exportName": "CollabProjectCheckpointManifest",
         "source": "./CollabProjectCheckpoint"
@@ -1534,6 +1639,16 @@
         "source": "./CollabCloudBinding"
       },
       {
+        "declaration": "export declare function decodeCollabProjectBackupCheckpointCoordinationNdjson(value: string): readonly CollabProjectBackupRecord[];",
+        "exportName": "decodeCollabProjectBackupCheckpointCoordinationNdjson",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export declare function decodeCollabProjectBackupCheckpointManifest(value: unknown): CollabProjectBackupCheckpointManifest;",
+        "exportName": "decodeCollabProjectBackupCheckpointManifest",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
         "declaration": "export declare function decodeCollabProjectCheckpointCoordinationNdjson(value: string, profile: CollabCheckpointProfile): readonly CollabCheckpointBackupRecord[];",
         "exportName": "decodeCollabProjectCheckpointCoordinationNdjson",
         "source": "./CollabProjectCheckpoint"
@@ -1734,6 +1849,21 @@
         "source": "./CollabAuthorityTransfer"
       },
       {
+        "declaration": "export declare function encodeCollabProjectBackupCheckpointCoordinationNdjson(records: readonly CollabProjectBackupRecord[]): string;",
+        "exportName": "encodeCollabProjectBackupCheckpointCoordinationNdjson",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export declare function encodeCollabProjectBackupCheckpointManifestCanonicalJson(manifest: CollabProjectBackupCheckpointManifest): string;",
+        "exportName": "encodeCollabProjectBackupCheckpointManifestCanonicalJson",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export declare function encodeCollabProjectBackupCheckpointManifestDigestInput(manifest: CollabProjectBackupCheckpointManifest): string;",
+        "exportName": "encodeCollabProjectBackupCheckpointManifestDigestInput",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
         "declaration": "export declare function encodeCollabProjectCheckpointCoordinationNdjson(records: readonly CollabCheckpointBackupRecord[], profile: CollabCheckpointProfile): string;",
         "exportName": "encodeCollabProjectCheckpointCoordinationNdjson",
         "source": "./CollabProjectCheckpoint"
@@ -1924,6 +2054,11 @@
         "source": "./CollabProtocol"
       },
       {
+        "declaration": "export declare function validateCollabProjectBackupCheckpointConsistency(manifest: CollabProjectBackupCheckpointManifest, records: readonly CollabProjectBackupRecord[]): readonly CollabProjectBackupRecord[];",
+        "exportName": "validateCollabProjectBackupCheckpointConsistency",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
         "declaration": "export declare function validateCollabProjectCheckpointConsistency(manifest: CollabProjectCheckpointManifest, records: readonly CollabCheckpointBackupRecord[]): readonly CollabCheckpointBackupRecord[];",
         "exportName": "validateCollabProjectCheckpointConsistency",
         "source": "./CollabProjectCheckpoint"
@@ -1951,6 +2086,8 @@
       "COLLAB_LIMITS",
       "COLLAB_MAIN_REF",
       "COLLAB_MEMBER_REF_PREFIX",
+      "COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION",
+      "COLLAB_PROJECT_BACKUP_RECORD_KINDS",
       "COLLAB_PROJECT_CHECKPOINT_ARTIFACTS",
       "COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION",
       "COLLAB_PROJECT_COORDINATION_FORMAT_VERSION",
@@ -1981,6 +2118,7 @@
       "collabDevelopmentBootstrapRoute",
       "collabErrorGroup",
       "collabMemberRef",
+      "collabProjectBackupIdempotencyRecordId",
       "decodeCollabAuthorityRelinquishmentProof",
       "decodeCollabAuthorityTransferOperationRequest",
       "decodeCollabAuthorityTransferOperationResponse",
@@ -1992,6 +2130,8 @@
       "decodeCollabCloudProjectEventMessage",
       "decodeCollabCloudProjectSnapshot",
       "decodeCollabCloudSuccessEnvelope",
+      "decodeCollabProjectBackupCheckpointCoordinationNdjson",
+      "decodeCollabProjectBackupCheckpointManifest",
       "decodeCollabProjectCheckpointCoordinationNdjson",
       "decodeCollabProjectCheckpointManifest",
       "decodeCollabProjectRetirementAcknowledgement",
@@ -2008,6 +2148,9 @@
       "decodeDevelopmentBootstrapReport",
       "developmentBootstrapOperationCodec",
       "encodeCollabAuthorityRelinquishmentProofSigningInput",
+      "encodeCollabProjectBackupCheckpointCoordinationNdjson",
+      "encodeCollabProjectBackupCheckpointManifestCanonicalJson",
+      "encodeCollabProjectBackupCheckpointManifestDigestInput",
       "encodeCollabProjectCheckpointCoordinationNdjson",
       "encodeCollabProjectCheckpointManifestCanonicalJson",
       "encodeCollabProjectCheckpointManifestDigestInput",
@@ -2024,6 +2167,7 @@
       "parseCollabTicketReferences",
       "sanitizeCollabDiagnosticContext",
       "scanCollabTicketReferences",
+      "validateCollabProjectBackupCheckpointConsistency",
       "validateCollabProjectCheckpointConsistency"
     ],
     "runtimeBehaviorDigests": [
@@ -2064,6 +2208,10 @@
         "sha256": "fa6226e51e513e1121716bc87f7d2da66c5584e926aa8ee6e53f52515d4c5ba1"
       },
       {
+        "path": "src/CollabProjectBackupCheckpoint.ts",
+        "sha256": "518bf48e788802fa4e1d92712d4b404dc731efb355924ea198d5f9f27af1f437"
+      },
+      {
         "path": "src/CollabProjectCheckpoint.ts",
         "sha256": "2cc9e9348a32ae0f90a4cd4f4926a031e0c5e28219f969327c9a75a77a276db1"
       },
@@ -2097,7 +2245,7 @@
       },
       {
         "path": "src/index.ts",
-        "sha256": "aed33a0beac873b436e07c0e2d162b2be7bab633d6cc37dafbd9808ca1340f8a"
+        "sha256": "1c28d3fa103a09cebf5e9315afb87a617c309f6fed65d7f3182a6b2b5d31717b"
       },
       {
         "path": "src/types.ts",
@@ -3267,7 +3415,7 @@
       ]
     }
   },
-  "packageVersion": "3.1.0",
+  "packageVersion": "3.2.0",
   "protocolVersion": 6,
   "schemaVersion": 2
 }

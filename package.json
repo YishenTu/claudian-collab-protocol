@@ -1,6 +1,6 @@
 {
   "name": "@claudian-collab/protocol",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "Canonical Collab wire and Cloud binding contract for Claudian clients and servers.",
   "license": "MIT",
   "repository": {
@@ -21,10 +21,13 @@
   "packageManager": "npm@11.13.0",
   "type": "commonjs",
   "main": "./dist/index.js",
+  "module": "./dist/esm/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.mjs",
+      "require": "./dist/index.js",
       "default": "./dist/index.js"
     }
   },
@@ -34,7 +37,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "npm run clean && tsc -p tsconfig.json",
+    "build": "npm run clean && tsc -p tsconfig.json && tsc -p tsconfig.esm.json && node scripts/finalize-esm.mjs",
     "check:compatibility": "node scripts/check-compatibility.mjs",
     "check:migration-provenance": "node scripts/check-migration-provenance.mjs --verify-standalone",
     "clean": "node scripts/clean.mjs",

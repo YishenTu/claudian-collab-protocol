@@ -11,7 +11,7 @@ import {
 
 const packageManifest = {
   name: '@claudian-collab/protocol',
-  version: '3.2.0',
+  version: '3.2.1',
   license: 'MIT',
   repository: {
     type: 'git',
@@ -26,7 +26,7 @@ function record(overrides = {}) {
     npmVersion: '11.13.0',
     packageManifest,
     packResult: {
-      filename: 'claudian-collab-protocol-3.2.0.tgz',
+      filename: 'claudian-collab-protocol-3.2.1.tgz',
       files: [
         { path: 'package.json', size: 100 },
         { path: 'README.md', size: 200 },
@@ -51,11 +51,11 @@ test('records exact public metadata, toolchain, inventory, and tarball digests',
       provenance: true,
       registry: 'https://registry.npmjs.org',
       repository: 'git+https://github.com/YishenTu/claudian-collab-protocol.git',
-      version: '3.2.0',
+      version: '3.2.1',
     },
     toolchain: { node: '24.16.0', npm: '11.13.0' },
     tarball: {
-      filename: 'claudian-collab-protocol-3.2.0.tgz',
+      filename: 'claudian-collab-protocol-3.2.1.tgz',
       files: [
         { path: 'package.json', size: 100 },
         { path: 'README.md', size: 200 },
@@ -106,6 +106,8 @@ test('derives the only allowed package inventory from source modules', () => {
   assert.deepEqual(expectedPackedPaths(['index.ts', 'types.ts']), [
     'LICENSE',
     'README.md',
+    'dist/esm/index.mjs',
+    'dist/esm/types.mjs',
     'dist/index.d.ts',
     'dist/index.js',
     'dist/types.d.ts',

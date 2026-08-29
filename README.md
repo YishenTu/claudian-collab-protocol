@@ -62,7 +62,7 @@ part of the public surface.
 
 Package SemVer, canonical wire version, and Cloud binding version are independent concepts.
 
-- **Package version** (this `package.json`): `3.2.0`. Patch releases preserve
+- **Package version** (this `package.json`): `3.2.1`. Patch releases preserve
   every existing public declaration and runtime behavior baseline. Minor
   releases may add backward-compatible API. Removing or changing an existing
   declaration, export, runtime behavior, codec, error, limit, ref rule,

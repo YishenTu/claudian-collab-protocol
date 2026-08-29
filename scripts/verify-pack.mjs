@@ -80,7 +80,11 @@ const expectedFiles = [
     .filter(name => name.endsWith('.ts'))
     .flatMap((name) => {
       const base = name.replace(/\.ts$/, '');
-      return [`dist/${base}.js`, `dist/${base}.d.ts`];
+      return [
+        `dist/${base}.js`,
+        `dist/${base}.d.ts`,
+        `dist/esm/${base}.mjs`,
+      ];
     }),
 ].sort();
 const packedFiles = packedFileEntries.map(entry => entry.path).sort();
@@ -118,13 +122,18 @@ console.log(`installed artifact version: ${installedManifest.version}`);
 // 4. Runtime smoke: CJS require, then ESM import, with codec execution.
 const smokeSource = `
 const assert = require('node:assert/strict');
+const path = require('node:path');
 const protocol = require('@claudian-collab/protocol');
 const packageVersion = ${JSON.stringify(installedManifest.version)};
 
 assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 6);
 assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 2);
 assert.notEqual(packageVersion, String(protocol.COLLAB_PROTOCOL_VERSION));
-assert.equal(packageVersion, '3.2.0');
+assert.equal(packageVersion, '3.2.1');
+assert.equal(
+  require.resolve('@claudian-collab/protocol'),
+  path.join(__dirname, 'node_modules', '@claudian-collab', 'protocol', 'dist', 'index.js'),
+);
 assert.equal(protocol.COLLAB_PROJECT_COORDINATION_FORMAT_VERSION, 1);
 assert.equal(protocol.COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION, 2);
 
@@ -202,11 +211,49 @@ console.log(`cjs ${cjsOutput}`);
 const esmOutput = run(process.execPath, [
   '--input-type=module',
   '-e',
-  "import { COLLAB_CLOUD_BINDING_VERSION, COLLAB_PROTOCOL_VERSION, collabMemberRef } from '@claudian-collab/protocol';"
-    + " if (COLLAB_PROTOCOL_VERSION !== 6 || COLLAB_CLOUD_BINDING_VERSION !== 2 || collabMemberRef('member_1') !== 'refs/heads/members/member_1') process.exit(1);"
+  "import { COLLAB_CLOUD_BINDING_VERSION, COLLAB_PROTOCOL_VERSION, collabMemberRef, parseCollabTicketReferences } from '@claudian-collab/protocol';"
+    + " const resolved = import.meta.resolve('@claudian-collab/protocol');"
+    + " const references = parseCollabTicketReferences('Resolves #3');"
+    + " if (!resolved.endsWith('/dist/esm/index.mjs') || COLLAB_PROTOCOL_VERSION !== 6 || COLLAB_CLOUD_BINDING_VERSION !== 2 || collabMemberRef('member_1') !== 'refs/heads/members/member_1' || references.status !== 'ok' || references.references[0]?.ticketNumber !== 3) process.exit(1);"
     + " console.log('esm import OK');",
 ], { cwd: consumerRoot });
 console.log(esmOutput);
+
+writeFileSync(
+  path.join(consumerRoot, 'consumer.mts'),
+  `import { type CollabProjectId, isCollabProjectId } from '@claudian-collab/protocol';
+const projectId: CollabProjectId = 'project_1';
+if (!isCollabProjectId(projectId)) throw new Error('invalid ESM type surface');
+`,
+);
+writeFileSync(
+  path.join(consumerRoot, 'consumer.cts'),
+  `import protocol = require('@claudian-collab/protocol');
+const projectId: protocol.CollabProjectId = 'project_1';
+if (!protocol.isCollabProjectId(projectId)) throw new Error('invalid CJS type surface');
+`,
+);
+writeFileSync(
+  path.join(consumerRoot, 'tsconfig.json'),
+  JSON.stringify({
+    compilerOptions: {
+      module: 'NodeNext',
+      moduleResolution: 'NodeNext',
+      noEmit: true,
+      skipLibCheck: true,
+      strict: true,
+      target: 'ES2022',
+      types: [],
+    },
+    include: ['consumer.mts', 'consumer.cts'],
+  }, null, 2),
+);
+run(process.execPath, [
+  path.join(packageRoot, 'node_modules', 'typescript', 'bin', 'tsc'),
+  '-p',
+  'tsconfig.json',
+], { cwd: consumerRoot });
+console.log('TypeScript ESM and CJS declarations OK');
 
 // 5. Subpath imports must be blocked by the exports map.
 for (const subpath of ['dist/CollabError.js', 'package.json']) {

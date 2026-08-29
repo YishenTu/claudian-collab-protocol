@@ -17,7 +17,7 @@
 ## Compatibility
 
 - Package SemVer, canonical wire version, and Cloud binding version are independent authorities. Claudian's LAN protocol version is independently consumer-owned.
-- `3.2.0` and canonical wire v6 are the current baseline. Continue on the `3.2.x` patch line by default; downstream implementation milestones and repository-only work do not justify a protocol version increase.
+- `3.2.1` and canonical wire v6 are the current baseline. Continue on the `3.2.x` patch line by default; downstream implementation milestones and repository-only work do not justify a protocol version increase.
 - `CollabProjectCheckpoint` owns wire-visible authority-transfer/export coordination format v1. `CollabProjectBackupCheckpoint` owns offline backup coordination format v2; additions there must remain backup-only, preserve the v1 module byte-for-byte, and pass the source-proven compatibility proof before they may keep wire v6 and Cloud binding v2.
 - Use a patch release for compatible defect corrections that preserve the accepted public declarations and wire/binding semantics, a minor release for backward-compatible public additions, and a major release only for an accepted breaking public change. Classify the semantic contract change before editing any version or compatibility snapshot.
 - Wire-visible breaking changes also require a canonical wire-version increase. Cloud-binding breaking changes also require a Cloud binding-version increase. Package-only repository, documentation, CI, or release metadata changes do not change wire or binding versions.

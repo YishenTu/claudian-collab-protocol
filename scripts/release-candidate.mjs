@@ -46,7 +46,11 @@ export function expectedPackedPaths(sourceFileNames) {
     'package.json',
     ...sourceFileNames.flatMap((name) => {
       const base = name.replace(/\.ts$/u, '');
-      return [`dist/${base}.d.ts`, `dist/${base}.js`];
+      return [
+        `dist/${base}.d.ts`,
+        `dist/${base}.js`,
+        `dist/esm/${base}.mjs`,
+      ];
     }),
   ].sort();
 }
@@ -59,7 +63,7 @@ export function createReleaseRecord({
   sha256,
 }) {
   assert(packageManifest.name === '@claudian-collab/protocol', 'unexpected package name');
-  assert(packageManifest.version === '3.2.0', 'unexpected package version');
+  assert(packageManifest.version === '3.2.1', 'unexpected package version');
   assert(
     packageManifest.publishConfig?.access === 'public'
       && packageManifest.publishConfig?.provenance === true,

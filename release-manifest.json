@@ -6,11 +6,11 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "3.2.0"
+    "version": "3.2.1"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-3.2.0.tgz",
+    "filename": "claudian-collab-protocol-3.2.1.tgz",
     "files": [
       {
         "path": "dist/CollabAuthorityTransfer.d.ts",
@@ -157,6 +157,86 @@
         "size": 22789
       },
       {
+        "path": "dist/esm/CollabAuthorityTransfer.mjs",
+        "size": 35358
+      },
+      {
+        "path": "dist/esm/CollabCloudBinding.mjs",
+        "size": 23888
+      },
+      {
+        "path": "dist/esm/CollabCloudProjectEvent.mjs",
+        "size": 5539
+      },
+      {
+        "path": "dist/esm/CollabCloudProjectSnapshot.mjs",
+        "size": 10689
+      },
+      {
+        "path": "dist/esm/CollabConstants.mjs",
+        "size": 1083
+      },
+      {
+        "path": "dist/esm/CollabControlOperationCodecs.mjs",
+        "size": 6159
+      },
+      {
+        "path": "dist/esm/CollabError.mjs",
+        "size": 5831
+      },
+      {
+        "path": "dist/esm/CollabMarkdownProse.mjs",
+        "size": 1729
+      },
+      {
+        "path": "dist/esm/CollabMemberMentionParser.mjs",
+        "size": 1887
+      },
+      {
+        "path": "dist/esm/CollabProjectBackupCheckpoint.mjs",
+        "size": 70388
+      },
+      {
+        "path": "dist/esm/CollabProjectCheckpoint.mjs",
+        "size": 53750
+      },
+      {
+        "path": "dist/esm/CollabProjectRetirement.mjs",
+        "size": 4380
+      },
+      {
+        "path": "dist/esm/CollabProtocol.mjs",
+        "size": 2092
+      },
+      {
+        "path": "dist/esm/CollabRequestTicketRequestCodecs.mjs",
+        "size": 12055
+      },
+      {
+        "path": "dist/esm/CollabRequestTicketResponseCodecs.mjs",
+        "size": 14593
+      },
+      {
+        "path": "dist/esm/CollabTicketReferenceParser.mjs",
+        "size": 2286
+      },
+      {
+        "path": "dist/esm/CollabValidation.mjs",
+        "size": 887
+      },
+      {
+        "path": "dist/esm/DevelopmentBootstrap.mjs",
+        "size": 21469
+      },
+      {
+        "path": "dist/esm/index.mjs",
+        "size": 4645
+      },
+      {
+        "path": "dist/esm/types.mjs",
+        "size": 328
+      },
+      {
         "path": "dist/index.d.ts",
         "size": 12214
       },
@@ -178,18 +258,18 @@
       },
       {
         "path": "package.json",
-        "size": 2209
+        "size": 2382
       },
       {
         "path": "README.md",
         "size": 8115
       }
     ],
-    "integrity": "sha512-MfwdECQoVul5pZZxK6MXR36FPUU27APT3nqeFlGDiLUx8YamWIcAYp1NeDa9raCEX8te3S2JTsXnNcS6xqCfaw==",
-    "sha256": "cec390b18fc58600088838e3734e01da39fd681aaa9d1a0301ca5db4c4730fde",
-    "shasum": "cd881f9c3df89551ec553bd7b8c5ad84d7d9d495",
-    "size": 67327,
-    "unpackedSize": 430624
+    "integrity": "sha512-FqUca4/S9Jgu5QsMR4Gs3KgAfYytIdVn8V7w7Fn2hQjJ0nA9D9ULgJlvqOojqwaNh+ci+DblLcD5Z2oC7WJCcw==",
+    "sha256": "080cfd269bedb51264a017be531b231187cbca1f5237207c0a5efa083d0bbc9f",
+    "shasum": "d1001ae311adf4d039a6240a90be3b81ba03fd8a",
+    "size": 111868,
+    "unpackedSize": 709833
   },
   "toolchain": {
     "node": "24.16.0",

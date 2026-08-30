@@ -18,6 +18,8 @@ describe('CollabControlOperationCodecs', () => {
     }
     expect(collabControlOperationCodec('acceptRequest'))
       .toBe(COLLAB_CONTROL_OPERATION_CODECS.acceptRequest);
+    expect(collabControlOperationCodec('createCloudProject'))
+      .toBe(COLLAB_CONTROL_OPERATION_CODECS.createCloudProject);
   });
 
   it.each(['__proto__', 'constructor', 'toString'])(

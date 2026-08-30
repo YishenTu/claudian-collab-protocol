@@ -16,7 +16,10 @@ import {
   classifyPackageApiChange,
   digestTypeScriptBehavior,
   generateContractSnapshot,
+  proveCompatibleCloudCapabilityAdditionSources,
   proveCompatibleControlOperationAdditionSources,
+  proveCompatibleControlOperationModuleAdditionSources,
+  proveCompatiblePrelaunchProjectBackupReplacementSources,
   proveCompatibleProjectBackupModuleAdditionSources,
   publicDeclarationsFromDist,
 } from '../scripts/check-compatibility.mjs';
@@ -480,6 +483,196 @@ test('keeps a proven additive control operation on the current wire version', ()
     () => assertVersionedContractChange(base, changedExistingOperation),
     /package major release|wire protocol version must increase/u,
   );
+});
+
+test('proves an additive control-operation module without relocating existing operations', () => {
+  const baseProtocolSource = `
+    import type { ExistingOperationMap } from './Existing';
+    export interface CollabControlOperationMap extends ExistingOperationMap {
+      readonly getRequest: ExistingOperation;
+    }
+  `;
+  const currentProtocolSource = `
+    import type { ExistingOperationMap } from './Existing';
+    import type { AddedOperationMap } from './AddedOperations';
+    export interface CollabControlOperationMap
+      extends ExistingOperationMap, AddedOperationMap {
+      readonly getRequest: ExistingOperation;
+    }
+  `;
+  const baseCodecsSource = `
+    import { existingCodec } from './Existing';
+    export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
+      getRequest: existingCodec,
+    });
+  `;
+  const currentCodecsSource = `
+    import { ADDED_OPERATION_CODECS } from './AddedOperations';
+    import { existingCodec } from './Existing';
+    export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
+      getRequest: existingCodec,
+      ...ADDED_OPERATION_CODECS,
+    });
+  `;
+  const baseIndexSource = `export { existingCodec } from './Existing';\n`;
+  const currentIndexSource = `${baseIndexSource}
+    export { ADDED_OPERATION_CODECS, ADDED_OPERATIONS } from './AddedOperations';
+    export type { AddedOperationMap } from './AddedOperations';
+  `;
+  const currentModuleSource = `
+    function codec(decodeRequest, decodeResponse) {
+      return Object.freeze({ decodeRequest, decodeResponse });
+    }
+    function decodeCreateRequest(value) { return value; }
+    function decodeCreateResponse(value) { return value; }
+    export const ADDED_OPERATIONS = Object.freeze(['createCloudProject'] as const);
+    export interface AddedOperationMap {
+      readonly createCloudProject: AddedOperation;
+    }
+    export const ADDED_OPERATION_CODECS = Object.freeze({
+      createCloudProject: codec(decodeCreateRequest, decodeCreateResponse),
+    });
+  `;
+
+  const proof = proveCompatibleControlOperationModuleAdditionSources({
+    addedCodecsExport: 'ADDED_OPERATION_CODECS',
+    addedMapExport: 'AddedOperationMap',
+    addedModule: './AddedOperations',
+    addedOperations: ['createCloudProject'],
+    addedOperationsExport: 'ADDED_OPERATIONS',
+    baseCodecsSource,
+    baseIndexSource,
+    baseProtocolSource,
+    currentCodecsSource,
+    currentIndexSource,
+    currentModuleSource,
+    currentProtocolSource,
+  });
+  assert.ok(proof);
+
+  assert.equal(proveCompatibleControlOperationModuleAdditionSources({
+    addedCodecsExport: 'ADDED_OPERATION_CODECS',
+    addedMapExport: 'AddedOperationMap',
+    addedModule: './AddedOperations',
+    addedOperations: ['createCloudProject'],
+    addedOperationsExport: 'ADDED_OPERATIONS',
+    baseCodecsSource,
+    baseIndexSource,
+    baseProtocolSource,
+    currentCodecsSource: currentCodecsSource.replace(
+      'getRequest: existingCodec,',
+      'getRequest: changedCodec,',
+    ),
+    currentIndexSource,
+    currentModuleSource,
+    currentProtocolSource,
+  }), null);
+
+  for (const unsafeModuleSource of [
+    `import { sideEffect } from './Unexpected';\n${currentModuleSource}`,
+    `${currentModuleSource}\nconst hidden = sideEffect();`,
+    currentModuleSource.replace(
+      'codec(decodeCreateRequest, decodeCreateResponse)',
+      'sideEffect()',
+    ),
+  ]) {
+    assert.equal(proveCompatibleControlOperationModuleAdditionSources({
+      addedCodecsExport: 'ADDED_OPERATION_CODECS',
+      addedMapExport: 'AddedOperationMap',
+      addedModule: './AddedOperations',
+      addedOperations: ['createCloudProject'],
+      addedOperationsExport: 'ADDED_OPERATIONS',
+      baseCodecsSource,
+      baseIndexSource,
+      baseProtocolSource,
+      currentCodecsSource,
+      currentIndexSource,
+      currentModuleSource: unsafeModuleSource,
+      currentProtocolSource,
+    }), null);
+  }
+});
+
+test('proves additive Cloud capability tokens without changing binding behavior', () => {
+  const baseSource = `
+    export const COLLAB_CLOUD_CAPABILITIES = Object.freeze([
+      'requests',
+    ] as const);
+    export function matchRoute(value) { return value; }
+  `;
+  const currentSource = `
+    export const COLLAB_CLOUD_CAPABILITIES = Object.freeze([
+      'requests',
+      'cloud-project-create',
+    ] as const);
+    export function matchRoute(value) { return value; }
+  `;
+  const proof = proveCompatibleCloudCapabilityAdditionSources({
+    addedCapabilities: ['cloud-project-create'],
+    baseSource,
+    currentSource,
+  });
+  assert.ok(proof);
+  assert.equal(proveCompatibleCloudCapabilityAdditionSources({
+    addedCapabilities: ['cloud-project-create'],
+    baseSource,
+    currentSource: currentSource.replace('return value;', 'return { changed: value };'),
+  }), null);
+});
+
+test('proves only an explicitly staged pre-production backup replacement', () => {
+  const baseIndexSource = `
+    export { existing } from './Existing';
+    export { backupVersion, decodeBackupV2 } from './CollabProjectBackupCheckpoint';
+  `;
+  const currentIndexSource = `
+    export { existing } from './Existing';
+    export {
+      backupCompatibilityStage,
+      backupVersion,
+      decodeBackupV3,
+    } from './CollabProjectBackupCheckpoint';
+  `;
+  const baseModuleSource = `
+    export const backupVersion = 2;
+    export function decodeBackupV2(value) { return value; }
+  `;
+  const currentModuleSource = `
+    export const backupCompatibilityStage = 'pre-production-replaceable';
+    export const backupVersion = 3;
+    export function decodeBackupV3(value) { return value; }
+  `;
+  const proof = proveCompatiblePrelaunchProjectBackupReplacementSources({
+    baseCheckpointSource: 'export const portableVersion = 1;\n',
+    baseIndexSource,
+    baseModuleSource,
+    currentCheckpointSource: 'export const portableVersion = 1;\n',
+    currentIndexSource,
+    currentModuleSource,
+    stageExport: 'backupCompatibilityStage',
+  });
+  assert.ok(proof);
+  assert.equal(proveCompatiblePrelaunchProjectBackupReplacementSources({
+    baseCheckpointSource: 'export const portableVersion = 1;\n',
+    baseIndexSource,
+    baseModuleSource,
+    currentCheckpointSource: 'export const portableVersion = 1; // changed\n',
+    currentIndexSource,
+    currentModuleSource,
+    stageExport: 'backupCompatibilityStage',
+  }), null);
+  assert.equal(proveCompatiblePrelaunchProjectBackupReplacementSources({
+    baseCheckpointSource: 'export const portableVersion = 1;\n',
+    baseIndexSource,
+    baseModuleSource,
+    currentCheckpointSource: 'export const portableVersion = 1;\n',
+    currentIndexSource,
+    currentModuleSource: currentModuleSource.replace(
+      "'pre-production-replaceable'",
+      "'stable'",
+    ),
+    stageExport: 'backupCompatibilityStage',
+  }), null);
 });
 
 test('fails closed on unknown snapshot structure', () => {

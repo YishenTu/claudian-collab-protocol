@@ -5,6 +5,13 @@
       "capabilities": [
         "accept",
         "authority-transfer",
+        "cloud-imported-membership-claims",
+        "cloud-project-create",
+        "cloud-project-invitations",
+        "cloud-project-join",
+        "cloud-project-leave",
+        "cloud-project-manager-responsibility",
+        "cloud-project-membership",
         "development-bootstrap",
         "git-receive-pack-personal-ref",
         "git-upload-pack",
@@ -42,7 +49,7 @@
           "source": "./CollabCloudBinding"
         },
         {
-          "declaration": "export declare const COLLAB_CLOUD_CAPABILITIES: readonly [\"accept\", \"authority-transfer\", \"development-bootstrap\", \"git-receive-pack-personal-ref\", \"git-upload-pack\", \"project-checkpoint-export\", \"project-events\", \"project-retirement\", \"project-snapshot\", \"requests\", \"tickets\"];",
+          "declaration": "export declare const COLLAB_CLOUD_CAPABILITIES: readonly [\"accept\", \"authority-transfer\", \"cloud-imported-membership-claims\", \"cloud-project-create\", \"cloud-project-invitations\", \"cloud-project-join\", \"cloud-project-leave\", \"cloud-project-manager-responsibility\", \"cloud-project-membership\", \"development-bootstrap\", \"git-receive-pack-personal-ref\", \"git-upload-pack\", \"project-checkpoint-export\", \"project-events\", \"project-retirement\", \"project-snapshot\", \"requests\", \"tickets\"];",
           "exportName": "COLLAB_CLOUD_CAPABILITIES",
           "source": "./CollabCloudBinding"
         },
@@ -446,7 +453,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/CollabCloudBinding.ts",
-          "sha256": "7d79c309f68eb411afcd8067cc245ef496fb0faf479c254381b11c8c5a3a59df"
+          "sha256": "0dea1bbed214fcbd8f5790e3aefc1e9b90eefec7707fc24e017a0c2462c86f0d"
         },
         {
           "path": "src/CollabCloudProjectEvent.ts",
@@ -579,7 +586,7 @@
         "source": "./CollabCloudBinding"
       },
       {
-        "declaration": "export declare const COLLAB_CLOUD_CAPABILITIES: readonly [\"accept\", \"authority-transfer\", \"development-bootstrap\", \"git-receive-pack-personal-ref\", \"git-upload-pack\", \"project-checkpoint-export\", \"project-events\", \"project-retirement\", \"project-snapshot\", \"requests\", \"tickets\"];",
+        "declaration": "export declare const COLLAB_CLOUD_CAPABILITIES: readonly [\"accept\", \"authority-transfer\", \"cloud-imported-membership-claims\", \"cloud-project-create\", \"cloud-project-invitations\", \"cloud-project-join\", \"cloud-project-leave\", \"cloud-project-manager-responsibility\", \"cloud-project-membership\", \"development-bootstrap\", \"git-receive-pack-personal-ref\", \"git-upload-pack\", \"project-checkpoint-export\", \"project-events\", \"project-retirement\", \"project-snapshot\", \"requests\", \"tickets\"];",
         "exportName": "COLLAB_CLOUD_CAPABILITIES",
         "source": "./CollabCloudBinding"
       },
@@ -609,7 +616,7 @@
         "source": "./CollabAuthorityTransfer"
       },
       {
-        "declaration": "export declare const COLLAB_CONTROL_OPERATION_CODECS: Readonly<{\n    readonly getRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").GetRequestRequest, import(\"./types\").CollabRequestDetail>;\n    readonly listRequestComments: CollabControlOperationCodec<import(\"./CollabProtocol\").ListRequestCommentsRequest, import(\"./types\").CollabCommentPage>;\n    readonly ensureMyRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").EnsureMyRequestRequest, import(\"./CollabProtocol\").EnsureMyRequestResponse>;\n    readonly createComment: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateCommentRequest, import(\"./CollabProtocol\").CreateCommentResponse>;\n    readonly listTickets: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketsRequest, import(\"./types\").CollabTicketPage>;\n    readonly getTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").GetTicketRequest, import(\"./types\").CollabTicketDetail>;\n    readonly listTicketComments: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketCommentsRequest, import(\"./types\").CollabTicketCommentPage>;\n    readonly listTicketAcceptedRelations: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketAcceptedRelationsRequest, import(\"./types\").CollabTicketAcceptedRelationPage>;\n    readonly createTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateTicketRequest, import(\"./CollabProtocol\").CreateTicketResponse>;\n    readonly updateTicketContent: CollabControlOperationCodec<import(\"./CollabProtocol\").UpdateTicketContentRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly createTicketComment: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateTicketCommentRequest, import(\"./CollabProtocol\").CreateTicketCommentResponse>;\n    readonly closeTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").ChangeTicketStatusRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly reopenTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").ChangeTicketStatusRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly updateMyRequestMetadata: CollabControlOperationCodec<import(\"./CollabProtocol\").UpdateMyRequestMetadataRequest, import(\"./CollabProtocol\").UpdateMyRequestMetadataResponse>;\n    readonly acceptRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").AcceptRequest, import(\"./CollabProtocol\").AcceptResponse>;\n    readonly requestLanToCloudTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").RequestLanToCloudTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly acceptLanToCloudTransferTarget: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcceptLanToCloudTransferTargetRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly beginLanToCloudTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").BeginLanToCloudTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly getProjectAuthorityTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly getAuthorityTransferReceiptVerifier: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferReceiptVerifier>;\n    readonly rotateTransferredMembershipClaims: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").RotateTransferredMembershipClaimsRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimBatch>;\n    readonly acknowledgeTransferredMembershipClaimBatch: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcknowledgeTransferredMembershipClaimBatchRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimCustodyReceipt>;\n    readonly getTransferredMembershipClaim: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetTransferredMembershipClaimRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaim>;\n    readonly claimTransferredMembership: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ClaimTransferredMembershipRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipRedemptionReceipt>;\n    readonly acknowledgeTransferredMembershipClaimRedemption: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcknowledgeTransferredMembershipClaimRedemptionRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipRedemptionAcknowledgement>;\n    readonly commitLanToCloudRelinquishment: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").CommitLanToCloudRelinquishmentRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly beginCloudToLanTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").BeginCloudToLanTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly acceptCloudToLanTransferTarget: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcceptCloudToLanTransferTargetRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly reportCloudToLanTargetStaged: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ReportCloudToLanTargetStagedRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimCustodyReceipt>;\n    readonly confirmCloudToLanTargetActive: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ConfirmCloudToLanTargetActiveRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly cancelProjectAuthorityTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").CancelProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly retireProject: CollabControlOperationCodec<import(\"./CollabProjectRetirement\").CollabProjectRetirementRequest, import(\"./CollabProjectRetirement\").CollabProjectRetirementResult>;\n    readonly acknowledgeProjectRetirement: CollabControlOperationCodec<import(\"./CollabProjectRetirement\").CollabProjectRetirementAcknowledgementRequest, import(\"./CollabProjectRetirement\").CollabProjectRetirementAcknowledgement>;\n}>;",
+        "declaration": "export declare const COLLAB_CONTROL_OPERATION_CODECS: Readonly<{\n    readonly createCloudProject: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CreateCloudProjectRequest, import(\"./CollabProjectMembership\").CreateCloudProjectResponse>;\n    readonly createProjectInvitation: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CreateProjectInvitationRequest, import(\"./CollabProjectMembership\").CreateProjectInvitationResponse>;\n    readonly listProjectInvitations: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CollabProjectRequest, import(\"./CollabProjectMembership\").ListProjectInvitationsResponse>;\n    readonly revokeProjectInvitation: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").RevokeProjectInvitationRequest, import(\"./CollabProjectMembership\").RevokeProjectInvitationResponse>;\n    readonly joinCloudProject: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").JoinCloudProjectRequest, import(\"./CollabProjectMembership\").JoinCloudProjectResponse>;\n    readonly listProjectMembers: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CollabProjectRequest, import(\"./CollabProjectMembership\").ListProjectMembersResponse>;\n    readonly reissueTransferredMembershipClaim: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").ReissueTransferredMembershipClaimRequest, import(\"./CollabProjectMembership\").ReissueTransferredMembershipClaimResponse>;\n    readonly revokeTransferredMembershipClaim: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").ReissueTransferredMembershipClaimRequest, import(\"./CollabProjectMembership\").RevokeTransferredMembershipClaimResponse>;\n    readonly createManagerResponsibilityOffer: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CreateManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly listCurrentManagerResponsibilityOffers: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CollabProjectRequest, import(\"./CollabProjectMembership\").ListCurrentManagerResponsibilityOffersResponse>;\n    readonly getManagerResponsibilityOffer: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").GetManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly acknowledgeManagerResponsibility: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").TransitionManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly declineManagerResponsibility: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").TransitionManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly cancelManagerResponsibilityOffer: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").TransitionManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly promoteManager: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").PromoteManagerRequest, import(\"./CollabProjectMembership\").PromoteManagerResponse>;\n    readonly demoteManager: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").DemoteManagerRequest, import(\"./CollabProjectMembership\").DemoteManagerResponse>;\n    readonly removeMember: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").DemoteManagerRequest, import(\"./CollabProjectMembership\").RemoveMemberResponse>;\n    readonly leaveProject: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").LeaveProjectRequest, import(\"./CollabProjectMembership\").LeaveProjectResponse>;\n    readonly getRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").GetRequestRequest, import(\"./types\").CollabRequestDetail>;\n    readonly listRequestComments: CollabControlOperationCodec<import(\"./CollabProtocol\").ListRequestCommentsRequest, import(\"./types\").CollabCommentPage>;\n    readonly ensureMyRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").EnsureMyRequestRequest, import(\"./CollabProtocol\").EnsureMyRequestResponse>;\n    readonly createComment: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateCommentRequest, import(\"./CollabProtocol\").CreateCommentResponse>;\n    readonly listTickets: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketsRequest, import(\"./types\").CollabTicketPage>;\n    readonly getTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").GetTicketRequest, import(\"./types\").CollabTicketDetail>;\n    readonly listTicketComments: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketCommentsRequest, import(\"./types\").CollabTicketCommentPage>;\n    readonly listTicketAcceptedRelations: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketAcceptedRelationsRequest, import(\"./types\").CollabTicketAcceptedRelationPage>;\n    readonly createTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateTicketRequest, import(\"./CollabProtocol\").CreateTicketResponse>;\n    readonly updateTicketContent: CollabControlOperationCodec<import(\"./CollabProtocol\").UpdateTicketContentRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly createTicketComment: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateTicketCommentRequest, import(\"./CollabProtocol\").CreateTicketCommentResponse>;\n    readonly closeTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").ChangeTicketStatusRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly reopenTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").ChangeTicketStatusRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly updateMyRequestMetadata: CollabControlOperationCodec<import(\"./CollabProtocol\").UpdateMyRequestMetadataRequest, import(\"./CollabProtocol\").UpdateMyRequestMetadataResponse>;\n    readonly acceptRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").AcceptRequest, import(\"./CollabProtocol\").AcceptResponse>;\n    readonly requestLanToCloudTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").RequestLanToCloudTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly acceptLanToCloudTransferTarget: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcceptLanToCloudTransferTargetRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly beginLanToCloudTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").BeginLanToCloudTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly getProjectAuthorityTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly getAuthorityTransferReceiptVerifier: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferReceiptVerifier>;\n    readonly rotateTransferredMembershipClaims: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").RotateTransferredMembershipClaimsRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimBatch>;\n    readonly acknowledgeTransferredMembershipClaimBatch: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcknowledgeTransferredMembershipClaimBatchRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimCustodyReceipt>;\n    readonly getTransferredMembershipClaim: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetTransferredMembershipClaimRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaim>;\n    readonly claimTransferredMembership: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ClaimTransferredMembershipRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipRedemptionReceipt>;\n    readonly acknowledgeTransferredMembershipClaimRedemption: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcknowledgeTransferredMembershipClaimRedemptionRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipRedemptionAcknowledgement>;\n    readonly commitLanToCloudRelinquishment: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").CommitLanToCloudRelinquishmentRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly beginCloudToLanTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").BeginCloudToLanTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly acceptCloudToLanTransferTarget: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcceptCloudToLanTransferTargetRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly reportCloudToLanTargetStaged: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ReportCloudToLanTargetStagedRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimCustodyReceipt>;\n    readonly confirmCloudToLanTargetActive: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ConfirmCloudToLanTargetActiveRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly cancelProjectAuthorityTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").CancelProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly retireProject: CollabControlOperationCodec<import(\"./CollabProjectRetirement\").CollabProjectRetirementRequest, import(\"./CollabProjectRetirement\").CollabProjectRetirementResult>;\n    readonly acknowledgeProjectRetirement: CollabControlOperationCodec<import(\"./CollabProjectRetirement\").CollabProjectRetirementAcknowledgementRequest, import(\"./CollabProjectRetirement\").CollabProjectRetirementAcknowledgement>;\n}>;",
         "exportName": "COLLAB_CONTROL_OPERATION_CODECS",
         "source": "./CollabControlOperationCodecs"
       },
@@ -639,12 +646,17 @@
         "source": "./CollabConstants"
       },
       {
-        "declaration": "export declare const COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION: 2;",
+        "declaration": "export declare const COLLAB_PROJECT_BACKUP_COMPATIBILITY_STAGE: \"pre-production-replaceable\";",
+        "exportName": "COLLAB_PROJECT_BACKUP_COMPATIBILITY_STAGE",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export declare const COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION: 3;",
         "exportName": "COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION",
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
-        "declaration": "export declare const COLLAB_PROJECT_BACKUP_RECORD_KINDS: readonly (\"member\" | \"request\" | \"ticket\" | \"project\" | \"request-comment\" | \"ticket-comment\" | \"ticket-relation\" | \"ticket-mention\" | \"cloud-event\" | \"cloud-event-cursor\" | \"idempotency-result\" | \"principal-binding\" | \"repository-placement\" | \"lifecycle-state\" | \"terminal-responder\" | \"protected-claim-envelope\" | \"tombstone\" | \"schema-catalog\" | \"server-compatibility\" | \"authority-volume-pair\" | \"lifecycle-journal\" | \"authority-transfer-recovery\" | \"transferred-membership-claim\" | \"transfer-receipt-key\" | \"transfer-claim-batch-receipt\" | \"transfer-redemption-receipt\" | \"terminal-principal\" | \"terminal-responder-replay\" | \"leave-former-principal-replay\")[];",
+        "declaration": "export declare const COLLAB_PROJECT_BACKUP_RECORD_KINDS: readonly [\"project\", \"member\", \"request\", \"request-comment\", \"ticket\", \"ticket-comment\", \"ticket-relation\", \"ticket-mention\", \"cloud-event\", \"cloud-event-cursor\", \"idempotency-result\", \"principal-binding\", \"repository-placement\", \"lifecycle-journal\", \"authority-transfer-recovery\", \"transferred-membership-claim\", \"transfer-receipt-key\", \"transfer-claim-batch-receipt\", \"transfer-redemption-receipt\", \"terminal-principal\", \"terminal-responder-replay\", \"leave-former-principal-replay\", \"project-invitation\", \"protected-invitation-envelope\", \"transferred-membership-claim-override\", \"protected-claim-override-envelope\", \"manager-responsibility-offer\", \"project-membership-recovery\", \"secret-replay-tombstone\", \"terminal-responder\", \"protected-claim-envelope\", \"tombstone\", \"schema-catalog\", \"server-compatibility\", \"authority-volume-pair\"];",
         "exportName": "COLLAB_PROJECT_BACKUP_RECORD_KINDS",
         "source": "./CollabProjectBackupCheckpoint"
       },
@@ -662,6 +674,21 @@
         "declaration": "export declare const COLLAB_PROJECT_COORDINATION_FORMAT_VERSION: 1;",
         "exportName": "COLLAB_PROJECT_COORDINATION_FORMAT_VERSION",
         "source": "./CollabProjectCheckpoint"
+      },
+      {
+        "declaration": "export declare const COLLAB_PROJECT_MEMBERSHIP_LIMITS: Readonly<{\n    readonly invitationSecretLength: 43;\n    readonly invitationTtlMs: 86400000;\n    readonly managerResponsibilityOfferRetentionMs: 2592000000;\n    readonly managerResponsibilityOfferTtlMs: 86400000;\n    readonly maxCurrentManagerOffers: 100;\n    readonly maxDisplayNameUtf8Bytes: 128;\n    readonly maxProjectInvitations: 100;\n    readonly maxProjectMembers: 100;\n    readonly maxProjectNameUtf8Bytes: 256;\n    readonly secretReplayTtlMs: 2592000000;\n    readonly transferredClaimLength: 43;\n    readonly transferredClaimTtlMs: 2592000000;\n}>;",
+        "exportName": "COLLAB_PROJECT_MEMBERSHIP_LIMITS",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export declare const COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS: Readonly<{\n    readonly createCloudProject: CollabProjectMembershipOperationCodec<CreateCloudProjectRequest, CreateCloudProjectResponse>;\n    readonly createProjectInvitation: CollabProjectMembershipOperationCodec<CreateProjectInvitationRequest, CreateProjectInvitationResponse>;\n    readonly listProjectInvitations: CollabProjectMembershipOperationCodec<CollabProjectRequest, ListProjectInvitationsResponse>;\n    readonly revokeProjectInvitation: CollabProjectMembershipOperationCodec<RevokeProjectInvitationRequest, RevokeProjectInvitationResponse>;\n    readonly joinCloudProject: CollabProjectMembershipOperationCodec<JoinCloudProjectRequest, JoinCloudProjectResponse>;\n    readonly listProjectMembers: CollabProjectMembershipOperationCodec<CollabProjectRequest, ListProjectMembersResponse>;\n    readonly reissueTransferredMembershipClaim: CollabProjectMembershipOperationCodec<ReissueTransferredMembershipClaimRequest, ReissueTransferredMembershipClaimResponse>;\n    readonly revokeTransferredMembershipClaim: CollabProjectMembershipOperationCodec<ReissueTransferredMembershipClaimRequest, RevokeTransferredMembershipClaimResponse>;\n    readonly createManagerResponsibilityOffer: CollabProjectMembershipOperationCodec<CreateManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly listCurrentManagerResponsibilityOffers: CollabProjectMembershipOperationCodec<CollabProjectRequest, ListCurrentManagerResponsibilityOffersResponse>;\n    readonly getManagerResponsibilityOffer: CollabProjectMembershipOperationCodec<GetManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly acknowledgeManagerResponsibility: CollabProjectMembershipOperationCodec<TransitionManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly declineManagerResponsibility: CollabProjectMembershipOperationCodec<TransitionManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly cancelManagerResponsibilityOffer: CollabProjectMembershipOperationCodec<TransitionManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly promoteManager: CollabProjectMembershipOperationCodec<PromoteManagerRequest, PromoteManagerResponse>;\n    readonly demoteManager: CollabProjectMembershipOperationCodec<DemoteManagerRequest, DemoteManagerResponse>;\n    readonly removeMember: CollabProjectMembershipOperationCodec<DemoteManagerRequest, RemoveMemberResponse>;\n    readonly leaveProject: CollabProjectMembershipOperationCodec<LeaveProjectRequest, LeaveProjectResponse>;\n}>;",
+        "exportName": "COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export declare const COLLAB_PROJECT_MEMBERSHIP_OPERATIONS: readonly [\"createCloudProject\", \"createProjectInvitation\", \"listProjectInvitations\", \"revokeProjectInvitation\", \"joinCloudProject\", \"listProjectMembers\", \"reissueTransferredMembershipClaim\", \"revokeTransferredMembershipClaim\", \"createManagerResponsibilityOffer\", \"listCurrentManagerResponsibilityOffers\", \"getManagerResponsibilityOffer\", \"acknowledgeManagerResponsibility\", \"declineManagerResponsibility\", \"cancelManagerResponsibilityOffer\", \"promoteManager\", \"demoteManager\", \"removeMember\", \"leaveProject\"];",
+        "exportName": "COLLAB_PROJECT_MEMBERSHIP_OPERATIONS",
+        "source": "./CollabProjectMembership"
       },
       {
         "declaration": "export declare const COLLAB_PROJECT_RETIREMENT_OPERATIONS: readonly [\"retireProject\", \"acknowledgeProjectRetirement\"];",
@@ -1109,7 +1136,7 @@
         "source": "./CollabProtocol"
       },
       {
-        "declaration": "export interface CollabControlOperationMap extends CollabAuthorityTransferOperationMap, CollabProjectRetirementOperationMap {\n    getRequest: CollabControlOperationDefinition<GetRequestRequest, CollabRequestDetail>;\n    listRequestComments: CollabControlOperationDefinition<ListRequestCommentsRequest, CollabCommentPage>;\n    ensureMyRequest: CollabControlOperationDefinition<EnsureMyRequestRequest, EnsureMyRequestResponse>;\n    createComment: CollabControlOperationDefinition<CreateCommentRequest, CreateCommentResponse>;\n    listTickets: CollabControlOperationDefinition<ListTicketsRequest, CollabTicketPage>;\n    getTicket: CollabControlOperationDefinition<GetTicketRequest, CollabTicketDetail>;\n    listTicketComments: CollabControlOperationDefinition<ListTicketCommentsRequest, CollabTicketCommentPage>;\n    listTicketAcceptedRelations: CollabControlOperationDefinition<ListTicketAcceptedRelationsRequest, CollabTicketAcceptedRelationPage>;\n    createTicket: CollabControlOperationDefinition<CreateTicketRequest, CreateTicketResponse>;\n    updateTicketContent: CollabControlOperationDefinition<UpdateTicketContentRequest, TicketMutationResponse>;\n    createTicketComment: CollabControlOperationDefinition<CreateTicketCommentRequest, CreateTicketCommentResponse>;\n    closeTicket: CollabControlOperationDefinition<ChangeTicketStatusRequest, TicketMutationResponse>;\n    reopenTicket: CollabControlOperationDefinition<ChangeTicketStatusRequest, TicketMutationResponse>;\n    updateMyRequestMetadata: CollabControlOperationDefinition<UpdateMyRequestMetadataRequest, UpdateMyRequestMetadataResponse>;\n    acceptRequest: CollabControlOperationDefinition<AcceptRequest, AcceptResponse>;\n}",
+        "declaration": "export interface CollabControlOperationMap extends CollabAuthorityTransferOperationMap, CollabProjectMembershipOperationMap, CollabProjectRetirementOperationMap {\n    getRequest: CollabControlOperationDefinition<GetRequestRequest, CollabRequestDetail>;\n    listRequestComments: CollabControlOperationDefinition<ListRequestCommentsRequest, CollabCommentPage>;\n    ensureMyRequest: CollabControlOperationDefinition<EnsureMyRequestRequest, EnsureMyRequestResponse>;\n    createComment: CollabControlOperationDefinition<CreateCommentRequest, CreateCommentResponse>;\n    listTickets: CollabControlOperationDefinition<ListTicketsRequest, CollabTicketPage>;\n    getTicket: CollabControlOperationDefinition<GetTicketRequest, CollabTicketDetail>;\n    listTicketComments: CollabControlOperationDefinition<ListTicketCommentsRequest, CollabTicketCommentPage>;\n    listTicketAcceptedRelations: CollabControlOperationDefinition<ListTicketAcceptedRelationsRequest, CollabTicketAcceptedRelationPage>;\n    createTicket: CollabControlOperationDefinition<CreateTicketRequest, CreateTicketResponse>;\n    updateTicketContent: CollabControlOperationDefinition<UpdateTicketContentRequest, TicketMutationResponse>;\n    createTicketComment: CollabControlOperationDefinition<CreateTicketCommentRequest, CreateTicketCommentResponse>;\n    closeTicket: CollabControlOperationDefinition<ChangeTicketStatusRequest, TicketMutationResponse>;\n    reopenTicket: CollabControlOperationDefinition<ChangeTicketStatusRequest, TicketMutationResponse>;\n    updateMyRequestMetadata: CollabControlOperationDefinition<UpdateMyRequestMetadataRequest, UpdateMyRequestMetadataResponse>;\n    acceptRequest: CollabControlOperationDefinition<AcceptRequest, AcceptResponse>;\n}",
         "exportName": "CollabControlOperationMap",
         "source": "./CollabProtocol"
       },
@@ -1179,6 +1206,11 @@
         "source": "./types"
       },
       {
+        "declaration": "export type CollabImportedClaimState = 'not-applicable' | 'original-active' | 'override-active' | 'revoked' | 'expired' | 'redeemed' | 'hidden';",
+        "exportName": "CollabImportedClaimState",
+        "source": "./CollabProjectMembership"
+      },
+      {
         "declaration": "export type CollabIsoTimestamp = string;",
         "exportName": "CollabIsoTimestamp",
         "source": "./types"
@@ -1187,6 +1219,26 @@
         "declaration": "export type CollabLanToCloudTransferPhase = typeof COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES[number];",
         "exportName": "CollabLanToCloudTransferPhase",
         "source": "./CollabAuthorityTransfer"
+      },
+      {
+        "declaration": "export interface CollabManagerResponsibilityOffer {\n    readonly acknowledgedAt: CollabIsoTimestamp | null;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly managerSetGenerationAtOffer: number;\n    readonly offeredAt: CollabIsoTimestamp;\n    readonly offerId: string;\n    readonly purpose: CollabManagerResponsibilityPurpose;\n    readonly revision: number;\n    readonly sourceManagerMemberId: CollabMemberId;\n    readonly state: CollabManagerResponsibilityOfferState;\n    readonly targetMemberId: CollabMemberId;\n    readonly targetMembershipRevisionAtOffer: number;\n    readonly terminalAt: CollabIsoTimestamp | null;\n}",
+        "exportName": "CollabManagerResponsibilityOffer",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CollabManagerResponsibilityOfferResponse {\n    readonly offer: CollabManagerResponsibilityOffer;\n}",
+        "exportName": "CollabManagerResponsibilityOfferResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export type CollabManagerResponsibilityOfferState = 'offered' | 'acknowledged' | 'declined' | 'cancelled' | 'consumed' | 'expired';",
+        "exportName": "CollabManagerResponsibilityOfferState",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export type CollabManagerResponsibilityPurpose = 'manager-promotion' | 'manager-leave';",
+        "exportName": "CollabManagerResponsibilityPurpose",
+        "source": "./CollabProjectMembership"
       },
       {
         "declaration": "export interface CollabMember {\n    id: CollabMemberId;\n    displayName: string;\n    personalRef: string;\n    role: CollabRole;\n    status: CollabMemberStatus;\n    createdAt: CollabIsoTimestamp;\n    activatedAt?: CollabIsoTimestamp;\n    revokedAt?: CollabIsoTimestamp;\n}",
@@ -1244,7 +1296,7 @@
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
-        "declaration": "export type CollabProjectBackupContinuityRecord = CollabProjectBackupLifecycleJournalRecord | CollabProjectBackupAuthorityTransferRecoveryRecord | CollabProjectBackupTransferredMembershipClaimRecord | CollabProjectBackupTransferReceiptKeyRecord | CollabProjectBackupTransferClaimBatchReceiptRecord | CollabProjectBackupTransferRedemptionReceiptRecord | CollabProjectBackupTerminalPrincipalRecord | CollabProjectBackupTerminalResponderReplayRecord | CollabProjectBackupLeaveFormerPrincipalReplayRecord;",
+        "declaration": "export type CollabProjectBackupContinuityRecord = CollabProjectBackupLifecycleJournalRecord | CollabProjectBackupAuthorityTransferRecoveryRecord | CollabProjectBackupTransferredMembershipClaimRecord | CollabProjectBackupTransferReceiptKeyRecord | CollabProjectBackupTransferClaimBatchReceiptRecord | CollabProjectBackupTransferRedemptionReceiptRecord | CollabProjectBackupTerminalPrincipalRecord | CollabProjectBackupTerminalResponderReplayRecord | CollabProjectBackupLeaveFormerPrincipalReplayRecord | CollabProjectBackupInvitationRecord | CollabProjectBackupProtectedInvitationEnvelopeRecord | CollabProjectBackupTransferredMembershipClaimOverrideRecord | CollabProjectBackupProtectedClaimOverrideEnvelopeRecord | CollabProjectBackupManagerResponsibilityOfferRecord | CollabProjectBackupMembershipRecoveryRecord | CollabProjectBackupSecretReplayTombstoneRecord;",
         "exportName": "CollabProjectBackupContinuityRecord",
         "source": "./CollabProjectBackupCheckpoint"
       },
@@ -1256,6 +1308,11 @@
       {
         "declaration": "export interface CollabProjectBackupInactiveRepositoryPublication {\n    readonly artifactKey: string;\n    readonly bundleByteCount: number;\n    readonly bundleSha256: string;\n    readonly objectFormat: 'sha1' | 'sha256';\n    readonly operationId: string;\n    readonly placementGeneration: number;\n    readonly projectId: CollabProjectId;\n    readonly publicationMarkerSha256: string;\n    readonly refs: readonly CollabCheckpointGitRef[];\n    readonly repositoryStorageKey: string;\n    readonly status: 'inactive';\n    readonly storageNodeId: string;\n    readonly validationMarkerSha256: string;\n}",
         "exportName": "CollabProjectBackupInactiveRepositoryPublication",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupInvitationRecord = BackupRecordBase<'project-invitation', {\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly idempotencyKey: string;\n    readonly invitationId: string;\n    readonly issuedByMemberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly requestFingerprint: string;\n    readonly revision: number;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n    readonly secretSha256: string;\n    readonly state: CollabProjectInvitationState;\n    readonly terminalAt: CollabIsoTimestamp | null;\n}>;",
+        "exportName": "CollabProjectBackupInvitationRecord",
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
@@ -1274,13 +1331,38 @@
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
-        "declaration": "export type CollabProjectBackupLifecycleKind = 'authority-transfer' | 'backup' | 'delete' | 'export' | 'leave' | 'retire';",
+        "declaration": "export type CollabProjectBackupLifecycleKind = 'authority-transfer' | 'backup' | 'create-project' | 'delete' | 'export' | 'join-project' | 'leave' | 'remove-member' | 'retire';",
         "exportName": "CollabProjectBackupLifecycleKind",
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
         "declaration": "export type CollabProjectBackupLifecycleState = 'active' | 'cancelled' | 'completed' | 'recovery-required';",
         "exportName": "CollabProjectBackupLifecycleState",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupManagerResponsibilityOfferRecord = BackupRecordBase<'manager-responsibility-offer', {\n    readonly acknowledgedAt: CollabIsoTimestamp | null;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly idempotencyKey: string;\n    readonly managerSetGenerationAtOffer: number;\n    readonly offeredAt: CollabIsoTimestamp;\n    readonly offerId: string;\n    readonly projectId: CollabProjectId;\n    readonly purpose: CollabManagerResponsibilityPurpose;\n    readonly requestFingerprint: string;\n    readonly revision: number;\n    readonly sourceManagerMemberId: CollabMemberId;\n    readonly state: CollabManagerResponsibilityOfferState;\n    readonly targetMemberId: CollabMemberId;\n    readonly targetMembershipRevisionAtOffer: number;\n    readonly terminalAt: CollabIsoTimestamp | null;\n}>;",
+        "exportName": "CollabProjectBackupManagerResponsibilityOfferRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupMembershipRecoveryRecord = BackupRecordBase<'project-membership-recovery', {\n    readonly expectedMainOid: string;\n    readonly expectedPersonalRefOid: string;\n    readonly invitationId: string | null;\n    readonly memberId: CollabMemberId;\n    readonly operationId: string;\n    readonly operationKind: 'create-project' | 'join-project' | 'remove-member';\n    readonly principalSha256: string | null;\n    readonly projectId: CollabProjectId;\n    readonly publicationMarkerSha256: string | null;\n    readonly repositoryPlanSha256: string | null;\n    readonly requestFingerprint: string;\n}>;",
+        "exportName": "CollabProjectBackupMembershipRecoveryRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupProtectedClaimOverrideEnvelopeRecord = BackupRecordBase<'protected-claim-override-envelope', CollabProjectBackupProtectedSecretEnvelope & {\n    readonly claimGeneration: number;\n    readonly memberId: CollabMemberId;\n    readonly transferId: string;\n}>;",
+        "exportName": "CollabProjectBackupProtectedClaimOverrideEnvelopeRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupProtectedInvitationEnvelopeRecord = BackupRecordBase<'protected-invitation-envelope', CollabProjectBackupProtectedSecretEnvelope & {\n    readonly invitationId: string;\n}>;",
+        "exportName": "CollabProjectBackupProtectedInvitationEnvelopeRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export interface CollabProjectBackupProtectedSecretEnvelope {\n    readonly associatedDataSha256: string;\n    readonly ciphertext: string;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly keyId: string;\n    readonly nonce: string;\n    readonly projectId: CollabProjectId;\n}",
+        "exportName": "CollabProjectBackupProtectedSecretEnvelope",
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
@@ -1291,6 +1373,11 @@
       {
         "declaration": "export type CollabProjectBackupRecordKind = typeof COLLAB_PROJECT_BACKUP_RECORD_KINDS[number];",
         "exportName": "CollabProjectBackupRecordKind",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
+        "declaration": "export type CollabProjectBackupSecretReplayTombstoneRecord = BackupRecordBase<'secret-replay-tombstone', {\n    readonly actorMemberId: CollabMemberId;\n    readonly expiredAt: CollabIsoTimestamp;\n    readonly idempotencyKey: string;\n    readonly operation: Extract<CollabProjectMembershipOperation, 'createProjectInvitation' | 'reissueTransferredMembershipClaim'>;\n    readonly projectId: CollabProjectId;\n    readonly requestFingerprint: string;\n}>;",
+        "exportName": "CollabProjectBackupSecretReplayTombstoneRecord",
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
@@ -1319,6 +1406,11 @@
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
+        "declaration": "export type CollabProjectBackupTransferredMembershipClaimOverrideRecord = BackupRecordBase<'transferred-membership-claim-override', {\n    readonly claimGeneration: number;\n    readonly claimSha256: string;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly idempotencyKey: string;\n    readonly managerMemberId: CollabMemberId;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly redemptionReceiptId: string | null;\n    readonly requestFingerprint: string;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n    readonly state: 'active' | 'redeemed' | 'revoked' | 'superseded' | 'expired';\n    readonly supersededClaimSha256: string;\n    readonly targetPrincipalId: string | null;\n    readonly transferId: string;\n    readonly updatedAt: CollabIsoTimestamp;\n}>;",
+        "exportName": "CollabProjectBackupTransferredMembershipClaimOverrideRecord",
+        "source": "./CollabProjectBackupCheckpoint"
+      },
+      {
         "declaration": "export type CollabProjectBackupTransferredMembershipClaimRecord = BackupRecordBase<'transferred-membership-claim', {\n    readonly batchRevision: number;\n    readonly checkpointSha256: string;\n    readonly claimSha256: string;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly memberId: CollabMemberId;\n    readonly operationIntentId: string | null;\n    readonly projectId: CollabProjectId;\n    readonly redemptionReceiptId: string | null;\n    readonly state: 'redeemed' | 'revoked' | 'unclaimed';\n    readonly targetPrincipalId: string | null;\n    readonly transferId: string;\n    readonly updatedAt: CollabIsoTimestamp;\n}>;",
         "exportName": "CollabProjectBackupTransferredMembershipClaimRecord",
         "source": "./CollabProjectBackupCheckpoint"
@@ -1332,6 +1424,51 @@
         "declaration": "export type CollabProjectId = string;",
         "exportName": "CollabProjectId",
         "source": "./types"
+      },
+      {
+        "declaration": "export type CollabProjectInvitationState = 'active' | 'redeeming' | 'redeemed' | 'revoked' | 'expired';",
+        "exportName": "CollabProjectInvitationState",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CollabProjectInvitationSummary {\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly invitationId: string;\n    readonly revision: number;\n    readonly state: CollabProjectInvitationState;\n    readonly terminalAt: CollabIsoTimestamp | null;\n}",
+        "exportName": "CollabProjectInvitationSummary",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export type CollabProjectMemberBindingState = 'bound' | 'unbound' | 'hidden';",
+        "exportName": "CollabProjectMemberBindingState",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export type CollabProjectMembershipOperation = typeof COLLAB_PROJECT_MEMBERSHIP_OPERATIONS[number];",
+        "exportName": "CollabProjectMembershipOperation",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CollabProjectMembershipOperationCodec<Request, Response> {\n    readonly decodeRequest: (input: unknown) => CollabDecodeResult<Request>;\n    readonly decodeResponse: (input: unknown) => Response;\n}",
+        "exportName": "CollabProjectMembershipOperationCodec",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CollabProjectMembershipOperationMap {\n    readonly createCloudProject: {\n        readonly request: CreateCloudProjectRequest;\n        readonly response: CreateCloudProjectResponse;\n    };\n    readonly createProjectInvitation: {\n        readonly request: CreateProjectInvitationRequest;\n        readonly response: CreateProjectInvitationResponse;\n    };\n    readonly listProjectInvitations: {\n        readonly request: ListProjectInvitationsRequest;\n        readonly response: ListProjectInvitationsResponse;\n    };\n    readonly revokeProjectInvitation: {\n        readonly request: RevokeProjectInvitationRequest;\n        readonly response: RevokeProjectInvitationResponse;\n    };\n    readonly joinCloudProject: {\n        readonly request: JoinCloudProjectRequest;\n        readonly response: JoinCloudProjectResponse;\n    };\n    readonly listProjectMembers: {\n        readonly request: ListProjectMembersRequest;\n        readonly response: ListProjectMembersResponse;\n    };\n    readonly reissueTransferredMembershipClaim: {\n        readonly request: ReissueTransferredMembershipClaimRequest;\n        readonly response: ReissueTransferredMembershipClaimResponse;\n    };\n    readonly revokeTransferredMembershipClaim: {\n        readonly request: RevokeTransferredMembershipClaimRequest;\n        readonly response: RevokeTransferredMembershipClaimResponse;\n    };\n    readonly createManagerResponsibilityOffer: {\n        readonly request: CreateManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly listCurrentManagerResponsibilityOffers: {\n        readonly request: ListCurrentManagerResponsibilityOffersRequest;\n        readonly response: ListCurrentManagerResponsibilityOffersResponse;\n    };\n    readonly getManagerResponsibilityOffer: {\n        readonly request: GetManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly acknowledgeManagerResponsibility: {\n        readonly request: TransitionManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly declineManagerResponsibility: {\n        readonly request: TransitionManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly cancelManagerResponsibilityOffer: {\n        readonly request: TransitionManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly promoteManager: {\n        readonly request: PromoteManagerRequest;\n        readonly response: PromoteManagerResponse;\n    };\n    readonly demoteManager: {\n        readonly request: DemoteManagerRequest;\n        readonly response: DemoteManagerResponse;\n    };\n    readonly removeMember: {\n        readonly request: RemoveMemberRequest;\n        readonly response: RemoveMemberResponse;\n    };\n    readonly leaveProject: {\n        readonly request: LeaveProjectRequest;\n        readonly response: LeaveProjectResponse;\n    };\n}",
+        "exportName": "CollabProjectMembershipOperationMap",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CollabProjectMemberSummary {\n    readonly bindingState: CollabProjectMemberBindingState;\n    readonly displayName: string;\n    readonly importedClaimState: CollabImportedClaimState;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: number;\n    readonly role: CollabRole;\n}",
+        "exportName": "CollabProjectMemberSummary",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CollabProjectMutationRequest extends CollabProjectRequest {\n    readonly idempotencyKey: CollabIdempotencyKey;\n}",
+        "exportName": "CollabProjectMutationRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CollabProjectRequest {\n    readonly projectId: CollabProjectId;\n}",
+        "exportName": "CollabProjectRequest",
+        "source": "./CollabProjectMembership"
       },
       {
         "declaration": "export interface CollabProjectRetirementAcknowledgement {\n    readonly acknowledgedAt: CollabIsoTimestamp;\n    readonly idempotencyKey: string;\n    readonly projectId: CollabProjectId;\n    readonly retirementId: string;\n}",
@@ -1554,6 +1691,16 @@
         "source": "./CollabAuthorityTransfer"
       },
       {
+        "declaration": "export interface CreateCloudProjectRequest extends CollabProjectMutationRequest {\n    readonly managerDisplayName: string;\n    readonly projectName: string;\n}",
+        "exportName": "CreateCloudProjectRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CreateCloudProjectResponse {\n    readonly createdAt: CollabIsoTimestamp;\n    readonly mainOid: CollabGitOid;\n    readonly managerSetGeneration: 1;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: 2;\n    readonly personalRef: string;\n    readonly projectId: CollabProjectId;\n    readonly role: 'manager';\n}",
+        "exportName": "CreateCloudProjectResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
         "declaration": "export interface CreateCommentRequest extends CollabMutationContext {\n    requestId: CollabRequestId;\n    body: string;\n}",
         "exportName": "CreateCommentRequest",
         "source": "./CollabProtocol"
@@ -1562,6 +1709,21 @@
         "declaration": "export interface CreateCommentResponse {\n    comment: CollabComment;\n    request: CollabChangeRequest;\n}",
         "exportName": "CreateCommentResponse",
         "source": "./CollabProtocol"
+      },
+      {
+        "declaration": "export interface CreateManagerResponsibilityOfferRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly purpose: CollabManagerResponsibilityPurpose;\n    readonly targetMemberId: CollabMemberId;\n}",
+        "exportName": "CreateManagerResponsibilityOfferRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CreateProjectInvitationRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n}",
+        "exportName": "CreateProjectInvitationRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface CreateProjectInvitationResponse {\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly invitationId: string;\n    readonly issuedState: 'active';\n    readonly projectId: CollabProjectId;\n    readonly secret: string;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n}",
+        "exportName": "CreateProjectInvitationResponse",
+        "source": "./CollabProjectMembership"
       },
       {
         "declaration": "export interface CreateTicketCommentRequest extends CollabMutationContext {\n    ticketId: CollabTicketId;\n    body: string;\n}",
@@ -1659,6 +1821,16 @@
         "source": "./CollabProjectCheckpoint"
       },
       {
+        "declaration": "export declare function decodeCollabProjectMembershipOperationRequest<Operation extends CollabProjectMembershipOperation>(operation: Operation, value: unknown): CollabDecodeResult<CollabProjectMembershipOperationMap[Operation]['request']>;",
+        "exportName": "decodeCollabProjectMembershipOperationRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export declare function decodeCollabProjectMembershipOperationResponse<Operation extends CollabProjectMembershipOperation>(operation: Operation, value: unknown): CollabProjectMembershipOperationMap[Operation]['response'];",
+        "exportName": "decodeCollabProjectMembershipOperationResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
         "declaration": "export declare function decodeCollabProjectRetirementAcknowledgement(value: unknown): CollabProjectRetirementAcknowledgement;",
         "exportName": "decodeCollabProjectRetirementAcknowledgement",
         "source": "./CollabProjectRetirement"
@@ -1717,6 +1889,16 @@
         "declaration": "export declare function decodeDevelopmentBootstrapReport(value: unknown): DevelopmentBootstrapReport;",
         "exportName": "decodeDevelopmentBootstrapReport",
         "source": "./DevelopmentBootstrap"
+      },
+      {
+        "declaration": "export interface DemoteManagerRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly targetMemberId: CollabMemberId;\n}",
+        "exportName": "DemoteManagerRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface DemoteManagerResponse {\n    readonly demotedMemberId: CollabMemberId;\n    readonly managerSetGeneration: number;\n    readonly membershipRevision: number;\n    readonly projectId: CollabProjectId;\n}",
+        "exportName": "DemoteManagerResponse",
+        "source": "./CollabProjectMembership"
       },
       {
         "declaration": "export declare const DEVELOPMENT_BOOTSTRAP_ACTIVATION_PHASES: readonly [\"publish-intent\", \"repository-published\", \"activated\", \"completed\"];",
@@ -1924,6 +2106,11 @@
         "source": "./DevelopmentBootstrap"
       },
       {
+        "declaration": "export interface GetManagerResponsibilityOfferRequest extends CollabProjectRequest {\n    readonly offerId: string;\n}",
+        "exportName": "GetManagerResponsibilityOfferRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
         "declaration": "export interface GetProjectAuthorityTransferRequest {\n    readonly projectId: CollabProjectId;\n    readonly transferId: string;\n}",
         "exportName": "GetProjectAuthorityTransferRequest",
         "source": "./CollabAuthorityTransfer"
@@ -1964,6 +2151,56 @@
         "source": "./CollabValidation"
       },
       {
+        "declaration": "export interface JoinCloudProjectRequest extends CollabProjectMutationRequest {\n    readonly displayName: string;\n    readonly invitationId: string;\n    readonly secret: string;\n}",
+        "exportName": "JoinCloudProjectRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface JoinCloudProjectResponse {\n    readonly joinedAt: CollabIsoTimestamp;\n    readonly mainOid: CollabGitOid;\n    readonly managerSetGeneration: number;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: 2;\n    readonly personalRef: string;\n    readonly projectId: CollabProjectId;\n    readonly role: 'member';\n}",
+        "exportName": "JoinCloudProjectResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface LeaveProjectRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedMembershipRevision: number;\n    readonly expectedOfferRevision: number | null;\n    readonly expectedPersonalRefOid: CollabGitOid;\n    readonly managerResponsibilityOfferId: string | null;\n}",
+        "exportName": "LeaveProjectRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface LeaveProjectResponse {\n    readonly discardedRequestId: CollabRequestId | null;\n    readonly leftAt: CollabIsoTimestamp;\n    readonly managerSetGeneration: number;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly promotedSuccessorMemberId: CollabMemberId | null;\n    readonly status: 'left';\n}",
+        "exportName": "LeaveProjectResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export type ListCurrentManagerResponsibilityOffersRequest = CollabProjectRequest;",
+        "exportName": "ListCurrentManagerResponsibilityOffersRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface ListCurrentManagerResponsibilityOffersResponse {\n    readonly offers: readonly CollabManagerResponsibilityOffer[];\n    readonly projectId: CollabProjectId;\n}",
+        "exportName": "ListCurrentManagerResponsibilityOffersResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export type ListProjectInvitationsRequest = CollabProjectRequest;",
+        "exportName": "ListProjectInvitationsRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface ListProjectInvitationsResponse {\n    readonly invitations: readonly CollabProjectInvitationSummary[];\n    readonly managerSetGeneration: number;\n    readonly projectId: CollabProjectId;\n}",
+        "exportName": "ListProjectInvitationsResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export type ListProjectMembersRequest = CollabProjectRequest;",
+        "exportName": "ListProjectMembersRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface ListProjectMembersResponse {\n    readonly managerSetGeneration: number;\n    readonly members: readonly CollabProjectMemberSummary[];\n    readonly projectId: CollabProjectId;\n}",
+        "exportName": "ListProjectMembersResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
         "declaration": "export interface ListRequestCommentsRequest {\n    projectId: CollabProjectId;\n    requestId: CollabRequestId;\n    cursor?: string;\n    limit?: number;\n}",
         "exportName": "ListRequestCommentsRequest",
         "source": "./CollabProtocol"
@@ -1999,9 +2236,39 @@
         "source": "./CollabTicketReferenceParser"
       },
       {
+        "declaration": "export interface PromoteManagerRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedOfferRevision: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly managerResponsibilityOfferId: string;\n    readonly targetMemberId: CollabMemberId;\n}",
+        "exportName": "PromoteManagerRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface PromoteManagerResponse {\n    readonly managerSetGeneration: number;\n    readonly membershipRevision: number;\n    readonly offerRevision: number;\n    readonly projectId: CollabProjectId;\n    readonly promotedMemberId: CollabMemberId;\n}",
+        "exportName": "PromoteManagerResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
         "declaration": "export interface PutDevelopmentBootstrapGitBundleRequest {\n    readonly attemptId: string;\n    readonly byteCount: number;\n    readonly contentEncoding: 'identity';\n    readonly contentType: 'application/x-git-bundle';\n    readonly sha256: string;\n}",
         "exportName": "PutDevelopmentBootstrapGitBundleRequest",
         "source": "./DevelopmentBootstrap"
+      },
+      {
+        "declaration": "export interface ReissueTransferredMembershipClaimRequest extends CollabProjectMutationRequest {\n    readonly expectedClaimGeneration: number;\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedMembershipRevision: number;\n    readonly memberId: CollabMemberId;\n}",
+        "exportName": "ReissueTransferredMembershipClaimRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface ReissueTransferredMembershipClaimResponse {\n    readonly claim: string;\n    readonly claimGeneration: number;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n}",
+        "exportName": "ReissueTransferredMembershipClaimResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export type RemoveMemberRequest = DemoteManagerRequest;",
+        "exportName": "RemoveMemberRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface RemoveMemberResponse {\n    readonly discardedRequestId: CollabRequestId | null;\n    readonly managerSetGeneration: number;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly removedAt: CollabIsoTimestamp;\n    readonly status: 'revoked';\n}",
+        "exportName": "RemoveMemberResponse",
+        "source": "./CollabProjectMembership"
       },
       {
         "declaration": "export interface ReportCloudToLanTargetStagedRequest extends CollabAuthorityMutationRequest {\n    readonly checkpointSha256: string;\n    readonly claimBatch: CollabTransferredMembershipClaimBatch;\n    readonly stageSha256: string;\n    readonly targetAuthority: CollabCheckpointAuthority;\n    readonly targetProof: string;\n    readonly transferId: string;\n}",
@@ -2012,6 +2279,26 @@
         "declaration": "export interface RequestLanToCloudTransferRequest extends CollabAuthorityMutationRequest {\n    readonly expectedAuthorityGeneration: number;\n    readonly targetUrl: string;\n}",
         "exportName": "RequestLanToCloudTransferRequest",
         "source": "./CollabAuthorityTransfer"
+      },
+      {
+        "declaration": "export interface RevokeProjectInvitationRequest extends CollabProjectMutationRequest {\n    readonly expectedInvitationRevision: number;\n    readonly expectedManagerSetGeneration: number;\n    readonly invitationId: string;\n}",
+        "exportName": "RevokeProjectInvitationRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface RevokeProjectInvitationResponse {\n    readonly invitationId: string;\n    readonly projectId: CollabProjectId;\n    readonly revision: number;\n    readonly revokedAt: CollabIsoTimestamp;\n    readonly state: 'revoked';\n}",
+        "exportName": "RevokeProjectInvitationResponse",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export type RevokeTransferredMembershipClaimRequest = ReissueTransferredMembershipClaimRequest;",
+        "exportName": "RevokeTransferredMembershipClaimRequest",
+        "source": "./CollabProjectMembership"
+      },
+      {
+        "declaration": "export interface RevokeTransferredMembershipClaimResponse {\n    readonly claimGeneration: number;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly revokedAt: CollabIsoTimestamp;\n    readonly state: 'revoked';\n}",
+        "exportName": "RevokeTransferredMembershipClaimResponse",
+        "source": "./CollabProjectMembership"
       },
       {
         "declaration": "export interface RotateTransferredMembershipClaimsRequest extends CollabAuthorityMutationRequest {\n    readonly expectedBatchRevision: number;\n    readonly expectedBatchSha256: string;\n    readonly transferId: string;\n}",
@@ -2037,6 +2324,11 @@
         "declaration": "export interface TicketMutationResponse {\n    ticket: CollabTicketSummary;\n}",
         "exportName": "TicketMutationResponse",
         "source": "./CollabProtocol"
+      },
+      {
+        "declaration": "export interface TransitionManagerResponsibilityOfferRequest extends CollabProjectMutationRequest {\n    readonly expectedOfferRevision: number;\n    readonly offerId: string;\n}",
+        "exportName": "TransitionManagerResponsibilityOfferRequest",
+        "source": "./CollabProjectMembership"
       },
       {
         "declaration": "export interface UpdateMyRequestMetadataRequest extends CollabMutationContext {\n    requestId: CollabRequestId;\n    expectedHeadOid: CollabGitOid;\n    expectedRequestRevision: number;\n    description: string;\n}",
@@ -2086,11 +2378,15 @@
       "COLLAB_LIMITS",
       "COLLAB_MAIN_REF",
       "COLLAB_MEMBER_REF_PREFIX",
+      "COLLAB_PROJECT_BACKUP_COMPATIBILITY_STAGE",
       "COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION",
       "COLLAB_PROJECT_BACKUP_RECORD_KINDS",
       "COLLAB_PROJECT_CHECKPOINT_ARTIFACTS",
       "COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION",
       "COLLAB_PROJECT_COORDINATION_FORMAT_VERSION",
+      "COLLAB_PROJECT_MEMBERSHIP_LIMITS",
+      "COLLAB_PROJECT_MEMBERSHIP_OPERATIONS",
+      "COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS",
       "COLLAB_PROJECT_RETIREMENT_OPERATIONS",
       "COLLAB_PROJECT_RETIREMENT_RESULT_KINDS",
       "COLLAB_PROTECTED_CLAIM_ENVELOPE_LIMITS",
@@ -2134,6 +2430,8 @@
       "decodeCollabProjectBackupCheckpointManifest",
       "decodeCollabProjectCheckpointCoordinationNdjson",
       "decodeCollabProjectCheckpointManifest",
+      "decodeCollabProjectMembershipOperationRequest",
+      "decodeCollabProjectMembershipOperationResponse",
       "decodeCollabProjectRetirementAcknowledgement",
       "decodeCollabProjectRetirementOperationRequest",
       "decodeCollabProjectRetirementOperationResponse",
@@ -2177,7 +2475,7 @@
       },
       {
         "path": "src/CollabCloudBinding.ts",
-        "sha256": "7d79c309f68eb411afcd8067cc245ef496fb0faf479c254381b11c8c5a3a59df"
+        "sha256": "0dea1bbed214fcbd8f5790e3aefc1e9b90eefec7707fc24e017a0c2462c86f0d"
       },
       {
         "path": "src/CollabCloudProjectEvent.ts",
@@ -2193,7 +2491,7 @@
       },
       {
         "path": "src/CollabControlOperationCodecs.ts",
-        "sha256": "de221c6297882de4db05970fdb4b03fb324fe77bce5283bd10d346f690b70c58"
+        "sha256": "3d4721c9aea8f3cf68853fa9863efbe724eb7e1715d65753bd26b6b56e280a5b"
       },
       {
         "path": "src/CollabError.ts",
@@ -2209,11 +2507,15 @@
       },
       {
         "path": "src/CollabProjectBackupCheckpoint.ts",
-        "sha256": "518bf48e788802fa4e1d92712d4b404dc731efb355924ea198d5f9f27af1f437"
+        "sha256": "b53918f3b0b9780314e6236a011d4fd3ab819d0baca8ba1a96f46089d3432a4f"
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
         "sha256": "2cc9e9348a32ae0f90a4cd4f4926a031e0c5e28219f969327c9a75a77a276db1"
+      },
+      {
+        "path": "src/CollabProjectMembership.ts",
+        "sha256": "c18295eb9d69a7c45d0e0ed41b8a2231ff0c49c939c564233f7c9c9e20c7517d"
       },
       {
         "path": "src/CollabProjectRetirement.ts",
@@ -2245,7 +2547,7 @@
       },
       {
         "path": "src/index.ts",
-        "sha256": "1c28d3fa103a09cebf5e9315afb87a617c309f6fed65d7f3182a6b2b5d31717b"
+        "sha256": "344c8375f3ac207a3decd3a1b4c7aba94af630eeb13369f0a4bd8f00344c918a"
       },
       {
         "path": "src/types.ts",
@@ -2350,7 +2652,7 @@
           "source": "./CollabAuthorityTransfer"
         },
         {
-          "declaration": "export declare const COLLAB_CONTROL_OPERATION_CODECS: Readonly<{\n    readonly getRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").GetRequestRequest, import(\"./types\").CollabRequestDetail>;\n    readonly listRequestComments: CollabControlOperationCodec<import(\"./CollabProtocol\").ListRequestCommentsRequest, import(\"./types\").CollabCommentPage>;\n    readonly ensureMyRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").EnsureMyRequestRequest, import(\"./CollabProtocol\").EnsureMyRequestResponse>;\n    readonly createComment: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateCommentRequest, import(\"./CollabProtocol\").CreateCommentResponse>;\n    readonly listTickets: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketsRequest, import(\"./types\").CollabTicketPage>;\n    readonly getTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").GetTicketRequest, import(\"./types\").CollabTicketDetail>;\n    readonly listTicketComments: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketCommentsRequest, import(\"./types\").CollabTicketCommentPage>;\n    readonly listTicketAcceptedRelations: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketAcceptedRelationsRequest, import(\"./types\").CollabTicketAcceptedRelationPage>;\n    readonly createTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateTicketRequest, import(\"./CollabProtocol\").CreateTicketResponse>;\n    readonly updateTicketContent: CollabControlOperationCodec<import(\"./CollabProtocol\").UpdateTicketContentRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly createTicketComment: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateTicketCommentRequest, import(\"./CollabProtocol\").CreateTicketCommentResponse>;\n    readonly closeTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").ChangeTicketStatusRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly reopenTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").ChangeTicketStatusRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly updateMyRequestMetadata: CollabControlOperationCodec<import(\"./CollabProtocol\").UpdateMyRequestMetadataRequest, import(\"./CollabProtocol\").UpdateMyRequestMetadataResponse>;\n    readonly acceptRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").AcceptRequest, import(\"./CollabProtocol\").AcceptResponse>;\n    readonly requestLanToCloudTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").RequestLanToCloudTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly acceptLanToCloudTransferTarget: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcceptLanToCloudTransferTargetRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly beginLanToCloudTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").BeginLanToCloudTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly getProjectAuthorityTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly getAuthorityTransferReceiptVerifier: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferReceiptVerifier>;\n    readonly rotateTransferredMembershipClaims: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").RotateTransferredMembershipClaimsRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimBatch>;\n    readonly acknowledgeTransferredMembershipClaimBatch: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcknowledgeTransferredMembershipClaimBatchRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimCustodyReceipt>;\n    readonly getTransferredMembershipClaim: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetTransferredMembershipClaimRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaim>;\n    readonly claimTransferredMembership: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ClaimTransferredMembershipRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipRedemptionReceipt>;\n    readonly acknowledgeTransferredMembershipClaimRedemption: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcknowledgeTransferredMembershipClaimRedemptionRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipRedemptionAcknowledgement>;\n    readonly commitLanToCloudRelinquishment: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").CommitLanToCloudRelinquishmentRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly beginCloudToLanTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").BeginCloudToLanTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly acceptCloudToLanTransferTarget: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcceptCloudToLanTransferTargetRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly reportCloudToLanTargetStaged: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ReportCloudToLanTargetStagedRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimCustodyReceipt>;\n    readonly confirmCloudToLanTargetActive: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ConfirmCloudToLanTargetActiveRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly cancelProjectAuthorityTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").CancelProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly retireProject: CollabControlOperationCodec<import(\"./CollabProjectRetirement\").CollabProjectRetirementRequest, import(\"./CollabProjectRetirement\").CollabProjectRetirementResult>;\n    readonly acknowledgeProjectRetirement: CollabControlOperationCodec<import(\"./CollabProjectRetirement\").CollabProjectRetirementAcknowledgementRequest, import(\"./CollabProjectRetirement\").CollabProjectRetirementAcknowledgement>;\n}>;",
+          "declaration": "export declare const COLLAB_CONTROL_OPERATION_CODECS: Readonly<{\n    readonly createCloudProject: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CreateCloudProjectRequest, import(\"./CollabProjectMembership\").CreateCloudProjectResponse>;\n    readonly createProjectInvitation: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CreateProjectInvitationRequest, import(\"./CollabProjectMembership\").CreateProjectInvitationResponse>;\n    readonly listProjectInvitations: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CollabProjectRequest, import(\"./CollabProjectMembership\").ListProjectInvitationsResponse>;\n    readonly revokeProjectInvitation: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").RevokeProjectInvitationRequest, import(\"./CollabProjectMembership\").RevokeProjectInvitationResponse>;\n    readonly joinCloudProject: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").JoinCloudProjectRequest, import(\"./CollabProjectMembership\").JoinCloudProjectResponse>;\n    readonly listProjectMembers: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CollabProjectRequest, import(\"./CollabProjectMembership\").ListProjectMembersResponse>;\n    readonly reissueTransferredMembershipClaim: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").ReissueTransferredMembershipClaimRequest, import(\"./CollabProjectMembership\").ReissueTransferredMembershipClaimResponse>;\n    readonly revokeTransferredMembershipClaim: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").ReissueTransferredMembershipClaimRequest, import(\"./CollabProjectMembership\").RevokeTransferredMembershipClaimResponse>;\n    readonly createManagerResponsibilityOffer: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CreateManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly listCurrentManagerResponsibilityOffers: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").CollabProjectRequest, import(\"./CollabProjectMembership\").ListCurrentManagerResponsibilityOffersResponse>;\n    readonly getManagerResponsibilityOffer: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").GetManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly acknowledgeManagerResponsibility: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").TransitionManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly declineManagerResponsibility: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").TransitionManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly cancelManagerResponsibilityOffer: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").TransitionManagerResponsibilityOfferRequest, import(\"./CollabProjectMembership\").CollabManagerResponsibilityOfferResponse>;\n    readonly promoteManager: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").PromoteManagerRequest, import(\"./CollabProjectMembership\").PromoteManagerResponse>;\n    readonly demoteManager: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").DemoteManagerRequest, import(\"./CollabProjectMembership\").DemoteManagerResponse>;\n    readonly removeMember: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").DemoteManagerRequest, import(\"./CollabProjectMembership\").RemoveMemberResponse>;\n    readonly leaveProject: import(\"./CollabProjectMembership\").CollabProjectMembershipOperationCodec<import(\"./CollabProjectMembership\").LeaveProjectRequest, import(\"./CollabProjectMembership\").LeaveProjectResponse>;\n    readonly getRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").GetRequestRequest, import(\"./types\").CollabRequestDetail>;\n    readonly listRequestComments: CollabControlOperationCodec<import(\"./CollabProtocol\").ListRequestCommentsRequest, import(\"./types\").CollabCommentPage>;\n    readonly ensureMyRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").EnsureMyRequestRequest, import(\"./CollabProtocol\").EnsureMyRequestResponse>;\n    readonly createComment: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateCommentRequest, import(\"./CollabProtocol\").CreateCommentResponse>;\n    readonly listTickets: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketsRequest, import(\"./types\").CollabTicketPage>;\n    readonly getTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").GetTicketRequest, import(\"./types\").CollabTicketDetail>;\n    readonly listTicketComments: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketCommentsRequest, import(\"./types\").CollabTicketCommentPage>;\n    readonly listTicketAcceptedRelations: CollabControlOperationCodec<import(\"./CollabProtocol\").ListTicketAcceptedRelationsRequest, import(\"./types\").CollabTicketAcceptedRelationPage>;\n    readonly createTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateTicketRequest, import(\"./CollabProtocol\").CreateTicketResponse>;\n    readonly updateTicketContent: CollabControlOperationCodec<import(\"./CollabProtocol\").UpdateTicketContentRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly createTicketComment: CollabControlOperationCodec<import(\"./CollabProtocol\").CreateTicketCommentRequest, import(\"./CollabProtocol\").CreateTicketCommentResponse>;\n    readonly closeTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").ChangeTicketStatusRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly reopenTicket: CollabControlOperationCodec<import(\"./CollabProtocol\").ChangeTicketStatusRequest, import(\"./CollabProtocol\").TicketMutationResponse>;\n    readonly updateMyRequestMetadata: CollabControlOperationCodec<import(\"./CollabProtocol\").UpdateMyRequestMetadataRequest, import(\"./CollabProtocol\").UpdateMyRequestMetadataResponse>;\n    readonly acceptRequest: CollabControlOperationCodec<import(\"./CollabProtocol\").AcceptRequest, import(\"./CollabProtocol\").AcceptResponse>;\n    readonly requestLanToCloudTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").RequestLanToCloudTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly acceptLanToCloudTransferTarget: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcceptLanToCloudTransferTargetRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly beginLanToCloudTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").BeginLanToCloudTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly getProjectAuthorityTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly getAuthorityTransferReceiptVerifier: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferReceiptVerifier>;\n    readonly rotateTransferredMembershipClaims: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").RotateTransferredMembershipClaimsRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimBatch>;\n    readonly acknowledgeTransferredMembershipClaimBatch: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcknowledgeTransferredMembershipClaimBatchRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimCustodyReceipt>;\n    readonly getTransferredMembershipClaim: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").GetTransferredMembershipClaimRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaim>;\n    readonly claimTransferredMembership: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ClaimTransferredMembershipRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipRedemptionReceipt>;\n    readonly acknowledgeTransferredMembershipClaimRedemption: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcknowledgeTransferredMembershipClaimRedemptionRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipRedemptionAcknowledgement>;\n    readonly commitLanToCloudRelinquishment: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").CommitLanToCloudRelinquishmentRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly beginCloudToLanTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").BeginCloudToLanTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly acceptCloudToLanTransferTarget: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").AcceptCloudToLanTransferTargetRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly reportCloudToLanTargetStaged: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ReportCloudToLanTargetStagedRequest, import(\"./CollabAuthorityTransfer\").CollabTransferredMembershipClaimCustodyReceipt>;\n    readonly confirmCloudToLanTargetActive: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").ConfirmCloudToLanTargetActiveRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly cancelProjectAuthorityTransfer: CollabControlOperationCodec<import(\"./CollabAuthorityTransfer\").CancelProjectAuthorityTransferRequest, import(\"./CollabAuthorityTransfer\").CollabAuthorityTransferStatus>;\n    readonly retireProject: CollabControlOperationCodec<import(\"./CollabProjectRetirement\").CollabProjectRetirementRequest, import(\"./CollabProjectRetirement\").CollabProjectRetirementResult>;\n    readonly acknowledgeProjectRetirement: CollabControlOperationCodec<import(\"./CollabProjectRetirement\").CollabProjectRetirementAcknowledgementRequest, import(\"./CollabProjectRetirement\").CollabProjectRetirementAcknowledgement>;\n}>;",
           "exportName": "COLLAB_CONTROL_OPERATION_CODECS",
           "source": "./CollabControlOperationCodecs"
         },
@@ -2393,6 +2695,21 @@
           "declaration": "export declare const COLLAB_PROJECT_COORDINATION_FORMAT_VERSION: 1;",
           "exportName": "COLLAB_PROJECT_COORDINATION_FORMAT_VERSION",
           "source": "./CollabProjectCheckpoint"
+        },
+        {
+          "declaration": "export declare const COLLAB_PROJECT_MEMBERSHIP_LIMITS: Readonly<{\n    readonly invitationSecretLength: 43;\n    readonly invitationTtlMs: 86400000;\n    readonly managerResponsibilityOfferRetentionMs: 2592000000;\n    readonly managerResponsibilityOfferTtlMs: 86400000;\n    readonly maxCurrentManagerOffers: 100;\n    readonly maxDisplayNameUtf8Bytes: 128;\n    readonly maxProjectInvitations: 100;\n    readonly maxProjectMembers: 100;\n    readonly maxProjectNameUtf8Bytes: 256;\n    readonly secretReplayTtlMs: 2592000000;\n    readonly transferredClaimLength: 43;\n    readonly transferredClaimTtlMs: 2592000000;\n}>;",
+          "exportName": "COLLAB_PROJECT_MEMBERSHIP_LIMITS",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export declare const COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS: Readonly<{\n    readonly createCloudProject: CollabProjectMembershipOperationCodec<CreateCloudProjectRequest, CreateCloudProjectResponse>;\n    readonly createProjectInvitation: CollabProjectMembershipOperationCodec<CreateProjectInvitationRequest, CreateProjectInvitationResponse>;\n    readonly listProjectInvitations: CollabProjectMembershipOperationCodec<CollabProjectRequest, ListProjectInvitationsResponse>;\n    readonly revokeProjectInvitation: CollabProjectMembershipOperationCodec<RevokeProjectInvitationRequest, RevokeProjectInvitationResponse>;\n    readonly joinCloudProject: CollabProjectMembershipOperationCodec<JoinCloudProjectRequest, JoinCloudProjectResponse>;\n    readonly listProjectMembers: CollabProjectMembershipOperationCodec<CollabProjectRequest, ListProjectMembersResponse>;\n    readonly reissueTransferredMembershipClaim: CollabProjectMembershipOperationCodec<ReissueTransferredMembershipClaimRequest, ReissueTransferredMembershipClaimResponse>;\n    readonly revokeTransferredMembershipClaim: CollabProjectMembershipOperationCodec<ReissueTransferredMembershipClaimRequest, RevokeTransferredMembershipClaimResponse>;\n    readonly createManagerResponsibilityOffer: CollabProjectMembershipOperationCodec<CreateManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly listCurrentManagerResponsibilityOffers: CollabProjectMembershipOperationCodec<CollabProjectRequest, ListCurrentManagerResponsibilityOffersResponse>;\n    readonly getManagerResponsibilityOffer: CollabProjectMembershipOperationCodec<GetManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly acknowledgeManagerResponsibility: CollabProjectMembershipOperationCodec<TransitionManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly declineManagerResponsibility: CollabProjectMembershipOperationCodec<TransitionManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly cancelManagerResponsibilityOffer: CollabProjectMembershipOperationCodec<TransitionManagerResponsibilityOfferRequest, CollabManagerResponsibilityOfferResponse>;\n    readonly promoteManager: CollabProjectMembershipOperationCodec<PromoteManagerRequest, PromoteManagerResponse>;\n    readonly demoteManager: CollabProjectMembershipOperationCodec<DemoteManagerRequest, DemoteManagerResponse>;\n    readonly removeMember: CollabProjectMembershipOperationCodec<DemoteManagerRequest, RemoveMemberResponse>;\n    readonly leaveProject: CollabProjectMembershipOperationCodec<LeaveProjectRequest, LeaveProjectResponse>;\n}>;",
+          "exportName": "COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export declare const COLLAB_PROJECT_MEMBERSHIP_OPERATIONS: readonly [\"createCloudProject\", \"createProjectInvitation\", \"listProjectInvitations\", \"revokeProjectInvitation\", \"joinCloudProject\", \"listProjectMembers\", \"reissueTransferredMembershipClaim\", \"revokeTransferredMembershipClaim\", \"createManagerResponsibilityOffer\", \"listCurrentManagerResponsibilityOffers\", \"getManagerResponsibilityOffer\", \"acknowledgeManagerResponsibility\", \"declineManagerResponsibility\", \"cancelManagerResponsibilityOffer\", \"promoteManager\", \"demoteManager\", \"removeMember\", \"leaveProject\"];",
+          "exportName": "COLLAB_PROJECT_MEMBERSHIP_OPERATIONS",
+          "source": "./CollabProjectMembership"
         },
         {
           "declaration": "export declare const COLLAB_PROJECT_RETIREMENT_OPERATIONS: readonly [\"retireProject\", \"acknowledgeProjectRetirement\"];",
@@ -2675,7 +2992,7 @@
           "source": "./CollabProtocol"
         },
         {
-          "declaration": "export interface CollabControlOperationMap extends CollabAuthorityTransferOperationMap, CollabProjectRetirementOperationMap {\n    getRequest: CollabControlOperationDefinition<GetRequestRequest, CollabRequestDetail>;\n    listRequestComments: CollabControlOperationDefinition<ListRequestCommentsRequest, CollabCommentPage>;\n    ensureMyRequest: CollabControlOperationDefinition<EnsureMyRequestRequest, EnsureMyRequestResponse>;\n    createComment: CollabControlOperationDefinition<CreateCommentRequest, CreateCommentResponse>;\n    listTickets: CollabControlOperationDefinition<ListTicketsRequest, CollabTicketPage>;\n    getTicket: CollabControlOperationDefinition<GetTicketRequest, CollabTicketDetail>;\n    listTicketComments: CollabControlOperationDefinition<ListTicketCommentsRequest, CollabTicketCommentPage>;\n    listTicketAcceptedRelations: CollabControlOperationDefinition<ListTicketAcceptedRelationsRequest, CollabTicketAcceptedRelationPage>;\n    createTicket: CollabControlOperationDefinition<CreateTicketRequest, CreateTicketResponse>;\n    updateTicketContent: CollabControlOperationDefinition<UpdateTicketContentRequest, TicketMutationResponse>;\n    createTicketComment: CollabControlOperationDefinition<CreateTicketCommentRequest, CreateTicketCommentResponse>;\n    closeTicket: CollabControlOperationDefinition<ChangeTicketStatusRequest, TicketMutationResponse>;\n    reopenTicket: CollabControlOperationDefinition<ChangeTicketStatusRequest, TicketMutationResponse>;\n    updateMyRequestMetadata: CollabControlOperationDefinition<UpdateMyRequestMetadataRequest, UpdateMyRequestMetadataResponse>;\n    acceptRequest: CollabControlOperationDefinition<AcceptRequest, AcceptResponse>;\n}",
+          "declaration": "export interface CollabControlOperationMap extends CollabAuthorityTransferOperationMap, CollabProjectMembershipOperationMap, CollabProjectRetirementOperationMap {\n    getRequest: CollabControlOperationDefinition<GetRequestRequest, CollabRequestDetail>;\n    listRequestComments: CollabControlOperationDefinition<ListRequestCommentsRequest, CollabCommentPage>;\n    ensureMyRequest: CollabControlOperationDefinition<EnsureMyRequestRequest, EnsureMyRequestResponse>;\n    createComment: CollabControlOperationDefinition<CreateCommentRequest, CreateCommentResponse>;\n    listTickets: CollabControlOperationDefinition<ListTicketsRequest, CollabTicketPage>;\n    getTicket: CollabControlOperationDefinition<GetTicketRequest, CollabTicketDetail>;\n    listTicketComments: CollabControlOperationDefinition<ListTicketCommentsRequest, CollabTicketCommentPage>;\n    listTicketAcceptedRelations: CollabControlOperationDefinition<ListTicketAcceptedRelationsRequest, CollabTicketAcceptedRelationPage>;\n    createTicket: CollabControlOperationDefinition<CreateTicketRequest, CreateTicketResponse>;\n    updateTicketContent: CollabControlOperationDefinition<UpdateTicketContentRequest, TicketMutationResponse>;\n    createTicketComment: CollabControlOperationDefinition<CreateTicketCommentRequest, CreateTicketCommentResponse>;\n    closeTicket: CollabControlOperationDefinition<ChangeTicketStatusRequest, TicketMutationResponse>;\n    reopenTicket: CollabControlOperationDefinition<ChangeTicketStatusRequest, TicketMutationResponse>;\n    updateMyRequestMetadata: CollabControlOperationDefinition<UpdateMyRequestMetadataRequest, UpdateMyRequestMetadataResponse>;\n    acceptRequest: CollabControlOperationDefinition<AcceptRequest, AcceptResponse>;\n}",
           "exportName": "CollabControlOperationMap",
           "source": "./CollabProtocol"
         },
@@ -2740,6 +3057,11 @@
           "source": "./types"
         },
         {
+          "declaration": "export type CollabImportedClaimState = 'not-applicable' | 'original-active' | 'override-active' | 'revoked' | 'expired' | 'redeemed' | 'hidden';",
+          "exportName": "CollabImportedClaimState",
+          "source": "./CollabProjectMembership"
+        },
+        {
           "declaration": "export type CollabIsoTimestamp = string;",
           "exportName": "CollabIsoTimestamp",
           "source": "./types"
@@ -2748,6 +3070,26 @@
           "declaration": "export type CollabLanToCloudTransferPhase = typeof COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES[number];",
           "exportName": "CollabLanToCloudTransferPhase",
           "source": "./CollabAuthorityTransfer"
+        },
+        {
+          "declaration": "export interface CollabManagerResponsibilityOffer {\n    readonly acknowledgedAt: CollabIsoTimestamp | null;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly managerSetGenerationAtOffer: number;\n    readonly offeredAt: CollabIsoTimestamp;\n    readonly offerId: string;\n    readonly purpose: CollabManagerResponsibilityPurpose;\n    readonly revision: number;\n    readonly sourceManagerMemberId: CollabMemberId;\n    readonly state: CollabManagerResponsibilityOfferState;\n    readonly targetMemberId: CollabMemberId;\n    readonly targetMembershipRevisionAtOffer: number;\n    readonly terminalAt: CollabIsoTimestamp | null;\n}",
+          "exportName": "CollabManagerResponsibilityOffer",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CollabManagerResponsibilityOfferResponse {\n    readonly offer: CollabManagerResponsibilityOffer;\n}",
+          "exportName": "CollabManagerResponsibilityOfferResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export type CollabManagerResponsibilityOfferState = 'offered' | 'acknowledged' | 'declined' | 'cancelled' | 'consumed' | 'expired';",
+          "exportName": "CollabManagerResponsibilityOfferState",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export type CollabManagerResponsibilityPurpose = 'manager-promotion' | 'manager-leave';",
+          "exportName": "CollabManagerResponsibilityPurpose",
+          "source": "./CollabProjectMembership"
         },
         {
           "declaration": "export interface CollabMember {\n    id: CollabMemberId;\n    displayName: string;\n    personalRef: string;\n    role: CollabRole;\n    status: CollabMemberStatus;\n    createdAt: CollabIsoTimestamp;\n    activatedAt?: CollabIsoTimestamp;\n    revokedAt?: CollabIsoTimestamp;\n}",
@@ -2793,6 +3135,51 @@
           "declaration": "export type CollabProjectId = string;",
           "exportName": "CollabProjectId",
           "source": "./types"
+        },
+        {
+          "declaration": "export type CollabProjectInvitationState = 'active' | 'redeeming' | 'redeemed' | 'revoked' | 'expired';",
+          "exportName": "CollabProjectInvitationState",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CollabProjectInvitationSummary {\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly invitationId: string;\n    readonly revision: number;\n    readonly state: CollabProjectInvitationState;\n    readonly terminalAt: CollabIsoTimestamp | null;\n}",
+          "exportName": "CollabProjectInvitationSummary",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export type CollabProjectMemberBindingState = 'bound' | 'unbound' | 'hidden';",
+          "exportName": "CollabProjectMemberBindingState",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export type CollabProjectMembershipOperation = typeof COLLAB_PROJECT_MEMBERSHIP_OPERATIONS[number];",
+          "exportName": "CollabProjectMembershipOperation",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CollabProjectMembershipOperationCodec<Request, Response> {\n    readonly decodeRequest: (input: unknown) => CollabDecodeResult<Request>;\n    readonly decodeResponse: (input: unknown) => Response;\n}",
+          "exportName": "CollabProjectMembershipOperationCodec",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CollabProjectMembershipOperationMap {\n    readonly createCloudProject: {\n        readonly request: CreateCloudProjectRequest;\n        readonly response: CreateCloudProjectResponse;\n    };\n    readonly createProjectInvitation: {\n        readonly request: CreateProjectInvitationRequest;\n        readonly response: CreateProjectInvitationResponse;\n    };\n    readonly listProjectInvitations: {\n        readonly request: ListProjectInvitationsRequest;\n        readonly response: ListProjectInvitationsResponse;\n    };\n    readonly revokeProjectInvitation: {\n        readonly request: RevokeProjectInvitationRequest;\n        readonly response: RevokeProjectInvitationResponse;\n    };\n    readonly joinCloudProject: {\n        readonly request: JoinCloudProjectRequest;\n        readonly response: JoinCloudProjectResponse;\n    };\n    readonly listProjectMembers: {\n        readonly request: ListProjectMembersRequest;\n        readonly response: ListProjectMembersResponse;\n    };\n    readonly reissueTransferredMembershipClaim: {\n        readonly request: ReissueTransferredMembershipClaimRequest;\n        readonly response: ReissueTransferredMembershipClaimResponse;\n    };\n    readonly revokeTransferredMembershipClaim: {\n        readonly request: RevokeTransferredMembershipClaimRequest;\n        readonly response: RevokeTransferredMembershipClaimResponse;\n    };\n    readonly createManagerResponsibilityOffer: {\n        readonly request: CreateManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly listCurrentManagerResponsibilityOffers: {\n        readonly request: ListCurrentManagerResponsibilityOffersRequest;\n        readonly response: ListCurrentManagerResponsibilityOffersResponse;\n    };\n    readonly getManagerResponsibilityOffer: {\n        readonly request: GetManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly acknowledgeManagerResponsibility: {\n        readonly request: TransitionManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly declineManagerResponsibility: {\n        readonly request: TransitionManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly cancelManagerResponsibilityOffer: {\n        readonly request: TransitionManagerResponsibilityOfferRequest;\n        readonly response: CollabManagerResponsibilityOfferResponse;\n    };\n    readonly promoteManager: {\n        readonly request: PromoteManagerRequest;\n        readonly response: PromoteManagerResponse;\n    };\n    readonly demoteManager: {\n        readonly request: DemoteManagerRequest;\n        readonly response: DemoteManagerResponse;\n    };\n    readonly removeMember: {\n        readonly request: RemoveMemberRequest;\n        readonly response: RemoveMemberResponse;\n    };\n    readonly leaveProject: {\n        readonly request: LeaveProjectRequest;\n        readonly response: LeaveProjectResponse;\n    };\n}",
+          "exportName": "CollabProjectMembershipOperationMap",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CollabProjectMemberSummary {\n    readonly bindingState: CollabProjectMemberBindingState;\n    readonly displayName: string;\n    readonly importedClaimState: CollabImportedClaimState;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: number;\n    readonly role: CollabRole;\n}",
+          "exportName": "CollabProjectMemberSummary",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CollabProjectMutationRequest extends CollabProjectRequest {\n    readonly idempotencyKey: CollabIdempotencyKey;\n}",
+          "exportName": "CollabProjectMutationRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CollabProjectRequest {\n    readonly projectId: CollabProjectId;\n}",
+          "exportName": "CollabProjectRequest",
+          "source": "./CollabProjectMembership"
         },
         {
           "declaration": "export interface CollabProjectRetirementAcknowledgement {\n    readonly acknowledgedAt: CollabIsoTimestamp;\n    readonly idempotencyKey: string;\n    readonly projectId: CollabProjectId;\n    readonly retirementId: string;\n}",
@@ -2995,6 +3382,16 @@
           "source": "./CollabAuthorityTransfer"
         },
         {
+          "declaration": "export interface CreateCloudProjectRequest extends CollabProjectMutationRequest {\n    readonly managerDisplayName: string;\n    readonly projectName: string;\n}",
+          "exportName": "CreateCloudProjectRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CreateCloudProjectResponse {\n    readonly createdAt: CollabIsoTimestamp;\n    readonly mainOid: CollabGitOid;\n    readonly managerSetGeneration: 1;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: 2;\n    readonly personalRef: string;\n    readonly projectId: CollabProjectId;\n    readonly role: 'manager';\n}",
+          "exportName": "CreateCloudProjectResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
           "declaration": "export interface CreateCommentRequest extends CollabMutationContext {\n    requestId: CollabRequestId;\n    body: string;\n}",
           "exportName": "CreateCommentRequest",
           "source": "./CollabProtocol"
@@ -3003,6 +3400,21 @@
           "declaration": "export interface CreateCommentResponse {\n    comment: CollabComment;\n    request: CollabChangeRequest;\n}",
           "exportName": "CreateCommentResponse",
           "source": "./CollabProtocol"
+        },
+        {
+          "declaration": "export interface CreateManagerResponsibilityOfferRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly purpose: CollabManagerResponsibilityPurpose;\n    readonly targetMemberId: CollabMemberId;\n}",
+          "exportName": "CreateManagerResponsibilityOfferRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CreateProjectInvitationRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n}",
+          "exportName": "CreateProjectInvitationRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface CreateProjectInvitationResponse {\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly invitationId: string;\n    readonly issuedState: 'active';\n    readonly projectId: CollabProjectId;\n    readonly secret: string;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n}",
+          "exportName": "CreateProjectInvitationResponse",
+          "source": "./CollabProjectMembership"
         },
         {
           "declaration": "export interface CreateTicketCommentRequest extends CollabMutationContext {\n    ticketId: CollabTicketId;\n    body: string;\n}",
@@ -3060,6 +3472,16 @@
           "source": "./CollabProjectCheckpoint"
         },
         {
+          "declaration": "export declare function decodeCollabProjectMembershipOperationRequest<Operation extends CollabProjectMembershipOperation>(operation: Operation, value: unknown): CollabDecodeResult<CollabProjectMembershipOperationMap[Operation]['request']>;",
+          "exportName": "decodeCollabProjectMembershipOperationRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export declare function decodeCollabProjectMembershipOperationResponse<Operation extends CollabProjectMembershipOperation>(operation: Operation, value: unknown): CollabProjectMembershipOperationMap[Operation]['response'];",
+          "exportName": "decodeCollabProjectMembershipOperationResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
           "declaration": "export declare function decodeCollabProjectRetirementAcknowledgement(value: unknown): CollabProjectRetirementAcknowledgement;",
           "exportName": "decodeCollabProjectRetirementAcknowledgement",
           "source": "./CollabProjectRetirement"
@@ -3108,6 +3530,16 @@
           "declaration": "export declare function decodeCollabTransferredMembershipRedemptionReceipt(value: unknown): CollabTransferredMembershipRedemptionReceipt;",
           "exportName": "decodeCollabTransferredMembershipRedemptionReceipt",
           "source": "./CollabAuthorityTransfer"
+        },
+        {
+          "declaration": "export interface DemoteManagerRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly targetMemberId: CollabMemberId;\n}",
+          "exportName": "DemoteManagerRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface DemoteManagerResponse {\n    readonly demotedMemberId: CollabMemberId;\n    readonly managerSetGeneration: number;\n    readonly membershipRevision: number;\n    readonly projectId: CollabProjectId;\n}",
+          "exportName": "DemoteManagerResponse",
+          "source": "./CollabProjectMembership"
         },
         {
           "declaration": "export declare function encodeCollabAuthorityRelinquishmentProofSigningInput(payload: CollabAuthorityRelinquishmentProofSigningPayload): string;",
@@ -3160,6 +3592,11 @@
           "source": "./CollabAuthorityTransfer"
         },
         {
+          "declaration": "export interface GetManagerResponsibilityOfferRequest extends CollabProjectRequest {\n    readonly offerId: string;\n}",
+          "exportName": "GetManagerResponsibilityOfferRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
           "declaration": "export interface GetProjectAuthorityTransferRequest {\n    readonly projectId: CollabProjectId;\n    readonly transferId: string;\n}",
           "exportName": "GetProjectAuthorityTransferRequest",
           "source": "./CollabAuthorityTransfer"
@@ -3200,6 +3637,56 @@
           "source": "./CollabValidation"
         },
         {
+          "declaration": "export interface JoinCloudProjectRequest extends CollabProjectMutationRequest {\n    readonly displayName: string;\n    readonly invitationId: string;\n    readonly secret: string;\n}",
+          "exportName": "JoinCloudProjectRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface JoinCloudProjectResponse {\n    readonly joinedAt: CollabIsoTimestamp;\n    readonly mainOid: CollabGitOid;\n    readonly managerSetGeneration: number;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: 2;\n    readonly personalRef: string;\n    readonly projectId: CollabProjectId;\n    readonly role: 'member';\n}",
+          "exportName": "JoinCloudProjectResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface LeaveProjectRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedMembershipRevision: number;\n    readonly expectedOfferRevision: number | null;\n    readonly expectedPersonalRefOid: CollabGitOid;\n    readonly managerResponsibilityOfferId: string | null;\n}",
+          "exportName": "LeaveProjectRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface LeaveProjectResponse {\n    readonly discardedRequestId: CollabRequestId | null;\n    readonly leftAt: CollabIsoTimestamp;\n    readonly managerSetGeneration: number;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly promotedSuccessorMemberId: CollabMemberId | null;\n    readonly status: 'left';\n}",
+          "exportName": "LeaveProjectResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export type ListCurrentManagerResponsibilityOffersRequest = CollabProjectRequest;",
+          "exportName": "ListCurrentManagerResponsibilityOffersRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface ListCurrentManagerResponsibilityOffersResponse {\n    readonly offers: readonly CollabManagerResponsibilityOffer[];\n    readonly projectId: CollabProjectId;\n}",
+          "exportName": "ListCurrentManagerResponsibilityOffersResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export type ListProjectInvitationsRequest = CollabProjectRequest;",
+          "exportName": "ListProjectInvitationsRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface ListProjectInvitationsResponse {\n    readonly invitations: readonly CollabProjectInvitationSummary[];\n    readonly managerSetGeneration: number;\n    readonly projectId: CollabProjectId;\n}",
+          "exportName": "ListProjectInvitationsResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export type ListProjectMembersRequest = CollabProjectRequest;",
+          "exportName": "ListProjectMembersRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface ListProjectMembersResponse {\n    readonly managerSetGeneration: number;\n    readonly members: readonly CollabProjectMemberSummary[];\n    readonly projectId: CollabProjectId;\n}",
+          "exportName": "ListProjectMembersResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
           "declaration": "export interface ListRequestCommentsRequest {\n    projectId: CollabProjectId;\n    requestId: CollabRequestId;\n    cursor?: string;\n    limit?: number;\n}",
           "exportName": "ListRequestCommentsRequest",
           "source": "./CollabProtocol"
@@ -3220,6 +3707,36 @@
           "source": "./CollabProtocol"
         },
         {
+          "declaration": "export interface PromoteManagerRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedOfferRevision: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly managerResponsibilityOfferId: string;\n    readonly targetMemberId: CollabMemberId;\n}",
+          "exportName": "PromoteManagerRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface PromoteManagerResponse {\n    readonly managerSetGeneration: number;\n    readonly membershipRevision: number;\n    readonly offerRevision: number;\n    readonly projectId: CollabProjectId;\n    readonly promotedMemberId: CollabMemberId;\n}",
+          "exportName": "PromoteManagerResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface ReissueTransferredMembershipClaimRequest extends CollabProjectMutationRequest {\n    readonly expectedClaimGeneration: number;\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedMembershipRevision: number;\n    readonly memberId: CollabMemberId;\n}",
+          "exportName": "ReissueTransferredMembershipClaimRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface ReissueTransferredMembershipClaimResponse {\n    readonly claim: string;\n    readonly claimGeneration: number;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n}",
+          "exportName": "ReissueTransferredMembershipClaimResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export type RemoveMemberRequest = DemoteManagerRequest;",
+          "exportName": "RemoveMemberRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface RemoveMemberResponse {\n    readonly discardedRequestId: CollabRequestId | null;\n    readonly managerSetGeneration: number;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly removedAt: CollabIsoTimestamp;\n    readonly status: 'revoked';\n}",
+          "exportName": "RemoveMemberResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
           "declaration": "export interface ReportCloudToLanTargetStagedRequest extends CollabAuthorityMutationRequest {\n    readonly checkpointSha256: string;\n    readonly claimBatch: CollabTransferredMembershipClaimBatch;\n    readonly stageSha256: string;\n    readonly targetAuthority: CollabCheckpointAuthority;\n    readonly targetProof: string;\n    readonly transferId: string;\n}",
           "exportName": "ReportCloudToLanTargetStagedRequest",
           "source": "./CollabAuthorityTransfer"
@@ -3228,6 +3745,26 @@
           "declaration": "export interface RequestLanToCloudTransferRequest extends CollabAuthorityMutationRequest {\n    readonly expectedAuthorityGeneration: number;\n    readonly targetUrl: string;\n}",
           "exportName": "RequestLanToCloudTransferRequest",
           "source": "./CollabAuthorityTransfer"
+        },
+        {
+          "declaration": "export interface RevokeProjectInvitationRequest extends CollabProjectMutationRequest {\n    readonly expectedInvitationRevision: number;\n    readonly expectedManagerSetGeneration: number;\n    readonly invitationId: string;\n}",
+          "exportName": "RevokeProjectInvitationRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface RevokeProjectInvitationResponse {\n    readonly invitationId: string;\n    readonly projectId: CollabProjectId;\n    readonly revision: number;\n    readonly revokedAt: CollabIsoTimestamp;\n    readonly state: 'revoked';\n}",
+          "exportName": "RevokeProjectInvitationResponse",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export type RevokeTransferredMembershipClaimRequest = ReissueTransferredMembershipClaimRequest;",
+          "exportName": "RevokeTransferredMembershipClaimRequest",
+          "source": "./CollabProjectMembership"
+        },
+        {
+          "declaration": "export interface RevokeTransferredMembershipClaimResponse {\n    readonly claimGeneration: number;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly revokedAt: CollabIsoTimestamp;\n    readonly state: 'revoked';\n}",
+          "exportName": "RevokeTransferredMembershipClaimResponse",
+          "source": "./CollabProjectMembership"
         },
         {
           "declaration": "export interface RotateTransferredMembershipClaimsRequest extends CollabAuthorityMutationRequest {\n    readonly expectedBatchRevision: number;\n    readonly expectedBatchSha256: string;\n    readonly transferId: string;\n}",
@@ -3243,6 +3780,11 @@
           "declaration": "export interface TicketMutationResponse {\n    ticket: CollabTicketSummary;\n}",
           "exportName": "TicketMutationResponse",
           "source": "./CollabProtocol"
+        },
+        {
+          "declaration": "export interface TransitionManagerResponsibilityOfferRequest extends CollabProjectMutationRequest {\n    readonly expectedOfferRevision: number;\n    readonly offerId: string;\n}",
+          "exportName": "TransitionManagerResponsibilityOfferRequest",
+          "source": "./CollabProjectMembership"
         },
         {
           "declaration": "export interface UpdateMyRequestMetadataRequest extends CollabMutationContext {\n    requestId: CollabRequestId;\n    expectedHeadOid: CollabGitOid;\n    expectedRequestRevision: number;\n    description: string;\n}",
@@ -3336,33 +3878,51 @@
         "acceptCloudToLanTransferTarget",
         "acceptLanToCloudTransferTarget",
         "acceptRequest",
+        "acknowledgeManagerResponsibility",
         "acknowledgeProjectRetirement",
         "acknowledgeTransferredMembershipClaimBatch",
         "acknowledgeTransferredMembershipClaimRedemption",
         "beginCloudToLanTransfer",
         "beginLanToCloudTransfer",
+        "cancelManagerResponsibilityOffer",
         "cancelProjectAuthorityTransfer",
         "claimTransferredMembership",
         "closeTicket",
         "commitLanToCloudRelinquishment",
         "confirmCloudToLanTargetActive",
+        "createCloudProject",
         "createComment",
+        "createManagerResponsibilityOffer",
+        "createProjectInvitation",
         "createTicket",
         "createTicketComment",
+        "declineManagerResponsibility",
+        "demoteManager",
         "ensureMyRequest",
         "getAuthorityTransferReceiptVerifier",
+        "getManagerResponsibilityOffer",
         "getProjectAuthorityTransfer",
         "getRequest",
         "getTicket",
         "getTransferredMembershipClaim",
+        "joinCloudProject",
+        "leaveProject",
+        "listCurrentManagerResponsibilityOffers",
+        "listProjectInvitations",
+        "listProjectMembers",
         "listRequestComments",
         "listTicketAcceptedRelations",
         "listTicketComments",
         "listTickets",
+        "promoteManager",
+        "reissueTransferredMembershipClaim",
+        "removeMember",
         "reopenTicket",
         "reportCloudToLanTargetStaged",
         "requestLanToCloudTransfer",
         "retireProject",
+        "revokeProjectInvitation",
+        "revokeTransferredMembershipClaim",
         "rotateTransferredMembershipClaims",
         "updateMyRequestMetadata",
         "updateTicketContent"
@@ -3378,7 +3938,7 @@
         },
         {
           "path": "src/CollabControlOperationCodecs.ts",
-          "sha256": "de221c6297882de4db05970fdb4b03fb324fe77bce5283bd10d346f690b70c58"
+          "sha256": "3d4721c9aea8f3cf68853fa9863efbe724eb7e1715d65753bd26b6b56e280a5b"
         },
         {
           "path": "src/CollabError.ts",
@@ -3387,6 +3947,10 @@
         {
           "path": "src/CollabProjectCheckpoint.ts",
           "sha256": "2cc9e9348a32ae0f90a4cd4f4926a031e0c5e28219f969327c9a75a77a276db1"
+        },
+        {
+          "path": "src/CollabProjectMembership.ts",
+          "sha256": "c18295eb9d69a7c45d0e0ed41b8a2231ff0c49c939c564233f7c9c9e20c7517d"
         },
         {
           "path": "src/CollabProjectRetirement.ts",
@@ -3415,7 +3979,7 @@
       ]
     }
   },
-  "packageVersion": "3.2.1",
+  "packageVersion": "3.3.0",
   "protocolVersion": 6,
   "schemaVersion": 2
 }

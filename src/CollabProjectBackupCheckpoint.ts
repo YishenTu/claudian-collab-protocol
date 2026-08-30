@@ -22,7 +22,7 @@ import {
 import { CollabError } from './CollabError';
 import {
   COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
-  COLLAB_CHECKPOINT_BACKUP_RECORD_KINDS,
+  COLLAB_CHECKPOINT_PORTABLE_RECORD_KINDS,
   COLLAB_PROJECT_COORDINATION_FORMAT_VERSION,
   type CollabCheckpointAuthority,
   type CollabCheckpointBackupRecord,
@@ -36,6 +36,13 @@ import {
   validateCollabProjectCheckpointConsistency,
 } from './CollabProjectCheckpoint';
 import {
+  COLLAB_PROJECT_MEMBERSHIP_LIMITS,
+  type CollabManagerResponsibilityOfferState,
+  type CollabManagerResponsibilityPurpose,
+  type CollabProjectInvitationState,
+  type CollabProjectMembershipOperation,
+} from './CollabProjectMembership';
+import {
   hasUtf8ByteLengthAtMost,
   isCollabGitOid,
   isCollabMemberId,
@@ -48,7 +55,9 @@ import type {
   CollabProjectId,
 } from './types';
 
-export const COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION = 2 as const;
+export const COLLAB_PROJECT_BACKUP_COMPATIBILITY_STAGE =
+  'pre-production-replaceable' as const;
+export const COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION = 3 as const;
 
 const BACKUP_CONTINUITY_RECORD_KINDS = Object.freeze([
   'lifecycle-journal',
@@ -60,12 +69,29 @@ const BACKUP_CONTINUITY_RECORD_KINDS = Object.freeze([
   'terminal-principal',
   'terminal-responder-replay',
   'leave-former-principal-replay',
+  'project-invitation',
+  'protected-invitation-envelope',
+  'transferred-membership-claim-override',
+  'protected-claim-override-envelope',
+  'manager-responsibility-offer',
+  'project-membership-recovery',
+  'secret-replay-tombstone',
 ] as const);
 
 export const COLLAB_PROJECT_BACKUP_RECORD_KINDS = Object.freeze([
-  ...COLLAB_CHECKPOINT_BACKUP_RECORD_KINDS.slice(0, 13),
+  ...COLLAB_CHECKPOINT_PORTABLE_RECORD_KINDS,
+  'cloud-event',
+  'cloud-event-cursor',
+  'idempotency-result',
+  'principal-binding',
+  'repository-placement',
   ...BACKUP_CONTINUITY_RECORD_KINDS,
-  ...COLLAB_CHECKPOINT_BACKUP_RECORD_KINDS.slice(14),
+  'terminal-responder',
+  'protected-claim-envelope',
+  'tombstone',
+  'schema-catalog',
+  'server-compatibility',
+  'authority-volume-pair',
 ] as const);
 
 export type CollabProjectBackupRecordKind =
@@ -81,9 +107,12 @@ interface BackupRecordBase<Kind extends string, Value> {
 export type CollabProjectBackupLifecycleKind =
   | 'authority-transfer'
   | 'backup'
+  | 'create-project'
   | 'delete'
   | 'export'
+  | 'join-project'
   | 'leave'
+  | 'remove-member'
   | 'retire';
 
 export type CollabProjectBackupLifecycleState =
@@ -240,6 +269,113 @@ export type CollabProjectBackupLeaveFormerPrincipalReplayRecord =
     readonly state: 'completed' | 'recovering';
   }>;
 
+export type CollabProjectBackupInvitationRecord =
+  BackupRecordBase<'project-invitation', {
+    readonly createdAt: CollabIsoTimestamp;
+    readonly expiresAt: CollabIsoTimestamp;
+    readonly idempotencyKey: string;
+    readonly invitationId: string;
+    readonly issuedByMemberId: CollabMemberId;
+    readonly projectId: CollabProjectId;
+    readonly requestFingerprint: string;
+    readonly revision: number;
+    readonly secretReplayExpiresAt: CollabIsoTimestamp;
+    readonly secretSha256: string;
+    readonly state: CollabProjectInvitationState;
+    readonly terminalAt: CollabIsoTimestamp | null;
+  }>;
+
+export interface CollabProjectBackupProtectedSecretEnvelope {
+  readonly associatedDataSha256: string;
+  readonly ciphertext: string;
+  readonly createdAt: CollabIsoTimestamp;
+  readonly expiresAt: CollabIsoTimestamp;
+  readonly keyId: string;
+  readonly nonce: string;
+  readonly projectId: CollabProjectId;
+}
+
+export type CollabProjectBackupProtectedInvitationEnvelopeRecord =
+  BackupRecordBase<'protected-invitation-envelope',
+  CollabProjectBackupProtectedSecretEnvelope & {
+    readonly invitationId: string;
+  }>;
+
+export type CollabProjectBackupTransferredMembershipClaimOverrideRecord =
+  BackupRecordBase<'transferred-membership-claim-override', {
+    readonly claimGeneration: number;
+    readonly claimSha256: string;
+    readonly createdAt: CollabIsoTimestamp;
+    readonly expiresAt: CollabIsoTimestamp;
+    readonly idempotencyKey: string;
+    readonly managerMemberId: CollabMemberId;
+    readonly memberId: CollabMemberId;
+    readonly projectId: CollabProjectId;
+    readonly redemptionReceiptId: string | null;
+    readonly requestFingerprint: string;
+    readonly secretReplayExpiresAt: CollabIsoTimestamp;
+    readonly state: 'active' | 'redeemed' | 'revoked' | 'superseded' | 'expired';
+    readonly supersededClaimSha256: string;
+    readonly targetPrincipalId: string | null;
+    readonly transferId: string;
+    readonly updatedAt: CollabIsoTimestamp;
+  }>;
+
+export type CollabProjectBackupProtectedClaimOverrideEnvelopeRecord =
+  BackupRecordBase<'protected-claim-override-envelope',
+  CollabProjectBackupProtectedSecretEnvelope & {
+    readonly claimGeneration: number;
+    readonly memberId: CollabMemberId;
+    readonly transferId: string;
+  }>;
+
+export type CollabProjectBackupManagerResponsibilityOfferRecord =
+  BackupRecordBase<'manager-responsibility-offer', {
+    readonly acknowledgedAt: CollabIsoTimestamp | null;
+    readonly expiresAt: CollabIsoTimestamp;
+    readonly idempotencyKey: string;
+    readonly managerSetGenerationAtOffer: number;
+    readonly offeredAt: CollabIsoTimestamp;
+    readonly offerId: string;
+    readonly projectId: CollabProjectId;
+    readonly purpose: CollabManagerResponsibilityPurpose;
+    readonly requestFingerprint: string;
+    readonly revision: number;
+    readonly sourceManagerMemberId: CollabMemberId;
+    readonly state: CollabManagerResponsibilityOfferState;
+    readonly targetMemberId: CollabMemberId;
+    readonly targetMembershipRevisionAtOffer: number;
+    readonly terminalAt: CollabIsoTimestamp | null;
+  }>;
+
+export type CollabProjectBackupMembershipRecoveryRecord =
+  BackupRecordBase<'project-membership-recovery', {
+    readonly expectedMainOid: string;
+    readonly expectedPersonalRefOid: string;
+    readonly invitationId: string | null;
+    readonly memberId: CollabMemberId;
+    readonly operationId: string;
+    readonly operationKind: 'create-project' | 'join-project' | 'remove-member';
+    readonly principalSha256: string | null;
+    readonly projectId: CollabProjectId;
+    readonly publicationMarkerSha256: string | null;
+    readonly repositoryPlanSha256: string | null;
+    readonly requestFingerprint: string;
+  }>;
+
+export type CollabProjectBackupSecretReplayTombstoneRecord =
+  BackupRecordBase<'secret-replay-tombstone', {
+    readonly actorMemberId: CollabMemberId;
+    readonly expiredAt: CollabIsoTimestamp;
+    readonly idempotencyKey: string;
+    readonly operation: Extract<
+      CollabProjectMembershipOperation,
+      'createProjectInvitation' | 'reissueTransferredMembershipClaim'
+    >;
+    readonly projectId: CollabProjectId;
+    readonly requestFingerprint: string;
+  }>;
+
 export type CollabProjectBackupContinuityRecord =
   | CollabProjectBackupLifecycleJournalRecord
   | CollabProjectBackupAuthorityTransferRecoveryRecord
@@ -249,7 +385,14 @@ export type CollabProjectBackupContinuityRecord =
   | CollabProjectBackupTransferRedemptionReceiptRecord
   | CollabProjectBackupTerminalPrincipalRecord
   | CollabProjectBackupTerminalResponderReplayRecord
-  | CollabProjectBackupLeaveFormerPrincipalReplayRecord;
+  | CollabProjectBackupLeaveFormerPrincipalReplayRecord
+  | CollabProjectBackupInvitationRecord
+  | CollabProjectBackupProtectedInvitationEnvelopeRecord
+  | CollabProjectBackupTransferredMembershipClaimOverrideRecord
+  | CollabProjectBackupProtectedClaimOverrideEnvelopeRecord
+  | CollabProjectBackupManagerResponsibilityOfferRecord
+  | CollabProjectBackupMembershipRecoveryRecord
+  | CollabProjectBackupSecretReplayTombstoneRecord;
 
 type CollabProjectBackupBaseRecord = Exclude<
   CollabCheckpointBackupRecord,
@@ -300,8 +443,10 @@ const DELETE_ACTIVE_PHASE_SET: ReadonlySet<string> = new Set([
   'coordination-removed',
   'tombstoned',
 ]);
-const PLAINTEXT_CLAIM_RESPONSE_OPERATION_SET: ReadonlySet<CollabControlOperation> = new Set([
+const PLAINTEXT_CLAIM_RESPONSE_OPERATION_SET: ReadonlySet<string> = new Set([
+  'createProjectInvitation',
   'getTransferredMembershipClaim',
+  'reissueTransferredMembershipClaim',
   'rotateTransferredMembershipClaims',
 ]);
 
@@ -383,6 +528,14 @@ function timestampValue(value: unknown, field: string): CollabIsoTimestamp {
 
 function timestamp(source: UnknownRecord, field: string): CollabIsoTimestamp {
   return timestampValue(source[field], field);
+}
+
+function hasExactDuration(
+  start: CollabIsoTimestamp,
+  end: CollabIsoTimestamp,
+  durationMs: number,
+): boolean {
+  return Date.parse(end) === Date.parse(start) + durationMs;
 }
 
 function nullableTimestamp(source: UnknownRecord, field: string): CollabIsoTimestamp | null {
@@ -781,7 +934,15 @@ function lifecycleJournalRecord(
   const operationId = token(value, 'operationId');
   if (recordId !== operationId) throw invalidPayload('recordId');
   const operationKind = literal(value, 'operationKind', [
-    'authority-transfer', 'backup', 'delete', 'export', 'leave', 'retire',
+    'authority-transfer',
+    'backup',
+    'create-project',
+    'delete',
+    'export',
+    'join-project',
+    'leave',
+    'remove-member',
+    'retire',
   ]);
   const direction = value.direction === null
     ? null
@@ -1209,6 +1370,413 @@ function leaveFormerPrincipalReplayRecord(
   };
 }
 
+function projectInvitationRecord(
+  source: UnknownRecord,
+  recordId: string,
+  revision: number,
+): CollabProjectBackupInvitationRecord {
+  const value = exactRecord(source.value, 'value', [
+    'createdAt',
+    'expiresAt',
+    'idempotencyKey',
+    'invitationId',
+    'issuedByMemberId',
+    'projectId',
+    'requestFingerprint',
+    'revision',
+    'secretReplayExpiresAt',
+    'secretSha256',
+    'state',
+    'terminalAt',
+  ]);
+  const invitationId = token(value, 'invitationId');
+  if (recordId !== invitationId) throw invalidPayload('recordId');
+  const createdAt = timestamp(value, 'createdAt');
+  const expiresAt = timestamp(value, 'expiresAt');
+  const secretReplayExpiresAt = timestamp(value, 'secretReplayExpiresAt');
+  const state = literal(value, 'state', [
+    'active', 'redeeming', 'redeemed', 'revoked', 'expired',
+  ]);
+  const terminalAt = nullableTimestamp(value, 'terminalAt');
+  const terminal = state === 'redeemed' || state === 'revoked' || state === 'expired';
+  if (
+    !hasExactDuration(
+      createdAt,
+      expiresAt,
+      COLLAB_PROJECT_MEMBERSHIP_LIMITS.invitationTtlMs,
+    )
+    || !hasExactDuration(
+      createdAt,
+      secretReplayExpiresAt,
+      COLLAB_PROJECT_MEMBERSHIP_LIMITS.secretReplayTtlMs,
+    )
+    || terminal !== (terminalAt !== null)
+    || (terminalAt !== null && Date.parse(terminalAt) < Date.parse(createdAt))
+  ) throw invalidPayload('state');
+  return {
+    kind: 'project-invitation',
+    recordId,
+    revision,
+    value: {
+      createdAt,
+      expiresAt,
+      idempotencyKey: token(value, 'idempotencyKey'),
+      invitationId,
+      issuedByMemberId: token(value, 'issuedByMemberId', isCollabMemberId),
+      projectId: token(value, 'projectId', isCollabProjectId),
+      requestFingerprint: sha256(value, 'requestFingerprint'),
+      revision: positiveInteger(value, 'revision'),
+      secretReplayExpiresAt,
+      secretSha256: sha256(value, 'secretSha256'),
+      state,
+      terminalAt,
+    },
+  };
+}
+
+function protectedSecretEnvelopeFields(
+  value: UnknownRecord,
+): CollabProjectBackupProtectedSecretEnvelope {
+  const ciphertext = boundedString(value, 'ciphertext', 4096);
+  const nonce = boundedString(value, 'nonce', 128);
+  if (!BASE64URL_PATTERN.test(ciphertext) || !BASE64URL_PATTERN.test(nonce)) {
+    throw invalidPayload('ciphertext');
+  }
+  const createdAt = timestamp(value, 'createdAt');
+  const expiresAt = timestamp(value, 'expiresAt');
+  if (Date.parse(expiresAt) <= Date.parse(createdAt)) throw invalidPayload('expiresAt');
+  return {
+    associatedDataSha256: sha256(value, 'associatedDataSha256'),
+    ciphertext,
+    createdAt,
+    expiresAt,
+    keyId: token(value, 'keyId'),
+    nonce,
+    projectId: token(value, 'projectId', isCollabProjectId),
+  };
+}
+
+function protectedInvitationEnvelopeRecord(
+  source: UnknownRecord,
+  recordId: string,
+  revision: number,
+): CollabProjectBackupProtectedInvitationEnvelopeRecord {
+  const value = exactRecord(source.value, 'value', [
+    'associatedDataSha256',
+    'ciphertext',
+    'createdAt',
+    'expiresAt',
+    'invitationId',
+    'keyId',
+    'nonce',
+    'projectId',
+  ]);
+  const invitationId = token(value, 'invitationId');
+  if (recordId !== invitationId) throw invalidPayload('recordId');
+  const envelope = protectedSecretEnvelopeFields(value);
+  return {
+    kind: 'protected-invitation-envelope',
+    recordId,
+    revision,
+    value: {
+      associatedDataSha256: envelope.associatedDataSha256,
+      ciphertext: envelope.ciphertext,
+      createdAt: envelope.createdAt,
+      expiresAt: envelope.expiresAt,
+      invitationId,
+      keyId: envelope.keyId,
+      nonce: envelope.nonce,
+      projectId: envelope.projectId,
+    },
+  };
+}
+
+function transferredMembershipClaimOverrideRecord(
+  source: UnknownRecord,
+  recordId: string,
+  revision: number,
+): CollabProjectBackupTransferredMembershipClaimOverrideRecord {
+  const value = exactRecord(source.value, 'value', [
+    'claimGeneration',
+    'claimSha256',
+    'createdAt',
+    'expiresAt',
+    'idempotencyKey',
+    'managerMemberId',
+    'memberId',
+    'projectId',
+    'redemptionReceiptId',
+    'requestFingerprint',
+    'secretReplayExpiresAt',
+    'state',
+    'supersededClaimSha256',
+    'targetPrincipalId',
+    'transferId',
+    'updatedAt',
+  ]);
+  const transferId = token(value, 'transferId');
+  const memberId = token(value, 'memberId', isCollabMemberId);
+  const claimGeneration = positiveInteger(value, 'claimGeneration');
+  if (recordId !== `${transferId}:${memberId}:${claimGeneration}`) {
+    throw invalidPayload('recordId');
+  }
+  const state = literal(value, 'state', [
+    'active', 'redeemed', 'revoked', 'superseded', 'expired',
+  ]);
+  const targetPrincipalId = nullableToken(value, 'targetPrincipalId', candidate => (
+    typeof candidate === 'string' && PRINCIPAL_PATTERN.test(candidate)
+  ));
+  const redemptionReceiptId = nullableToken(value, 'redemptionReceiptId');
+  if (
+    (state === 'redeemed') !== (targetPrincipalId !== null && redemptionReceiptId !== null)
+    || (state !== 'redeemed' && (targetPrincipalId !== null || redemptionReceiptId !== null))
+  ) throw invalidPayload('state');
+  const createdAt = timestamp(value, 'createdAt');
+  const expiresAt = timestamp(value, 'expiresAt');
+  const secretReplayExpiresAt = timestamp(value, 'secretReplayExpiresAt');
+  const updatedAt = timestamp(value, 'updatedAt');
+  if (
+    !hasExactDuration(
+      createdAt,
+      expiresAt,
+      COLLAB_PROJECT_MEMBERSHIP_LIMITS.transferredClaimTtlMs,
+    )
+    || !hasExactDuration(
+      createdAt,
+      secretReplayExpiresAt,
+      COLLAB_PROJECT_MEMBERSHIP_LIMITS.secretReplayTtlMs,
+    )
+    || Date.parse(updatedAt) < Date.parse(createdAt)
+  ) throw invalidPayload('updatedAt');
+  return {
+    kind: 'transferred-membership-claim-override',
+    recordId,
+    revision,
+    value: {
+      claimGeneration,
+      claimSha256: sha256(value, 'claimSha256'),
+      createdAt,
+      expiresAt,
+      idempotencyKey: token(value, 'idempotencyKey'),
+      managerMemberId: token(value, 'managerMemberId', isCollabMemberId),
+      memberId,
+      projectId: token(value, 'projectId', isCollabProjectId),
+      redemptionReceiptId,
+      requestFingerprint: sha256(value, 'requestFingerprint'),
+      secretReplayExpiresAt,
+      state,
+      supersededClaimSha256: sha256(value, 'supersededClaimSha256'),
+      targetPrincipalId,
+      transferId,
+      updatedAt,
+    },
+  };
+}
+
+function protectedClaimOverrideEnvelopeRecord(
+  source: UnknownRecord,
+  recordId: string,
+  revision: number,
+): CollabProjectBackupProtectedClaimOverrideEnvelopeRecord {
+  const value = exactRecord(source.value, 'value', [
+    'associatedDataSha256',
+    'ciphertext',
+    'claimGeneration',
+    'createdAt',
+    'expiresAt',
+    'keyId',
+    'memberId',
+    'nonce',
+    'projectId',
+    'transferId',
+  ]);
+  const transferId = token(value, 'transferId');
+  const memberId = token(value, 'memberId', isCollabMemberId);
+  const claimGeneration = positiveInteger(value, 'claimGeneration');
+  if (recordId !== `${transferId}:${memberId}:${claimGeneration}`) {
+    throw invalidPayload('recordId');
+  }
+  const envelope = protectedSecretEnvelopeFields(value);
+  return {
+    kind: 'protected-claim-override-envelope',
+    recordId,
+    revision,
+    value: {
+      associatedDataSha256: envelope.associatedDataSha256,
+      ciphertext: envelope.ciphertext,
+      claimGeneration,
+      createdAt: envelope.createdAt,
+      expiresAt: envelope.expiresAt,
+      keyId: envelope.keyId,
+      memberId,
+      nonce: envelope.nonce,
+      projectId: envelope.projectId,
+      transferId,
+    },
+  };
+}
+
+function managerResponsibilityOfferRecord(
+  source: UnknownRecord,
+  recordId: string,
+  revision: number,
+): CollabProjectBackupManagerResponsibilityOfferRecord {
+  const value = exactRecord(source.value, 'value', [
+    'acknowledgedAt',
+    'expiresAt',
+    'idempotencyKey',
+    'managerSetGenerationAtOffer',
+    'offeredAt',
+    'offerId',
+    'projectId',
+    'purpose',
+    'requestFingerprint',
+    'revision',
+    'sourceManagerMemberId',
+    'state',
+    'targetMemberId',
+    'targetMembershipRevisionAtOffer',
+    'terminalAt',
+  ]);
+  const offerId = token(value, 'offerId');
+  if (recordId !== offerId) throw invalidPayload('recordId');
+  const state = literal(value, 'state', [
+    'offered', 'acknowledged', 'declined', 'cancelled', 'consumed', 'expired',
+  ]);
+  const offeredAt = timestamp(value, 'offeredAt');
+  const expiresAt = timestamp(value, 'expiresAt');
+  const acknowledgedAt = nullableTimestamp(value, 'acknowledgedAt');
+  const terminalAt = nullableTimestamp(value, 'terminalAt');
+  const terminal = state === 'declined'
+    || state === 'cancelled'
+    || state === 'consumed'
+    || state === 'expired';
+  if (
+    !hasExactDuration(
+      offeredAt,
+      expiresAt,
+      COLLAB_PROJECT_MEMBERSHIP_LIMITS.managerResponsibilityOfferTtlMs,
+    )
+    || (state === 'offered' && acknowledgedAt !== null)
+    || (state === 'acknowledged' && acknowledgedAt === null)
+    || terminal !== (terminalAt !== null)
+  ) throw invalidPayload('state');
+  return {
+    kind: 'manager-responsibility-offer',
+    recordId,
+    revision,
+    value: {
+      acknowledgedAt,
+      expiresAt,
+      idempotencyKey: token(value, 'idempotencyKey'),
+      managerSetGenerationAtOffer: positiveInteger(value, 'managerSetGenerationAtOffer'),
+      offeredAt,
+      offerId,
+      projectId: token(value, 'projectId', isCollabProjectId),
+      purpose: literal(value, 'purpose', ['manager-promotion', 'manager-leave']),
+      requestFingerprint: sha256(value, 'requestFingerprint'),
+      revision: positiveInteger(value, 'revision'),
+      sourceManagerMemberId: token(value, 'sourceManagerMemberId', isCollabMemberId),
+      state,
+      targetMemberId: token(value, 'targetMemberId', isCollabMemberId),
+      targetMembershipRevisionAtOffer: positiveInteger(
+        value,
+        'targetMembershipRevisionAtOffer',
+      ),
+      terminalAt,
+    },
+  };
+}
+
+function membershipRecoveryRecord(
+  source: UnknownRecord,
+  recordId: string,
+  revision: number,
+): CollabProjectBackupMembershipRecoveryRecord {
+  const value = exactRecord(source.value, 'value', [
+    'expectedMainOid',
+    'expectedPersonalRefOid',
+    'invitationId',
+    'memberId',
+    'operationId',
+    'operationKind',
+    'principalSha256',
+    'projectId',
+    'publicationMarkerSha256',
+    'repositoryPlanSha256',
+    'requestFingerprint',
+  ]);
+  const operationId = token(value, 'operationId');
+  if (recordId !== operationId) throw invalidPayload('recordId');
+  const operationKind = literal(value, 'operationKind', [
+    'create-project', 'join-project', 'remove-member',
+  ]);
+  const invitationId = nullableToken(value, 'invitationId');
+  const principalSha256 = nullableSha256(value, 'principalSha256');
+  const publicationMarkerSha256 = nullableSha256(value, 'publicationMarkerSha256');
+  const repositoryPlanSha256 = nullableSha256(value, 'repositoryPlanSha256');
+  if (
+    (operationKind === 'join-project') !== (invitationId !== null)
+    || (operationKind === 'remove-member') === (principalSha256 !== null)
+    || (operationKind === 'create-project') !== (repositoryPlanSha256 !== null)
+    || (operationKind !== 'create-project' && publicationMarkerSha256 !== null)
+  ) throw invalidPayload('operationKind');
+  return {
+    kind: 'project-membership-recovery',
+    recordId,
+    revision,
+    value: {
+      expectedMainOid: token(value, 'expectedMainOid', isCollabGitOid),
+      expectedPersonalRefOid: token(value, 'expectedPersonalRefOid', isCollabGitOid),
+      invitationId,
+      memberId: token(value, 'memberId', isCollabMemberId),
+      operationId,
+      operationKind,
+      principalSha256,
+      projectId: token(value, 'projectId', isCollabProjectId),
+      publicationMarkerSha256,
+      repositoryPlanSha256,
+      requestFingerprint: sha256(value, 'requestFingerprint'),
+    },
+  };
+}
+
+function secretReplayTombstoneRecord(
+  source: UnknownRecord,
+  recordId: string,
+  revision: number,
+): CollabProjectBackupSecretReplayTombstoneRecord {
+  const value = exactRecord(source.value, 'value', [
+    'actorMemberId',
+    'expiredAt',
+    'idempotencyKey',
+    'operation',
+    'projectId',
+    'requestFingerprint',
+  ]);
+  const actorMemberId = token(value, 'actorMemberId', isCollabMemberId);
+  const idempotencyKey = token(value, 'idempotencyKey');
+  const operation = literal(value, 'operation', [
+    'createProjectInvitation', 'reissueTransferredMembershipClaim',
+  ]);
+  if (recordId !== `${operation}:${actorMemberId}:${idempotencyKey}`) {
+    throw invalidPayload('recordId');
+  }
+  return {
+    kind: 'secret-replay-tombstone',
+    recordId,
+    revision,
+    value: {
+      actorMemberId,
+      expiredAt: timestamp(value, 'expiredAt'),
+      idempotencyKey,
+      operation,
+      projectId: token(value, 'projectId', isCollabProjectId),
+      requestFingerprint: sha256(value, 'requestFingerprint'),
+    },
+  };
+}
+
 function decodeContinuityRecord(
   kind: typeof BACKUP_CONTINUITY_RECORD_KINDS[number],
   source: UnknownRecord,
@@ -1231,6 +1799,19 @@ function decodeContinuityRecord(
       return terminalResponderReplayRecord(source, recordId, revision);
     case 'leave-former-principal-replay':
       return leaveFormerPrincipalReplayRecord(source, recordId, revision);
+    case 'project-invitation': return projectInvitationRecord(source, recordId, revision);
+    case 'protected-invitation-envelope':
+      return protectedInvitationEnvelopeRecord(source, recordId, revision);
+    case 'transferred-membership-claim-override':
+      return transferredMembershipClaimOverrideRecord(source, recordId, revision);
+    case 'protected-claim-override-envelope':
+      return protectedClaimOverrideEnvelopeRecord(source, recordId, revision);
+    case 'manager-responsibility-offer':
+      return managerResponsibilityOfferRecord(source, recordId, revision);
+    case 'project-membership-recovery':
+      return membershipRecoveryRecord(source, recordId, revision);
+    case 'secret-replay-tombstone':
+      return secretReplayTombstoneRecord(source, recordId, revision);
   }
 }
 
@@ -1289,6 +1870,35 @@ function lifecycleJournalHasInvalidSemantics(
       || hasResult !== resultRequired;
   }
   if (hasCheckpoint) return true;
+  if (
+    value.operationKind === 'create-project'
+    || value.operationKind === 'join-project'
+    || value.operationKind === 'remove-member'
+  ) {
+    const phases = value.operationKind === 'create-project'
+      ? new Set([
+        'prepared',
+        'repository-publication-intent',
+        'repository-published',
+        'activated',
+      ])
+      : value.operationKind === 'join-project'
+        ? new Set(['prepared', 'membership-pending', 'personal-ref-created', 'membership-active'])
+        : new Set(['prepared', 'membership-revoked', 'personal-ref-removed']);
+    const statePhaseValid = (value.state === 'active' && phases.has(value.phase))
+      || (value.state === 'recovery-required'
+        && value.phase === 'recovery-required'
+        && value.recoveryFromPhase !== null
+        && phases.has(value.recoveryFromPhase))
+      || (value.state === 'completed' && value.phase === 'completed');
+    const resultRequired = value.state === 'completed'
+      || (value.operationKind === 'create-project' && effectivePhase === 'activated')
+      || (value.operationKind === 'join-project' && effectivePhase === 'membership-active')
+      || (value.operationKind === 'remove-member'
+        && (effectivePhase === 'membership-revoked'
+          || effectivePhase === 'personal-ref-removed'));
+    return !statePhaseValid || hasResult !== resultRequired;
+  }
   if (value.operationKind === 'leave') {
     const statePhaseValid = (value.state === 'active' && (
       value.phase === 'prepared'
@@ -1385,6 +1995,44 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       item.kind === 'leave-former-principal-replay'
     ))
     .map(item => [item.value.operationId, item]));
+  const invitations = new Map(records
+    .filter((item): item is CollabProjectBackupInvitationRecord => (
+      item.kind === 'project-invitation'
+    ))
+    .map(item => [item.value.invitationId, item]));
+  const invitationEnvelopes = new Map(records
+    .filter((item): item is CollabProjectBackupProtectedInvitationEnvelopeRecord => (
+      item.kind === 'protected-invitation-envelope'
+    ))
+    .map(item => [item.value.invitationId, item]));
+  const claimOverrides = records.filter(
+    (item): item is CollabProjectBackupTransferredMembershipClaimOverrideRecord => (
+      item.kind === 'transferred-membership-claim-override'
+    ),
+  );
+  const claimOverrideEnvelopes = new Map(records
+    .filter((item): item is CollabProjectBackupProtectedClaimOverrideEnvelopeRecord => (
+      item.kind === 'protected-claim-override-envelope'
+    ))
+    .map(item => [
+      `${item.value.transferId}:${item.value.memberId}:${item.value.claimGeneration}`,
+      item,
+    ]));
+  const managerOffers = records.filter(
+    (item): item is CollabProjectBackupManagerResponsibilityOfferRecord => (
+      item.kind === 'manager-responsibility-offer'
+    ),
+  );
+  const membershipRecoveries = new Map(records
+    .filter((item): item is CollabProjectBackupMembershipRecoveryRecord => (
+      item.kind === 'project-membership-recovery'
+    ))
+    .map(item => [item.value.operationId, item]));
+  const secretReplayTombstones = records.filter(
+    (item): item is CollabProjectBackupSecretReplayTombstoneRecord => (
+      item.kind === 'secret-replay-tombstone'
+    ),
+  );
 
   const nonterminalLifecycles = [...lifecycles.values()].filter(item => (
     item.value.state === 'active' || item.value.state === 'recovery-required'
@@ -1402,6 +2050,22 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     || new Set(redemptionReceiptRecords.map(item => (
       `${item.value.receipt.transferId}:${item.value.receipt.receiptId}`
     ))).size !== redemptionReceiptRecords.length
+    || invitations.size !== records.filter(item => item.kind === 'project-invitation').length
+    || invitationEnvelopes.size
+      !== records.filter(item => item.kind === 'protected-invitation-envelope').length
+    || new Set([...invitations.values()].map(item => (
+      `${item.value.issuedByMemberId}:${item.value.idempotencyKey}`
+    ))).size !== invitations.size
+    || new Set(claimOverrides.map(item => (
+      `${item.value.transferId}:${item.value.memberId}:${item.value.claimGeneration}`
+    ))).size !== claimOverrides.length
+    || new Set(claimOverrides.map(item => (
+      `${item.value.managerMemberId}:${item.value.idempotencyKey}`
+    ))).size !== claimOverrides.length
+    || claimOverrideEnvelopes.size
+      !== records.filter(item => item.kind === 'protected-claim-override-envelope').length
+    || membershipRecoveries.size
+      !== records.filter(item => item.kind === 'project-membership-recovery').length
   ) throw invalidPayload('records');
 
   for (const lifecycle of lifecycles.values()) {
@@ -1415,6 +2079,12 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     if (
       lifecycle.value.operationKind === 'authority-transfer'
       && !recoveries.has(lifecycle.value.operationId)
+    ) throw invalidPayload('records');
+    if (
+      (lifecycle.value.operationKind === 'create-project'
+        || lifecycle.value.operationKind === 'join-project'
+        || lifecycle.value.operationKind === 'remove-member')
+      && !membershipRecoveries.has(lifecycle.value.operationId)
     ) throw invalidPayload('records');
     if (lifecycle.value.operationKind === 'leave') {
       const actorMemberId = lifecycle.value.actorMemberId;
@@ -1622,6 +2292,15 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     const redemptionReceipt = redemptionReceipts.get(
       `${claim.value.transferId}:${claim.value.memberId}`,
     );
+    const redeemedOverride = redemptionReceipt === undefined
+      ? undefined
+      : claimOverrides.find(item => (
+        item.value.transferId === claim.value.transferId
+        && item.value.memberId === claim.value.memberId
+        && item.value.state === 'redeemed'
+        && item.value.claimSha256 === redemptionReceipt.value.receipt.claimSha256
+        && item.value.redemptionReceiptId === redemptionReceipt.value.receipt.receiptId
+      ));
     if (
       memberRecords.get(claim.value.memberId)?.value.status !== 'active'
       || recovery === undefined
@@ -1632,7 +2311,11 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       || claim.value.expiresAt !== recovery.value.expiresAt
       || (claim.value.targetPrincipalId !== null
         && principalBindings.get(claim.value.memberId) !== claim.value.targetPrincipalId)
-      || (claim.value.state === 'redeemed') !== (redemptionReceipt !== undefined)
+      || (claim.value.state === 'redeemed' && redemptionReceipt === undefined)
+      || (redemptionReceipt !== undefined
+        && claim.value.state !== 'redeemed'
+        && redeemedOverride === undefined)
+      || (claim.value.state === 'redeemed' && redeemedOverride !== undefined)
     ) {
       throw invalidPayload('records');
     }
@@ -1651,6 +2334,174 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       || (operationKind === 'authority-transfer')
         !== responderReplays.has(terminal.value.operationId)
     ) throw invalidPayload('records');
+  }
+  for (const recovery of membershipRecoveries.values()) {
+    const lifecycle = lifecycles.get(recovery.value.operationId);
+    const invitation = recovery.value.invitationId === null
+      ? undefined
+      : invitations.get(recovery.value.invitationId);
+    const member = memberRecords.get(recovery.value.memberId);
+    if (
+      lifecycle === undefined
+      || lifecycle.value.operationKind !== recovery.value.operationKind
+      || lifecycle.value.requestFingerprint !== recovery.value.requestFingerprint
+      || lifecycle.value.state !== 'completed'
+      || member === undefined
+      || (recovery.value.operationKind === 'join-project' && invitation === undefined)
+      || (recovery.value.operationKind !== 'join-project' && invitation !== undefined)
+      || (recovery.value.operationKind === 'create-project'
+        && lifecycle.value.actorMemberId !== null)
+      || (recovery.value.operationKind === 'join-project'
+        && lifecycle.value.actorMemberId !== null)
+      || (recovery.value.operationKind === 'remove-member'
+        && lifecycle.value.actorMemberId === null)
+      || (recovery.value.operationKind === 'join-project'
+        && invitation?.value.state !== 'redeemed')
+      || (recovery.value.operationKind === 'remove-member' && (
+        member.value.status !== 'revoked'
+        || principalBindings.has(recovery.value.memberId)
+      ))
+    ) throw invalidPayload('records');
+  }
+  for (const invitation of invitations.values()) {
+    const envelope = invitationEnvelopes.get(invitation.value.invitationId);
+    const tombstone = secretReplayTombstones.find(item => (
+      item.value.operation === 'createProjectInvitation'
+      && item.value.actorMemberId === invitation.value.issuedByMemberId
+      && item.value.idempotencyKey === invitation.value.idempotencyKey
+      && item.value.requestFingerprint === invitation.value.requestFingerprint
+    ));
+    if (
+      !members.has(invitation.value.issuedByMemberId)
+      || (envelope === undefined) === (tombstone === undefined)
+      || (tombstone !== undefined
+        && tombstone.value.expiredAt !== invitation.value.secretReplayExpiresAt)
+      || (envelope !== undefined && (
+        envelope.value.projectId !== invitation.value.projectId
+        || envelope.value.createdAt !== invitation.value.createdAt
+        || envelope.value.expiresAt !== invitation.value.secretReplayExpiresAt
+      ))
+    ) throw invalidPayload('records');
+  }
+  for (const envelope of invitationEnvelopes.values()) {
+    if (!invitations.has(envelope.value.invitationId)) throw invalidPayload('records');
+  }
+  const overridesByMember = new Map<string, CollabProjectBackupTransferredMembershipClaimOverrideRecord[]>();
+  for (const override of claimOverrides) {
+    const identity = `${override.value.transferId}:${override.value.memberId}`;
+    const values = overridesByMember.get(identity) ?? [];
+    values.push(override);
+    overridesByMember.set(identity, values);
+    const envelope = claimOverrideEnvelopes.get(
+      `${identity}:${override.value.claimGeneration}`,
+    );
+    const tombstone = secretReplayTombstones.find(item => (
+      item.value.operation === 'reissueTransferredMembershipClaim'
+      && item.value.actorMemberId === override.value.managerMemberId
+      && item.value.idempotencyKey === override.value.idempotencyKey
+      && item.value.requestFingerprint === override.value.requestFingerprint
+    ));
+    if (
+      !members.has(override.value.memberId)
+      || !members.has(override.value.managerMemberId)
+      || (envelope === undefined) === (tombstone === undefined)
+      || (tombstone !== undefined
+        && tombstone.value.expiredAt !== override.value.secretReplayExpiresAt)
+      || (envelope !== undefined && (
+        envelope.value.projectId !== override.value.projectId
+        || envelope.value.createdAt !== override.value.createdAt
+        || envelope.value.expiresAt !== override.value.secretReplayExpiresAt
+      ))
+    ) throw invalidPayload('records');
+  }
+  for (const overrides of overridesByMember.values()) {
+    overrides.sort((left, right) => left.value.claimGeneration - right.value.claimGeneration);
+    const highest = overrides.at(-1);
+    const first = overrides[0];
+    const identity = first === undefined
+      ? ''
+      : `${first.value.transferId}:${first.value.memberId}`;
+    const sourceClaim = claims.get(identity);
+    const recovery = first === undefined ? undefined : recoveries.get(first.value.transferId);
+    const member = first === undefined ? undefined : memberRecords.get(first.value.memberId);
+    const principalBinding = first === undefined
+      ? undefined
+      : principalBindings.get(first.value.memberId);
+    const redemptionReceipt = redemptionReceipts.get(identity);
+    const redeemedOverrides = overrides.filter(item => item.value.state === 'redeemed');
+    if (
+      first === undefined
+      || sourceClaim === undefined
+      || recovery?.value.sourceAuthority.kind !== 'lan'
+      || member?.value.status !== 'active'
+      || sourceClaim.value.state === 'redeemed'
+      || overrides.some((item, index) => item.value.claimGeneration !== index + 1)
+      || overrides.some((item, index) => item.value.supersededClaimSha256 !== (
+        index === 0
+          ? sourceClaim.value.claimSha256
+          : overrides[index - 1].value.claimSha256
+      ))
+      || new Set(overrides.map(item => item.value.claimSha256)).size !== overrides.length
+      || overrides.filter(item => item.value.state === 'active').length > 1
+      || overrides.some(item => item.value.state === 'active' && item !== highest)
+      || redeemedOverrides.length > 1
+      || redeemedOverrides.some(item => item !== highest)
+      || highest?.value.state === 'superseded'
+      || (highest?.value.state === 'active' && (
+        principalBinding !== undefined
+        || redemptionReceipt !== undefined
+      ))
+      || (highest?.value.state === 'redeemed' && (
+        principalBinding !== highest.value.targetPrincipalId
+        || redemptionReceipt === undefined
+        || redemptionReceipt.value.receipt.transferId !== highest.value.transferId
+        || redemptionReceipt.value.receipt.memberId !== highest.value.memberId
+        || redemptionReceipt.value.receipt.claimSha256 !== highest.value.claimSha256
+        || redemptionReceipt.value.receipt.receiptId !== highest.value.redemptionReceiptId
+        || redemptionReceipt.value.receipt.checkpointSha256
+          !== sourceClaim.value.checkpointSha256
+      ))
+      || (highest?.value.state !== 'redeemed' && redemptionReceipt !== undefined)
+    ) throw invalidPayload('records');
+  }
+  for (const envelope of claimOverrideEnvelopes.values()) {
+    if (!claimOverrides.some(item => (
+      item.value.transferId === envelope.value.transferId
+      && item.value.memberId === envelope.value.memberId
+      && item.value.claimGeneration === envelope.value.claimGeneration
+    ))) throw invalidPayload('records');
+  }
+  const currentOffers = managerOffers.filter(item => (
+    item.value.state === 'offered' || item.value.state === 'acknowledged'
+  ));
+  if (
+    managerOffers.some(item => (
+      item.value.sourceManagerMemberId === item.value.targetMemberId
+      || !members.has(item.value.sourceManagerMemberId)
+      || !members.has(item.value.targetMemberId)
+    ))
+    || new Set(currentOffers.map(item => item.value.sourceManagerMemberId)).size
+      !== currentOffers.length
+    || new Set(currentOffers.map(item => item.value.targetMemberId)).size
+      !== currentOffers.length
+  ) throw invalidPayload('records');
+  for (const tombstone of secretReplayTombstones) {
+    const liveSecretRecord = tombstone.value.operation === 'createProjectInvitation'
+      ? [...invitations.values()].some(item => (
+        item.value.issuedByMemberId === tombstone.value.actorMemberId
+        && item.value.idempotencyKey === tombstone.value.idempotencyKey
+        && invitationEnvelopes.has(item.value.invitationId)
+      ))
+      : claimOverrides.some(item => (
+        item.value.managerMemberId === tombstone.value.actorMemberId
+        && item.value.idempotencyKey === tombstone.value.idempotencyKey
+        && claimOverrideEnvelopes.has(
+          `${item.value.transferId}:${item.value.memberId}:${item.value.claimGeneration}`,
+        )
+      ));
+    if (!members.has(tombstone.value.actorMemberId) || liveSecretRecord) {
+      throw invalidPayload('records');
+    }
   }
   for (const item of records) {
     if (item.kind === 'idempotency-result' && !members.has(item.value.memberId)) {
@@ -1707,6 +2558,21 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       const lifecycle = lifecycles.get(receipt.transferId);
       const terminalPrincipal = terminalPrincipals.get(identity);
       const lanToCloud = recovery?.value.sourceAuthority.kind === 'lan';
+      const redeemedOverride = claimOverrides.find(item => (
+        item.value.transferId === receipt.transferId
+        && item.value.memberId === receipt.memberId
+        && item.value.state === 'redeemed'
+        && item.value.claimSha256 === receipt.claimSha256
+        && item.value.redemptionReceiptId === receipt.receiptId
+      ));
+      const matchesSourceClaim = claim?.value.state === 'redeemed'
+        && claim.value.claimSha256 === receipt.claimSha256
+        && claim.value.checkpointSha256 === receipt.checkpointSha256
+        && claim.value.operationIntentId === receipt.operationIntentId
+        && claim.value.redemptionReceiptId === receipt.receiptId;
+      const matchesOverride = claim !== undefined
+        && redeemedOverride !== undefined
+        && claim.value.checkpointSha256 === receipt.checkpointSha256;
       if (
         recovery === undefined
         || lifecycle === undefined
@@ -1716,11 +2582,7 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
         || Date.parse(receipt.redeemedAt) > Date.parse(recovery.value.expiresAt)
         || (lanToCloud && (
           item.value.acknowledgedAt !== null
-          || claim === undefined
-          || claim.value.claimSha256 !== receipt.claimSha256
-          || claim.value.checkpointSha256 !== receipt.checkpointSha256
-          || claim.value.operationIntentId !== receipt.operationIntentId
-          || claim.value.redemptionReceiptId !== receipt.receiptId
+          || (!matchesSourceClaim && !matchesOverride)
         ))
         || (!lanToCloud && (
           item.value.acknowledgedAt === null
@@ -1973,6 +2835,29 @@ export function validateCollabProjectBackupCheckpointConsistency(
   const decodedRecords = decodeCollabProjectBackupCheckpointCoordinationNdjson(
     records.map(item => JSON.stringify(item)).join('\n') + '\n',
   );
+  const invitationEnvelopeIds = new Set(decodedRecords
+    .filter(item => item.kind === 'protected-invitation-envelope')
+    .map(item => item.recordId));
+  const claimOverrideEnvelopeIds = new Set(decodedRecords
+    .filter(item => item.kind === 'protected-claim-override-envelope')
+    .map(item => item.recordId));
+  const captureTime = Date.parse(decodedManifest.createdAt);
+  if (decodedRecords.some(item => {
+    if (item.kind === 'secret-replay-tombstone') {
+      return Date.parse(item.value.expiredAt) > captureTime;
+    }
+    if (item.kind === 'project-invitation') {
+      return captureTime < Date.parse(item.value.createdAt)
+        || (captureTime < Date.parse(item.value.secretReplayExpiresAt))
+          !== invitationEnvelopeIds.has(item.recordId);
+    }
+    if (item.kind === 'transferred-membership-claim-override') {
+      return captureTime < Date.parse(item.value.createdAt)
+        || (captureTime < Date.parse(item.value.secretReplayExpiresAt))
+          !== claimOverrideEnvelopeIds.has(item.recordId);
+    }
+    return false;
+  })) throw invalidPayload('records');
   if (decodedRecords.some(item => {
     switch (item.kind) {
       case 'lifecycle-journal': return item.value.operationId === decodedManifest.operationId;

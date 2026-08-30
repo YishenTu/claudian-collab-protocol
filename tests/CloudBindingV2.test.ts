@@ -52,7 +52,7 @@ describe('Cloud binding v2', () => {
     expect(COLLAB_PROTOCOL_VERSION).toBe(6);
     expect(COLLAB_CLOUD_BINDING_VERSION).toBe(2);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
-    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(33);
+    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(51);
     expect(COLLAB_CLOUD_JSON_OPERATIONS).toEqual([
       'getProjectSnapshot',
       ...Object.keys(COLLAB_CONTROL_OPERATION_CODECS),
@@ -128,6 +128,7 @@ describe('Cloud binding v2', () => {
     expect(decoded.capabilities).toEqual(capabilities);
     expect(collabCloudCapabilitySupported(decoded, 'project-snapshot')).toBe(true);
     expect(collabCloudCapabilitySupported(decoded, 'tickets')).toBe(true);
+    expect(collabCloudCapabilitySupported(decoded, 'cloud-project-membership')).toBe(true);
     expect(COLLAB_CLOUD_BINDING_LIMITS.maxEventReplay).toBe(500);
   });
 

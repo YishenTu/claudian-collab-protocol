@@ -74,6 +74,7 @@ const BACKUP_CONTINUITY_RECORD_KINDS = Object.freeze([
   'transferred-membership-claim-override',
   'protected-claim-override-envelope',
   'manager-responsibility-offer',
+  'membership-idempotency-tombstone',
   'project-membership-recovery',
   'secret-replay-tombstone',
 ] as const);
@@ -348,6 +349,25 @@ export type CollabProjectBackupManagerResponsibilityOfferRecord =
     readonly terminalAt: CollabIsoTimestamp | null;
   }>;
 
+type CollabProjectBackupCompactedMembershipOperation = Extract<
+  CollabProjectMembershipOperation,
+  | 'createManagerResponsibilityOffer'
+  | 'acknowledgeManagerResponsibility'
+  | 'declineManagerResponsibility'
+  | 'cancelManagerResponsibilityOffer'
+  | 'promoteManager'
+>;
+
+export type CollabProjectBackupMembershipIdempotencyTombstoneRecord =
+  BackupRecordBase<'membership-idempotency-tombstone', {
+    readonly actorMemberId: CollabMemberId;
+    readonly compactedAt: CollabIsoTimestamp;
+    readonly idempotencyKey: string;
+    readonly operation: CollabProjectBackupCompactedMembershipOperation;
+    readonly projectId: CollabProjectId;
+    readonly requestFingerprint: string;
+  }>;
+
 export type CollabProjectBackupMembershipRecoveryRecord =
   BackupRecordBase<'project-membership-recovery', {
     readonly expectedMainOid: string;
@@ -391,6 +411,7 @@ export type CollabProjectBackupContinuityRecord =
   | CollabProjectBackupTransferredMembershipClaimOverrideRecord
   | CollabProjectBackupProtectedClaimOverrideEnvelopeRecord
   | CollabProjectBackupManagerResponsibilityOfferRecord
+  | CollabProjectBackupMembershipIdempotencyTombstoneRecord
   | CollabProjectBackupMembershipRecoveryRecord
   | CollabProjectBackupSecretReplayTombstoneRecord;
 
@@ -1741,6 +1762,46 @@ function membershipRecoveryRecord(
   };
 }
 
+function membershipIdempotencyTombstoneRecord(
+  source: UnknownRecord,
+  recordId: string,
+  revision: number,
+): CollabProjectBackupMembershipIdempotencyTombstoneRecord {
+  const value = exactRecord(source.value, 'value', [
+    'actorMemberId',
+    'compactedAt',
+    'idempotencyKey',
+    'operation',
+    'projectId',
+    'requestFingerprint',
+  ]);
+  const actorMemberId = token(value, 'actorMemberId', isCollabMemberId);
+  const idempotencyKey = token(value, 'idempotencyKey');
+  const operation = literal(value, 'operation', [
+    'createManagerResponsibilityOffer',
+    'acknowledgeManagerResponsibility',
+    'declineManagerResponsibility',
+    'cancelManagerResponsibilityOffer',
+    'promoteManager',
+  ] as const);
+  if (recordId !== `${operation}:${actorMemberId}:${idempotencyKey}`) {
+    throw invalidPayload('recordId');
+  }
+  return {
+    kind: 'membership-idempotency-tombstone',
+    recordId,
+    revision,
+    value: {
+      actorMemberId,
+      compactedAt: timestamp(value, 'compactedAt'),
+      idempotencyKey,
+      operation,
+      projectId: token(value, 'projectId', isCollabProjectId),
+      requestFingerprint: sha256(value, 'requestFingerprint'),
+    },
+  };
+}
+
 function secretReplayTombstoneRecord(
   source: UnknownRecord,
   recordId: string,
@@ -1808,6 +1869,8 @@ function decodeContinuityRecord(
       return protectedClaimOverrideEnvelopeRecord(source, recordId, revision);
     case 'manager-responsibility-offer':
       return managerResponsibilityOfferRecord(source, recordId, revision);
+    case 'membership-idempotency-tombstone':
+      return membershipIdempotencyTombstoneRecord(source, recordId, revision);
     case 'project-membership-recovery':
       return membershipRecoveryRecord(source, recordId, revision);
     case 'secret-replay-tombstone':
@@ -2021,6 +2084,11 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
   const managerOffers = records.filter(
     (item): item is CollabProjectBackupManagerResponsibilityOfferRecord => (
       item.kind === 'manager-responsibility-offer'
+    ),
+  );
+  const membershipIdempotencyTombstones = records.filter(
+    (item): item is CollabProjectBackupMembershipIdempotencyTombstoneRecord => (
+      item.kind === 'membership-idempotency-tombstone'
     ),
   );
   const membershipRecoveries = new Map(records
@@ -2503,6 +2571,22 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       throw invalidPayload('records');
     }
   }
+  for (const tombstone of membershipIdempotencyTombstones) {
+    const exactResult = records.some(item => (
+      item.kind === 'idempotency-result'
+      && item.value.memberId === tombstone.value.actorMemberId
+      && item.value.operation === tombstone.value.operation
+      && item.value.idempotencyKey === tombstone.value.idempotencyKey
+    ));
+    const exactOffer = tombstone.value.operation === 'createManagerResponsibilityOffer'
+      && managerOffers.some(item => (
+        item.value.sourceManagerMemberId === tombstone.value.actorMemberId
+        && item.value.idempotencyKey === tombstone.value.idempotencyKey
+      ));
+    if (!members.has(tombstone.value.actorMemberId) || exactResult || exactOffer) {
+      throw invalidPayload('records');
+    }
+  }
   for (const item of records) {
     if (item.kind === 'idempotency-result' && !members.has(item.value.memberId)) {
       throw invalidPayload('records');
@@ -2845,6 +2929,9 @@ export function validateCollabProjectBackupCheckpointConsistency(
   if (decodedRecords.some(item => {
     if (item.kind === 'secret-replay-tombstone') {
       return Date.parse(item.value.expiredAt) > captureTime;
+    }
+    if (item.kind === 'membership-idempotency-tombstone') {
+      return Date.parse(item.value.compactedAt) > captureTime;
     }
     if (item.kind === 'project-invitation') {
       return captureTime < Date.parse(item.value.createdAt)

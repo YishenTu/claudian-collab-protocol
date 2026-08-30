@@ -37,7 +37,7 @@ fixed part of the detail so the whole detail stays within
 has one compatible final-serialization limit. Request comments and Ticket
 accepted relations also have shared authority-enforced total limits; summary
 counts let complete consumers reject partial or cross-snapshot assembly.
-Cloud binding v2 adds the authority-neutral Project snapshot, nine redacted durable event kinds plus `snapshot.required`, eighteen capability tokens, the exact ordinary Project/Git route catalog, bounded authority-transfer artifact routes, and six private-development bootstrap bindings. Wire v6 includes the additive Cloud Project-membership operation family while preserving every existing operation contract. The shared checkpoint container is exactly `checkpoint.json`, `coordination.ndjson`, and `repository.bundle`; authority-transfer and export retain wire-visible coordination format v1, while the pre-production offline backup contract is directly replaced by format v3. Backup v3 adds Project invitations, protected invitation and transferred-claim override envelopes, manager-responsibility offers, membership recovery journals, and secret-replay tombstones to the existing continuity records. Portable profiles exclude engine storage, paths, credentials, tokens, private keys, and operational refs, and backups exclude plaintext invitation secrets, raw claims, and private keys. Domain-separated canonical UTF-8 inputs define protected-claim AEAD associated data and bind every declared field of transferred-membership redemption receipts and authority-relinquishment proofs before consumer-owned Ed25519 signing or verification. Existing LAN v9 Join, invitation, endpoint, membership lifecycle, Host-transfer, snapshot, event, and HTTP bindings remain independently application-owned; the dedicated LAN authority-transfer transport binds these shared payloads without creating another shared operation registry.
+Cloud binding v2 adds the authority-neutral Project snapshot, nine redacted durable event kinds plus `snapshot.required`, eighteen capability tokens, the exact ordinary Project/Git route catalog, bounded authority-transfer artifact routes, and six private-development bootstrap bindings. Wire v6 includes the additive Cloud Project-membership operation family while preserving every existing operation contract. The shared checkpoint container is exactly `checkpoint.json`, `coordination.ndjson`, and `repository.bundle`; authority-transfer and export retain wire-visible coordination format v1, while the pre-production offline backup contract is directly replaced by format v3. Backup v3 adds Project invitations, protected invitation and transferred-claim override envelopes, manager-responsibility offers, membership recovery journals, secret-replay tombstones, and compacted Manager-responsibility idempotency tombstones to the existing continuity records. Portable profiles exclude engine storage, paths, credentials, tokens, private keys, and operational refs, and backups exclude plaintext invitation secrets, raw claims, and private keys. Domain-separated canonical UTF-8 inputs define protected-claim AEAD associated data and bind every declared field of transferred-membership redemption receipts and authority-relinquishment proofs before consumer-owned Ed25519 signing or verification. Existing LAN v9 Join, invitation, endpoint, membership lifecycle, Host-transfer, snapshot, event, and HTTP bindings remain independently application-owned; the dedicated LAN authority-transfer transport binds these shared payloads without creating another shared operation registry.
 
 ## Usage
 
@@ -62,7 +62,7 @@ part of the public surface.
 
 Package SemVer, canonical wire version, and Cloud binding version are independent concepts.
 
-- **Package version** (this `package.json`): `3.3.0`. Patch releases preserve
+- **Package version** (this `package.json`): `3.3.1`. Patch releases preserve
   every existing public declaration and runtime behavior baseline. Minor
   releases may add backward-compatible API. Removing or changing an existing
   declaration, export, runtime behavior, codec, error, limit, ref rule,
@@ -74,7 +74,10 @@ Package SemVer, canonical wire version, and Cloud binding version are independen
   operation family and capability tokens and directly replaces the pre-production
   offline backup contract with coordination format v3, without changing
   authority-transfer/export format v1, canonical wire v6, or Cloud binding v2.
-  Backup v2 has no supported decoder or migration path. The package version never
+  Backup v2 has no supported decoder or migration path. The pre-production
+  `3.3.1` corrective patch adds only the missing backup-v3 tombstone needed to
+  compact terminal Manager-responsibility offers and exact responses without
+  allowing their idempotency identities to be reused. The package version never
   signals wire compatibility by itself.
 - **Wire version** (`COLLAB_PROTOCOL_VERSION`): currently `6`. The supported
   range is exactly `[6, 6]`. This is independent from Cloud binding version `2` and the existing application

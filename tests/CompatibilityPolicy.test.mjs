@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   mkdirSync,
   mkdtempSync,
@@ -19,6 +20,7 @@ import {
   proveCompatibleCloudCapabilityAdditionSources,
   proveCompatibleControlOperationAdditionSources,
   proveCompatibleControlOperationModuleAdditionSources,
+  proveCompatiblePrelaunchProjectBackupPatchSources,
   proveCompatiblePrelaunchProjectBackupReplacementSources,
   proveCompatibleProjectBackupModuleAdditionSources,
   publicDeclarationsFromDist,
@@ -670,6 +672,120 @@ test('proves only an explicitly staged pre-production backup replacement', () =>
     currentModuleSource: currentModuleSource.replace(
       "'pre-production-replaceable'",
       "'stable'",
+    ),
+    stageExport: 'backupCompatibilityStage',
+  }), null);
+});
+
+test('permits only the approved 3.3.1 pre-production backup defect patch', () => {
+  const checkpointSource = 'export const portableVersion = 1;\n';
+  const indexSource = `
+    export { existing } from './Existing';
+    export { backupCompatibilityStage, decodeBackup } from './CollabProjectBackupCheckpoint';
+  `;
+  const baseModuleSource = `
+    export const backupCompatibilityStage = 'pre-production-replaceable';
+    export type BackupRecord = { readonly kind: 'offer' };
+    export function decodeBackup(value) {
+      if (value.kind !== 'offer') throw new Error('invalid');
+      return value;
+    }
+  `;
+  const currentModuleSource = `
+    export const backupCompatibilityStage = 'pre-production-replaceable';
+    export type BackupRecord =
+      | { readonly kind: 'offer' }
+      | { readonly kind: 'membership-idempotency-tombstone' };
+    export function decodeBackup(value) {
+      if (!['offer', 'membership-idempotency-tombstone'].includes(value.kind)) {
+        throw new Error('invalid');
+      }
+      return value;
+    }
+  `;
+  const baseDeclarations = [{
+    declaration: "export type BackupRecord = { readonly kind: 'offer'; };",
+    exportName: 'BackupRecord',
+    source: './CollabProjectBackupCheckpoint',
+  }];
+  const currentDeclarations = [{
+    declaration: "export type BackupRecord = { readonly kind: 'offer'; } | { readonly kind: 'membership-idempotency-tombstone'; };",
+    exportName: 'BackupRecord',
+    source: './CollabProjectBackupCheckpoint',
+  }];
+  const baseRuntime = [{
+    path: 'src/CollabProjectBackupCheckpoint.ts',
+    sha256: digestTypeScriptBehavior(baseModuleSource),
+  }];
+  const currentRuntime = [{
+    path: 'src/CollabProjectBackupCheckpoint.ts',
+    sha256: digestTypeScriptBehavior(currentModuleSource),
+  }];
+  const base = snapshot({
+    declarations: baseDeclarations,
+    packageVersion: '3.3.0',
+    runtime: baseRuntime,
+    runtimeExports: ['backupCompatibilityStage', 'decodeBackup'],
+  });
+  const current = snapshot({
+    declarations: currentDeclarations,
+    packageVersion: '3.3.1',
+    runtime: currentRuntime,
+    runtimeExports: ['backupCompatibilityStage', 'decodeBackup'],
+  });
+  const sourceSha256 = source => createHash('sha256').update(source, 'utf8').digest('hex');
+  const proof = proveCompatiblePrelaunchProjectBackupPatchSources({
+    approvedBaseSourceSha256: sourceSha256(baseModuleSource),
+    approvedCurrentSourceSha256: sourceSha256(currentModuleSource),
+    baseCheckpointSource: checkpointSource,
+    baseIndexSource: indexSource,
+    baseModuleSource,
+    currentCheckpointSource: checkpointSource,
+    currentIndexSource: indexSource,
+    currentModuleSource,
+    stageExport: 'backupCompatibilityStage',
+  });
+
+  assert.ok(proof);
+  assert.equal(classifyPackageApiChange(base, current, proof), 'none');
+  assert.doesNotThrow(() => assertVersionedContractChange(base, current, proof));
+  assert.throws(
+    () => assertVersionedContractChange(base, current),
+    /package major release/u,
+  );
+  assert.equal(proveCompatiblePrelaunchProjectBackupPatchSources({
+    approvedBaseSourceSha256: sourceSha256(baseModuleSource),
+    approvedCurrentSourceSha256: sourceSha256(currentModuleSource),
+    baseCheckpointSource: checkpointSource,
+    baseIndexSource: indexSource,
+    baseModuleSource,
+    currentCheckpointSource: checkpointSource,
+    currentIndexSource: `${indexSource}\nexport const unrelated = true;`,
+    currentModuleSource,
+    stageExport: 'backupCompatibilityStage',
+  }), null);
+  assert.equal(proveCompatiblePrelaunchProjectBackupPatchSources({
+    approvedBaseSourceSha256: sourceSha256(baseModuleSource),
+    approvedCurrentSourceSha256: sourceSha256(currentModuleSource),
+    baseCheckpointSource: checkpointSource,
+    baseIndexSource: indexSource,
+    baseModuleSource,
+    currentCheckpointSource: checkpointSource,
+    currentIndexSource: indexSource,
+    currentModuleSource: `${currentModuleSource}\nexport const unrelated = true;`,
+    stageExport: 'backupCompatibilityStage',
+  }), null);
+  assert.equal(proveCompatiblePrelaunchProjectBackupPatchSources({
+    approvedBaseSourceSha256: sourceSha256(baseModuleSource),
+    approvedCurrentSourceSha256: sourceSha256(currentModuleSource),
+    baseCheckpointSource: checkpointSource,
+    baseIndexSource: indexSource,
+    baseModuleSource,
+    currentCheckpointSource: checkpointSource,
+    currentIndexSource: indexSource,
+    currentModuleSource: currentModuleSource.replace(
+      "export type BackupRecord =",
+      "export type Unrelated = true;\n    export type BackupRecord =",
     ),
     stageExport: 'backupCompatibilityStage',
   }), null);

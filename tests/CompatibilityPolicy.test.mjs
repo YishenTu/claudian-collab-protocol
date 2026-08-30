@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import {
   mkdirSync,
   mkdtempSync,
@@ -17,12 +16,6 @@ import {
   classifyPackageApiChange,
   digestTypeScriptBehavior,
   generateContractSnapshot,
-  proveCompatibleCloudCapabilityAdditionSources,
-  proveCompatibleControlOperationAdditionSources,
-  proveCompatibleControlOperationModuleAdditionSources,
-  proveCompatiblePrelaunchProjectBackupPatchSources,
-  proveCompatiblePrelaunchProjectBackupReplacementSources,
-  proveCompatibleProjectBackupModuleAdditionSources,
   publicDeclarationsFromDist,
 } from '../scripts/check-compatibility.mjs';
 
@@ -67,7 +60,7 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-test('accepts the 1.0 graduation when the legacy contract is unchanged', () => {
+test('rejects the consumed legacy snapshot schema', () => {
   const legacy = {
     schemaVersion: 1,
     packageVersion: '0.4.0',
@@ -75,7 +68,10 @@ test('accepts the 1.0 graduation when the legacy contract is unchanged', () => {
     contract: { operations: ['getRequest'] },
   };
 
-  assert.doesNotThrow(() => assertVersionedContractChange(legacy, snapshot()));
+  assert.throws(
+    () => assertVersionedContractChange(legacy, snapshot()),
+    /Unsupported current snapshot schema/u,
+  );
 });
 
 test('accepts patch releases only when the public package API is unchanged', () => {
@@ -147,7 +143,16 @@ test('requires independent wire and Cloud binding version increases', () => {
     })),
     /wire protocol version must increase/u,
   );
+  assert.throws(
+    () => assertVersionedContractChange(snapshot(), snapshot({
+      packageVersion: '2.0.0',
+      protocolVersion: 5,
+      wire: { operations: ['getRequest', 'createTicket'] },
+    })),
+    /Cloud binding version must increase/u,
+  );
   assert.doesNotThrow(() => assertVersionedContractChange(snapshot(), snapshot({
+    bindingVersion: 2,
     packageVersion: '2.0.0',
     protocolVersion: 5,
     wire: { operations: ['getRequest', 'createTicket'] },
@@ -164,631 +169,6 @@ test('requires independent wire and Cloud binding version increases', () => {
     bindingVersion: 2,
     packageVersion: '2.0.0',
   })));
-});
-
-test('keeps a proven additive offline backup module outside wire v6', () => {
-  const baseIndexSource = `
-    export { existing } from './Existing';
-    export type { Existing } from './Existing';
-  `;
-  const currentIndexSource = `${baseIndexSource}
-    export { backupVersion, decodeBackup } from './CollabProjectBackupCheckpoint';
-    export type { BackupRecord } from './CollabProjectBackupCheckpoint';
-  `;
-  const backupModuleSource = `
-    export const backupVersion = 2;
-    export function decodeBackup(value) { return value; }
-    export interface BackupRecord { readonly value: string; }
-  `;
-  const baseDeclarations = [
-    { declaration: 'export declare const existing = 1;', exportName: 'existing', source: './Existing' },
-    { declaration: 'export interface Existing {}', exportName: 'Existing', source: './Existing' },
-  ];
-  const addedDeclarations = [
-    { declaration: 'export interface BackupRecord { readonly value: string; }', exportName: 'BackupRecord', source: './CollabProjectBackupCheckpoint' },
-    { declaration: 'export declare const backupVersion = 2;', exportName: 'backupVersion', source: './CollabProjectBackupCheckpoint' },
-    { declaration: 'export declare function decodeBackup(value: unknown): unknown;', exportName: 'decodeBackup', source: './CollabProjectBackupCheckpoint' },
-  ];
-  const baseRuntime = [
-    { path: 'src/Existing.ts', sha256: 'existing-runtime' },
-    { path: 'src/index.ts', sha256: digestTypeScriptBehavior(baseIndexSource) },
-  ];
-  const currentRuntime = [
-    ...baseRuntime.filter(item => item.path !== 'src/index.ts'),
-    {
-      path: 'src/CollabProjectBackupCheckpoint.ts',
-      sha256: digestTypeScriptBehavior(backupModuleSource),
-    },
-    { path: 'src/index.ts', sha256: digestTypeScriptBehavior(currentIndexSource) },
-  ];
-  const wire = {
-    declarations: baseDeclarations,
-    operations: ['getRequest'],
-    runtimeBehaviorDigests: [{ path: 'src/Existing.ts', sha256: 'existing-runtime' }],
-  };
-  const base = snapshot({
-    declarations: baseDeclarations,
-    runtime: baseRuntime,
-    runtimeExports: ['existing'],
-    wire,
-  });
-  const current = snapshot({
-    declarations: [...baseDeclarations, ...addedDeclarations],
-    packageVersion: '1.1.0',
-    runtime: currentRuntime,
-    runtimeExports: ['backupVersion', 'decodeBackup', 'existing'],
-    wire,
-  });
-  const proof = proveCompatibleProjectBackupModuleAdditionSources({
-    baseCheckpointSource: 'export const format = 1;\n',
-    baseIndexSource,
-    currentCheckpointSource: 'export const format = 1;\n',
-    currentIndexSource,
-    currentModuleSource: backupModuleSource,
-  });
-  assert.ok(proof);
-  assert.equal(classifyPackageApiChange(base, current, proof), 'minor');
-  assert.doesNotThrow(() => assertVersionedContractChange(base, current, proof));
-  assert.equal(base.contract.wire, current.contract.wire);
-
-  assert.equal(proveCompatibleProjectBackupModuleAdditionSources({
-    baseCheckpointSource: 'export const format = 1;\n',
-    baseIndexSource,
-    currentCheckpointSource: 'export const format = 1;\n',
-    currentIndexSource: currentIndexSource.replace(
-      "export { existing } from './Existing';",
-      "export { changed } from './Existing';",
-    ),
-    currentModuleSource: backupModuleSource,
-  }), null);
-  assert.equal(proveCompatibleProjectBackupModuleAdditionSources({
-    baseCheckpointSource: 'export const format = 1;\n',
-    baseIndexSource,
-    currentCheckpointSource: 'export const format = 1; // changed bytes\n',
-    currentIndexSource,
-    currentModuleSource: backupModuleSource,
-  }), null);
-});
-
-test('keeps a proven additive control operation on the current wire version', () => {
-  const baseAuthoritySource = `
-    export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze([
-      'getProjectAuthorityTransfer',
-    ] as const);
-    export interface CollabAuthorityTransferOperationMap {
-      readonly getProjectAuthorityTransfer: ExistingOperation;
-    }
-    function decodeExisting(value) { return value; }
-    export function decodeCollabAuthorityTransferOperationRequest(operation, value) {
-      const decoded = (() => {
-        switch (operation) {
-          case 'getProjectAuthorityTransfer': return decodeExisting(value);
-        }
-      })();
-      return decoded;
-    }
-    export function decodeCollabAuthorityTransferOperationResponse(operation, value) {
-      switch (operation) {
-        case 'getProjectAuthorityTransfer': return decodeExisting(value);
-      }
-    }
-  `;
-  const currentAuthoritySource = `
-    export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze([
-      'getProjectAuthorityTransfer',
-      'getAuthorityTransferReceiptVerifier',
-    ] as const);
-    export interface CollabAuthorityTransferOperationMap {
-      readonly getProjectAuthorityTransfer: ExistingOperation;
-      readonly getAuthorityTransferReceiptVerifier: VerifierOperation;
-    }
-    export interface VerifierResponse { readonly receiptPublicKey: string; }
-    function decodeExisting(value) { return value; }
-    function decodeVerifier(value) { return value; }
-    export function decodeCollabAuthorityTransferOperationRequest(operation, value) {
-      const decoded = (() => {
-        switch (operation) {
-          case 'getProjectAuthorityTransfer': return decodeExisting(value);
-          case 'getAuthorityTransferReceiptVerifier': return decodeExisting(value);
-        }
-      })();
-      return decoded;
-    }
-    export function decodeCollabAuthorityTransferOperationResponse(operation, value) {
-      switch (operation) {
-        case 'getProjectAuthorityTransfer': return decodeExisting(value);
-        case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);
-      }
-    }
-  `;
-  const baseCodecsSource = `
-    export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
-      getProjectAuthorityTransfer: codec('getProjectAuthorityTransfer'),
-    });
-  `;
-  const currentCodecsSource = `
-    export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
-      getProjectAuthorityTransfer: codec('getProjectAuthorityTransfer'),
-      getAuthorityTransferReceiptVerifier: codec('getAuthorityTransferReceiptVerifier'),
-    });
-  `;
-  const baseDeclarations = [
-    {
-      declaration: 'export declare const COLLAB_AUTHORITY_TRANSFER_OPERATIONS: readonly ["getProjectAuthorityTransfer"];',
-      exportName: 'COLLAB_AUTHORITY_TRANSFER_OPERATIONS',
-      source: './CollabAuthorityTransfer',
-    },
-    {
-      declaration: 'export interface CollabAuthorityTransferOperationMap { readonly getProjectAuthorityTransfer: { readonly request: ExistingRequest; readonly response: ExistingResponse; }; }',
-      exportName: 'CollabAuthorityTransferOperationMap',
-      source: './CollabAuthorityTransfer',
-    },
-    {
-      declaration: 'export declare const COLLAB_CONTROL_OPERATION_CODECS: Readonly<{ readonly getProjectAuthorityTransfer: ExistingCodec; }>;',
-      exportName: 'COLLAB_CONTROL_OPERATION_CODECS',
-      source: './CollabControlOperationCodecs',
-    },
-  ];
-  const currentDeclarations = [
-    {
-      declaration: 'export declare const COLLAB_AUTHORITY_TRANSFER_OPERATIONS: readonly ["getProjectAuthorityTransfer", "getAuthorityTransferReceiptVerifier"];',
-      exportName: 'COLLAB_AUTHORITY_TRANSFER_OPERATIONS',
-      source: './CollabAuthorityTransfer',
-    },
-    {
-      declaration: 'export interface CollabAuthorityTransferOperationMap { readonly getProjectAuthorityTransfer: { readonly request: ExistingRequest; readonly response: ExistingResponse; }; readonly getAuthorityTransferReceiptVerifier: { readonly request: VerifierRequest; readonly response: VerifierResponse; }; }',
-      exportName: 'CollabAuthorityTransferOperationMap',
-      source: './CollabAuthorityTransfer',
-    },
-    {
-      declaration: 'export declare const COLLAB_CONTROL_OPERATION_CODECS: Readonly<{ readonly getProjectAuthorityTransfer: ExistingCodec; readonly getAuthorityTransferReceiptVerifier: VerifierCodec; }>;',
-      exportName: 'COLLAB_CONTROL_OPERATION_CODECS',
-      source: './CollabControlOperationCodecs',
-    },
-    {
-      declaration: 'export interface VerifierResponse { readonly receiptPublicKey: string; }',
-      exportName: 'VerifierResponse',
-      source: './CollabAuthorityTransfer',
-    },
-  ];
-  const baseRuntime = [
-    {
-      path: 'src/CollabAuthorityTransfer.ts',
-      sha256: digestTypeScriptBehavior(baseAuthoritySource),
-    },
-    {
-      path: 'src/CollabControlOperationCodecs.ts',
-      sha256: digestTypeScriptBehavior(baseCodecsSource),
-    },
-  ];
-  const currentRuntime = [
-    {
-      path: 'src/CollabAuthorityTransfer.ts',
-      sha256: digestTypeScriptBehavior(currentAuthoritySource),
-    },
-    {
-      path: 'src/CollabControlOperationCodecs.ts',
-      sha256: digestTypeScriptBehavior(currentCodecsSource),
-    },
-  ];
-  const baseWire = {
-    declarations: baseDeclarations,
-    operations: ['getProjectAuthorityTransfer'],
-    runtimeBehaviorDigests: baseRuntime,
-  };
-  const currentWire = {
-    declarations: currentDeclarations,
-    operations: [
-      'getAuthorityTransferReceiptVerifier',
-      'getProjectAuthorityTransfer',
-    ],
-    runtimeBehaviorDigests: currentRuntime,
-  };
-  const base = snapshot({
-    declarations: baseDeclarations,
-    runtime: baseRuntime,
-    wire: baseWire,
-  });
-  const current = snapshot({
-    declarations: currentDeclarations,
-    packageVersion: '1.1.0',
-    runtime: currentRuntime,
-    wire: currentWire,
-  });
-
-  const proof = proveCompatibleControlOperationAdditionSources({
-    addedOperations: ['getAuthorityTransferReceiptVerifier'],
-    baseAuthoritySource,
-    baseCodecsSource,
-    currentAuthoritySource,
-    currentCodecsSource,
-  });
-  assert.ok(proof);
-  assert.equal(classifyPackageApiChange(base, current, proof), 'minor');
-  assert.throws(
-    () => assertVersionedContractChange(base, current),
-    /package major release|wire protocol version must increase/u,
-  );
-  assert.doesNotThrow(() => assertVersionedContractChange(base, current, proof));
-
-  const breakingProof = proveCompatibleControlOperationAdditionSources({
-    addedOperations: ['getAuthorityTransferReceiptVerifier'],
-    baseAuthoritySource,
-    baseCodecsSource,
-    currentAuthoritySource: currentAuthoritySource.replace(
-      'function decodeExisting(value) { return value; }',
-      'function decodeExisting(value) { return { changed: value }; }',
-    ),
-    currentCodecsSource,
-  });
-  assert.equal(breakingProof, null);
-  assert.throws(
-    () => assertVersionedContractChange(base, current, breakingProof),
-    /package major release|wire protocol version must increase/u,
-  );
-
-  const sideEffectProof = proveCompatibleControlOperationAdditionSources({
-    addedOperations: ['getAuthorityTransferReceiptVerifier'],
-    baseAuthoritySource,
-    baseCodecsSource,
-    currentAuthoritySource,
-    currentCodecsSource: currentCodecsSource.replace(
-      "codec('getAuthorityTransferReceiptVerifier')",
-      "(globalThis.compromised = true, codec('getAuthorityTransferReceiptVerifier'))",
-    ),
-  });
-  assert.equal(sideEffectProof, null);
-
-  const sideEffectDispatchProof = proveCompatibleControlOperationAdditionSources({
-    addedOperations: ['getAuthorityTransferReceiptVerifier'],
-    baseAuthoritySource,
-    baseCodecsSource,
-    currentAuthoritySource: currentAuthoritySource.replace(
-      "case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);",
-      "case 'getAuthorityTransferReceiptVerifier': globalThis.compromised = true; return decodeVerifier(value);",
-    ),
-    currentCodecsSource,
-  });
-  assert.equal(sideEffectDispatchProof, null);
-
-  const missingDispatchProof = proveCompatibleControlOperationAdditionSources({
-    addedOperations: ['getAuthorityTransferReceiptVerifier'],
-    baseAuthoritySource,
-    baseCodecsSource,
-    currentAuthoritySource: currentAuthoritySource.replace(
-      "case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);",
-      '',
-    ),
-    currentCodecsSource,
-  });
-  assert.equal(missingDispatchProof, null);
-
-  const duplicateDispatchProof = proveCompatibleControlOperationAdditionSources({
-    addedOperations: ['getAuthorityTransferReceiptVerifier'],
-    baseAuthoritySource,
-    baseCodecsSource,
-    currentAuthoritySource: currentAuthoritySource.replace(
-      "case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);",
-      "case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value); case 'getAuthorityTransferReceiptVerifier': return decodeVerifier(value);",
-    ),
-    currentCodecsSource,
-  });
-  assert.equal(duplicateDispatchProof, null);
-
-  const changedExistingOperation = cloneJson(current);
-  changedExistingOperation.contract.publicDeclarations[1].declaration =
-    changedExistingOperation.contract.publicDeclarations[1].declaration
-      .replace('readonly response: ExistingResponse', 'readonly response: ChangedResponse');
-  changedExistingOperation.contract.wire.declarations[1].declaration =
-    changedExistingOperation.contract.publicDeclarations[1].declaration;
-  assert.throws(
-    () => assertVersionedContractChange(base, changedExistingOperation),
-    /package major release|wire protocol version must increase/u,
-  );
-});
-
-test('proves an additive control-operation module without relocating existing operations', () => {
-  const baseProtocolSource = `
-    import type { ExistingOperationMap } from './Existing';
-    export interface CollabControlOperationMap extends ExistingOperationMap {
-      readonly getRequest: ExistingOperation;
-    }
-  `;
-  const currentProtocolSource = `
-    import type { ExistingOperationMap } from './Existing';
-    import type { AddedOperationMap } from './AddedOperations';
-    export interface CollabControlOperationMap
-      extends ExistingOperationMap, AddedOperationMap {
-      readonly getRequest: ExistingOperation;
-    }
-  `;
-  const baseCodecsSource = `
-    import { existingCodec } from './Existing';
-    export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
-      getRequest: existingCodec,
-    });
-  `;
-  const currentCodecsSource = `
-    import { ADDED_OPERATION_CODECS } from './AddedOperations';
-    import { existingCodec } from './Existing';
-    export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
-      getRequest: existingCodec,
-      ...ADDED_OPERATION_CODECS,
-    });
-  `;
-  const baseIndexSource = `export { existingCodec } from './Existing';\n`;
-  const currentIndexSource = `${baseIndexSource}
-    export { ADDED_OPERATION_CODECS, ADDED_OPERATIONS } from './AddedOperations';
-    export type { AddedOperationMap } from './AddedOperations';
-  `;
-  const currentModuleSource = `
-    function codec(decodeRequest, decodeResponse) {
-      return Object.freeze({ decodeRequest, decodeResponse });
-    }
-    function decodeCreateRequest(value) { return value; }
-    function decodeCreateResponse(value) { return value; }
-    export const ADDED_OPERATIONS = Object.freeze(['createCloudProject'] as const);
-    export interface AddedOperationMap {
-      readonly createCloudProject: AddedOperation;
-    }
-    export const ADDED_OPERATION_CODECS = Object.freeze({
-      createCloudProject: codec(decodeCreateRequest, decodeCreateResponse),
-    });
-  `;
-
-  const proof = proveCompatibleControlOperationModuleAdditionSources({
-    addedCodecsExport: 'ADDED_OPERATION_CODECS',
-    addedMapExport: 'AddedOperationMap',
-    addedModule: './AddedOperations',
-    addedOperations: ['createCloudProject'],
-    addedOperationsExport: 'ADDED_OPERATIONS',
-    baseCodecsSource,
-    baseIndexSource,
-    baseProtocolSource,
-    currentCodecsSource,
-    currentIndexSource,
-    currentModuleSource,
-    currentProtocolSource,
-  });
-  assert.ok(proof);
-
-  assert.equal(proveCompatibleControlOperationModuleAdditionSources({
-    addedCodecsExport: 'ADDED_OPERATION_CODECS',
-    addedMapExport: 'AddedOperationMap',
-    addedModule: './AddedOperations',
-    addedOperations: ['createCloudProject'],
-    addedOperationsExport: 'ADDED_OPERATIONS',
-    baseCodecsSource,
-    baseIndexSource,
-    baseProtocolSource,
-    currentCodecsSource: currentCodecsSource.replace(
-      'getRequest: existingCodec,',
-      'getRequest: changedCodec,',
-    ),
-    currentIndexSource,
-    currentModuleSource,
-    currentProtocolSource,
-  }), null);
-
-  for (const unsafeModuleSource of [
-    `import { sideEffect } from './Unexpected';\n${currentModuleSource}`,
-    `${currentModuleSource}\nconst hidden = sideEffect();`,
-    currentModuleSource.replace(
-      'codec(decodeCreateRequest, decodeCreateResponse)',
-      'sideEffect()',
-    ),
-  ]) {
-    assert.equal(proveCompatibleControlOperationModuleAdditionSources({
-      addedCodecsExport: 'ADDED_OPERATION_CODECS',
-      addedMapExport: 'AddedOperationMap',
-      addedModule: './AddedOperations',
-      addedOperations: ['createCloudProject'],
-      addedOperationsExport: 'ADDED_OPERATIONS',
-      baseCodecsSource,
-      baseIndexSource,
-      baseProtocolSource,
-      currentCodecsSource,
-      currentIndexSource,
-      currentModuleSource: unsafeModuleSource,
-      currentProtocolSource,
-    }), null);
-  }
-});
-
-test('proves additive Cloud capability tokens without changing binding behavior', () => {
-  const baseSource = `
-    export const COLLAB_CLOUD_CAPABILITIES = Object.freeze([
-      'requests',
-    ] as const);
-    export function matchRoute(value) { return value; }
-  `;
-  const currentSource = `
-    export const COLLAB_CLOUD_CAPABILITIES = Object.freeze([
-      'requests',
-      'cloud-project-create',
-    ] as const);
-    export function matchRoute(value) { return value; }
-  `;
-  const proof = proveCompatibleCloudCapabilityAdditionSources({
-    addedCapabilities: ['cloud-project-create'],
-    baseSource,
-    currentSource,
-  });
-  assert.ok(proof);
-  assert.equal(proveCompatibleCloudCapabilityAdditionSources({
-    addedCapabilities: ['cloud-project-create'],
-    baseSource,
-    currentSource: currentSource.replace('return value;', 'return { changed: value };'),
-  }), null);
-});
-
-test('proves only an explicitly staged pre-production backup replacement', () => {
-  const baseIndexSource = `
-    export { existing } from './Existing';
-    export { backupVersion, decodeBackupV2 } from './CollabProjectBackupCheckpoint';
-  `;
-  const currentIndexSource = `
-    export { existing } from './Existing';
-    export {
-      backupCompatibilityStage,
-      backupVersion,
-      decodeBackupV3,
-    } from './CollabProjectBackupCheckpoint';
-  `;
-  const baseModuleSource = `
-    export const backupVersion = 2;
-    export function decodeBackupV2(value) { return value; }
-  `;
-  const currentModuleSource = `
-    export const backupCompatibilityStage = 'pre-production-replaceable';
-    export const backupVersion = 3;
-    export function decodeBackupV3(value) { return value; }
-  `;
-  const proof = proveCompatiblePrelaunchProjectBackupReplacementSources({
-    baseCheckpointSource: 'export const portableVersion = 1;\n',
-    baseIndexSource,
-    baseModuleSource,
-    currentCheckpointSource: 'export const portableVersion = 1;\n',
-    currentIndexSource,
-    currentModuleSource,
-    stageExport: 'backupCompatibilityStage',
-  });
-  assert.ok(proof);
-  assert.equal(proveCompatiblePrelaunchProjectBackupReplacementSources({
-    baseCheckpointSource: 'export const portableVersion = 1;\n',
-    baseIndexSource,
-    baseModuleSource,
-    currentCheckpointSource: 'export const portableVersion = 1; // changed\n',
-    currentIndexSource,
-    currentModuleSource,
-    stageExport: 'backupCompatibilityStage',
-  }), null);
-  assert.equal(proveCompatiblePrelaunchProjectBackupReplacementSources({
-    baseCheckpointSource: 'export const portableVersion = 1;\n',
-    baseIndexSource,
-    baseModuleSource,
-    currentCheckpointSource: 'export const portableVersion = 1;\n',
-    currentIndexSource,
-    currentModuleSource: currentModuleSource.replace(
-      "'pre-production-replaceable'",
-      "'stable'",
-    ),
-    stageExport: 'backupCompatibilityStage',
-  }), null);
-});
-
-test('permits only the approved 3.3.1 pre-production backup defect patch', () => {
-  const checkpointSource = 'export const portableVersion = 1;\n';
-  const indexSource = `
-    export { existing } from './Existing';
-    export { backupCompatibilityStage, decodeBackup } from './CollabProjectBackupCheckpoint';
-  `;
-  const baseModuleSource = `
-    export const backupCompatibilityStage = 'pre-production-replaceable';
-    export type BackupRecord = { readonly kind: 'offer' };
-    export function decodeBackup(value) {
-      if (value.kind !== 'offer') throw new Error('invalid');
-      return value;
-    }
-  `;
-  const currentModuleSource = `
-    export const backupCompatibilityStage = 'pre-production-replaceable';
-    export type BackupRecord =
-      | { readonly kind: 'offer' }
-      | { readonly kind: 'membership-idempotency-tombstone' };
-    export function decodeBackup(value) {
-      if (!['offer', 'membership-idempotency-tombstone'].includes(value.kind)) {
-        throw new Error('invalid');
-      }
-      return value;
-    }
-  `;
-  const baseDeclarations = [{
-    declaration: "export type BackupRecord = { readonly kind: 'offer'; };",
-    exportName: 'BackupRecord',
-    source: './CollabProjectBackupCheckpoint',
-  }];
-  const currentDeclarations = [{
-    declaration: "export type BackupRecord = { readonly kind: 'offer'; } | { readonly kind: 'membership-idempotency-tombstone'; };",
-    exportName: 'BackupRecord',
-    source: './CollabProjectBackupCheckpoint',
-  }];
-  const baseRuntime = [{
-    path: 'src/CollabProjectBackupCheckpoint.ts',
-    sha256: digestTypeScriptBehavior(baseModuleSource),
-  }];
-  const currentRuntime = [{
-    path: 'src/CollabProjectBackupCheckpoint.ts',
-    sha256: digestTypeScriptBehavior(currentModuleSource),
-  }];
-  const base = snapshot({
-    declarations: baseDeclarations,
-    packageVersion: '3.3.0',
-    runtime: baseRuntime,
-    runtimeExports: ['backupCompatibilityStage', 'decodeBackup'],
-  });
-  const current = snapshot({
-    declarations: currentDeclarations,
-    packageVersion: '3.3.1',
-    runtime: currentRuntime,
-    runtimeExports: ['backupCompatibilityStage', 'decodeBackup'],
-  });
-  const sourceSha256 = source => createHash('sha256').update(source, 'utf8').digest('hex');
-  const proof = proveCompatiblePrelaunchProjectBackupPatchSources({
-    approvedBaseSourceSha256: sourceSha256(baseModuleSource),
-    approvedCurrentSourceSha256: sourceSha256(currentModuleSource),
-    baseCheckpointSource: checkpointSource,
-    baseIndexSource: indexSource,
-    baseModuleSource,
-    currentCheckpointSource: checkpointSource,
-    currentIndexSource: indexSource,
-    currentModuleSource,
-    stageExport: 'backupCompatibilityStage',
-  });
-
-  assert.ok(proof);
-  assert.equal(classifyPackageApiChange(base, current, proof), 'none');
-  assert.doesNotThrow(() => assertVersionedContractChange(base, current, proof));
-  assert.throws(
-    () => assertVersionedContractChange(base, current),
-    /package major release/u,
-  );
-  assert.equal(proveCompatiblePrelaunchProjectBackupPatchSources({
-    approvedBaseSourceSha256: sourceSha256(baseModuleSource),
-    approvedCurrentSourceSha256: sourceSha256(currentModuleSource),
-    baseCheckpointSource: checkpointSource,
-    baseIndexSource: indexSource,
-    baseModuleSource,
-    currentCheckpointSource: checkpointSource,
-    currentIndexSource: `${indexSource}\nexport const unrelated = true;`,
-    currentModuleSource,
-    stageExport: 'backupCompatibilityStage',
-  }), null);
-  assert.equal(proveCompatiblePrelaunchProjectBackupPatchSources({
-    approvedBaseSourceSha256: sourceSha256(baseModuleSource),
-    approvedCurrentSourceSha256: sourceSha256(currentModuleSource),
-    baseCheckpointSource: checkpointSource,
-    baseIndexSource: indexSource,
-    baseModuleSource,
-    currentCheckpointSource: checkpointSource,
-    currentIndexSource: indexSource,
-    currentModuleSource: `${currentModuleSource}\nexport const unrelated = true;`,
-    stageExport: 'backupCompatibilityStage',
-  }), null);
-  assert.equal(proveCompatiblePrelaunchProjectBackupPatchSources({
-    approvedBaseSourceSha256: sourceSha256(baseModuleSource),
-    approvedCurrentSourceSha256: sourceSha256(currentModuleSource),
-    baseCheckpointSource: checkpointSource,
-    baseIndexSource: indexSource,
-    baseModuleSource,
-    currentCheckpointSource: checkpointSource,
-    currentIndexSource: indexSource,
-    currentModuleSource: currentModuleSource.replace(
-      "export type BackupRecord =",
-      "export type Unrelated = true;\n    export type BackupRecord =",
-    ),
-    stageExport: 'backupCompatibilityStage',
-  }), null);
 });
 
 test('fails closed on unknown snapshot structure', () => {
@@ -844,6 +224,48 @@ test('the wire baseline classifies every lifecycle contract module', () => {
     assert.equal(declarationSources.has(`./${moduleName}`), true);
     assert.equal(runtimePaths.has(`src/${moduleName}.ts`), true);
   }
+});
+
+test('the Cloud binding baseline includes every derived route and limit input', () => {
+  const generated = generateContractSnapshot();
+  assert.equal(generated.contract.cloudBinding.jsonOperations[0], 'getProjectSnapshot');
+  assert.deepEqual(
+    [...generated.contract.cloudBinding.jsonOperations].sort(),
+    ['getProjectSnapshot', ...generated.contract.wire.operations].sort(),
+  );
+  assert.deepEqual(generated.contract.cloudBinding.checkpointArtifacts, [
+    'checkpoint.json',
+    'coordination.ndjson',
+    'repository.bundle',
+  ]);
+  assert.deepEqual(generated.contract.cloudBinding.limits, {
+    bootstrapAttemptTtlMs: 86_400_000,
+    defaultMaxConcurrentBootstrapUploads: 1,
+    eventHeartbeatMs: 30_000,
+    eventMissedHeartbeatLimit: 2,
+    maxCloudOpenRequests: 100,
+    maxCloudProjectMembers: 100,
+    maxCloudSnapshotUtf8Bytes: 458_752,
+    maxCloudTicketHighlights: 5,
+    maxCheckpointCoordinationBytes: 268_435_456,
+    maxCheckpointManifestUtf8Bytes: 65_536,
+    maxCheckpointRepositoryBundleBytes: 1_073_741_824,
+    maxCheckpointStagingBytes: 2_147_483_648,
+    maxDevelopmentBootstrapGitBundleBytes: 1_073_741_824,
+    maxDevelopmentBootstrapManifestUtf8Bytes: 65_536,
+    maxDevelopmentBootstrapReportUtf8Bytes: 65_536,
+    maxDevelopmentBootstrapRepositoryBytes: 1_073_741_824,
+    maxDevelopmentBootstrapStagingBytes: 2_147_483_648,
+    maxEventReplay: 500,
+    maxGitReceivePackBytes: 268_435_456,
+    maxJsonPayloadUtf8Bytes: 524_288,
+    maxRepositoryBytes: 1_073_741_824,
+    maxUploadsPerBootstrapAttempt: 1,
+    minEventRetentionDays: 30,
+    minRetainedEventCount: 10_000,
+    uploadDeadlineMs: 900_000,
+    uploadIdleTimeoutMs: 30_000,
+  });
 });
 
 test('each lifecycle module declaration and behavior requires a wire-version bump', () => {

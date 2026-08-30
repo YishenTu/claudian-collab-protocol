@@ -224,9 +224,11 @@ function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number
 describe('Canonical Collab wire protocol v6 lifecycle integration', () => {
   it('publishes the exact lifecycle operation inventory through one registry', () => {
     expect(COLLAB_PROTOCOL_VERSION).toBe(6);
-    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS).slice(-LIFECYCLE_OPERATIONS.length))
+    const operations = Object.keys(COLLAB_CONTROL_OPERATION_CODECS);
+    const lifecycleStart = operations.indexOf(LIFECYCLE_OPERATIONS[0]);
+    expect(operations.slice(lifecycleStart, lifecycleStart + LIFECYCLE_OPERATIONS.length))
       .toEqual(LIFECYCLE_OPERATIONS);
-    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(33);
+    expect(operations).toHaveLength(51);
   });
 
   it('strictly decodes every lifecycle request without accepting authority extensions', () => {

@@ -39,6 +39,7 @@ const WIRE_MODULES = new Set([
   './CollabControlOperationCodecs',
   './CollabError',
   './CollabProtocol',
+  './CollabProjectMembership',
   './CollabProjectCheckpoint',
   './CollabProjectRetirement',
   './CollabRequestTicketRequestCodecs',
@@ -167,9 +168,23 @@ const ADDITIVE_CONTROL_RUNTIME_PATHS = new Set([
   'src/CollabControlOperationCodecs.ts',
 ]);
 const CONTROL_OPERATION_ADDITION_PROOF = Symbol('control-operation-addition-proof');
+const CONTROL_OPERATION_MODULE_ADDITION_PROOF = Symbol(
+  'control-operation-module-addition-proof',
+);
+const CLOUD_CAPABILITY_ADDITION_PROOF = Symbol('cloud-capability-addition-proof');
 const PROJECT_BACKUP_MODULE_ADDITION_PROOF = Symbol('project-backup-module-addition-proof');
+const PRELAUNCH_PROJECT_BACKUP_REPLACEMENT_PROOF = Symbol(
+  'prelaunch-project-backup-replacement-proof',
+);
+const STEP_12_PRELAUNCH_MINOR_PROOF = Symbol('step-12-prelaunch-minor-proof');
 const PROJECT_BACKUP_MODULE = './CollabProjectBackupCheckpoint';
 const PROJECT_BACKUP_MODULE_PATH = 'src/CollabProjectBackupCheckpoint.ts';
+const PROJECT_CHECKPOINT_MODULE_PATH = 'src/CollabProjectCheckpoint.ts';
+const PROJECT_MEMBERSHIP_MODULE = './CollabProjectMembership';
+const PROJECT_MEMBERSHIP_MODULE_PATH = 'src/CollabProjectMembership.ts';
+const CLOUD_BINDING_MODULE_PATH = 'src/CollabCloudBinding.ts';
+const CONTROL_CODECS_MODULE_PATH = 'src/CollabControlOperationCodecs.ts';
+const PROTOCOL_MODULE_PATH = 'src/CollabProtocol.ts';
 const INDEX_MODULE_PATH = 'src/index.ts';
 
 function entriesBy(entries, key, label) {
@@ -565,9 +580,510 @@ export function proveCompatibleControlOperationAdditionSources({
   });
 }
 
-function backupIndexExports(source) {
+function namedImport(statement) {
+  if (
+    !ts.isImportDeclaration(statement)
+    || !statement.importClause
+    || !statement.moduleSpecifier
+    || !ts.isStringLiteral(statement.moduleSpecifier)
+    || !statement.importClause.namedBindings
+    || !ts.isNamedImports(statement.importClause.namedBindings)
+  ) return null;
+  return Object.freeze({
+    module: statement.moduleSpecifier.text,
+    names: Object.freeze(statement.importClause.namedBindings.elements
+      .map(element => element.propertyName?.text ?? element.name.text)
+      .sort()),
+    typeOnly: statement.importClause.isTypeOnly,
+  });
+}
+
+function exactInterfaceModuleExtension(
+  baseStatement,
+  currentStatement,
+  addedMapExport,
+) {
+  if (
+    !ts.isInterfaceDeclaration(baseStatement)
+    || !ts.isInterfaceDeclaration(currentStatement)
+  ) return false;
+  const baseMembers = baseStatement.members.map(member => syntaxFingerprint(
+    member,
+    baseStatement.getSourceFile(),
+  ));
+  const currentMembers = currentStatement.members.map(member => syntaxFingerprint(
+    member,
+    currentStatement.getSourceFile(),
+  ));
+  if (stableJson(baseMembers) !== stableJson(currentMembers)) return false;
+  const heritageNames = statement => (statement.heritageClauses ?? [])
+    .flatMap(clause => clause.types.map(type => type.expression.getText(statement.getSourceFile())));
+  const baseHeritage = heritageNames(baseStatement);
+  const currentHeritage = heritageNames(currentStatement);
+  return currentHeritage.filter(name => name !== addedMapExport).length === baseHeritage.length
+    && stableJson(currentHeritage.filter(name => name !== addedMapExport))
+      === stableJson(baseHeritage)
+    && currentHeritage.filter(name => name === addedMapExport).length === 1;
+}
+
+function frozenObjectElements(statement, source) {
+  if (!ts.isVariableStatement(statement)) return null;
+  const [declaration] = statement.declarationList.declarations;
+  const initializer = declaration?.initializer;
+  let argument = ts.isCallExpression(initializer) ? initializer.arguments[0] : undefined;
+  while (argument && (ts.isAsExpression(argument) || ts.isSatisfiesExpression(argument))) {
+    argument = argument.expression;
+  }
+  if (
+    !initializer
+    || !ts.isCallExpression(initializer)
+    || initializer.arguments.length !== 1
+    || initializer.expression.getText(source) !== 'Object.freeze'
+    || !argument
+    || !ts.isObjectLiteralExpression(argument)
+  ) return null;
+  return argument.properties;
+}
+
+function exactCodecRegistryModuleSpread(
+  baseStatement,
+  currentStatement,
+  baseSource,
+  currentSource,
+  addedCodecsExport,
+) {
+  const baseElements = frozenObjectElements(baseStatement, baseSource);
+  const currentElements = frozenObjectElements(currentStatement, currentSource);
+  if (baseElements === null || currentElements === null) return false;
+  const baseProperties = baseElements.map(element => syntaxFingerprint(element, baseSource));
+  const retainedProperties = [];
+  let spreadCount = 0;
+  for (const element of currentElements) {
+    if (ts.isSpreadAssignment(element) && element.expression.getText(currentSource) === addedCodecsExport) {
+      spreadCount += 1;
+    } else {
+      retainedProperties.push(syntaxFingerprint(element, currentSource));
+    }
+  }
+  return spreadCount === 1 && stableJson(retainedProperties) === stableJson(baseProperties);
+}
+
+function compatibleProtocolModuleSourceAddition({
+  addedMapExport,
+  addedModule,
+  baseProtocolSource,
+  currentProtocolSource,
+}) {
+  const baseSource = sourceFile(baseProtocolSource, 'base-protocol.ts');
+  const currentSource = sourceFile(currentProtocolSource, 'current-protocol.ts');
+  if (baseSource === null || currentSource === null) return false;
+  const base = statementMap(baseSource);
+  const current = statementMap(currentSource);
+  if (base === null || current === null) return false;
+  const addedImports = currentSource.statements.filter(statement => {
+    const imported = namedImport(statement);
+    return imported?.module === addedModule;
+  });
+  if (
+    addedImports.length !== 1
+    || stableJson(namedImport(addedImports[0])) !== stableJson({
+      module: addedModule,
+      names: [addedMapExport],
+      typeOnly: true,
+    })
+  ) return false;
+  const controlMap = 'declaration:CollabControlOperationMap';
+  for (const [identity, baseStatement] of base) {
+    const currentStatement = current.get(identity);
+    if (currentStatement === undefined) return false;
+    if (identity === controlMap) {
+      if (!exactInterfaceModuleExtension(baseStatement, currentStatement, addedMapExport)) {
+        return false;
+      }
+    } else if (
+      syntaxFingerprint(baseStatement, baseSource)
+      !== syntaxFingerprint(currentStatement, currentSource)
+    ) return false;
+  }
+  return [...current.entries()].every(([identity, statement]) => (
+    base.has(identity) || addedImports.includes(statement)
+  ));
+}
+
+function compatibleCodecModuleSourceAddition({
+  addedCodecsExport,
+  addedModule,
+  baseCodecsSource,
+  currentCodecsSource,
+}) {
+  const baseSource = sourceFile(baseCodecsSource, 'base-codecs.ts');
+  const currentSource = sourceFile(currentCodecsSource, 'current-codecs.ts');
+  if (baseSource === null || currentSource === null) return false;
+  const base = statementMap(baseSource);
+  const current = statementMap(currentSource);
+  if (base === null || current === null) return false;
+  const addedImports = currentSource.statements.filter(statement => {
+    const imported = namedImport(statement);
+    return imported?.module === addedModule;
+  });
+  if (
+    addedImports.length !== 1
+    || stableJson(namedImport(addedImports[0])) !== stableJson({
+      module: addedModule,
+      names: [addedCodecsExport],
+      typeOnly: false,
+    })
+  ) return false;
+  const registry = 'declaration:COLLAB_CONTROL_OPERATION_CODECS';
+  for (const [identity, baseStatement] of base) {
+    const currentStatement = current.get(identity);
+    if (currentStatement === undefined) return false;
+    if (identity === registry) {
+      if (!exactCodecRegistryModuleSpread(
+        baseStatement,
+        currentStatement,
+        baseSource,
+        currentSource,
+        addedCodecsExport,
+      )) return false;
+    } else if (
+      syntaxFingerprint(baseStatement, baseSource)
+      !== syntaxFingerprint(currentStatement, currentSource)
+    ) return false;
+  }
+  return [...current.entries()].every(([identity, statement]) => (
+    base.has(identity) || addedImports.includes(statement)
+  ));
+}
+
+function compatibleIndexModuleExports({
+  addedModule,
+  additionalChangedModules = [],
+  baseIndexSource,
+  currentIndexSource,
+  requiredExports,
+}) {
+  const baseSource = sourceFile(baseIndexSource, 'base-index.ts');
+  const currentSource = sourceFile(currentIndexSource, 'current-index.ts');
+  if (baseSource === null || currentSource === null) return false;
+  const addedStatements = currentSource.statements.filter(statement => (
+    ts.isExportDeclaration(statement)
+    && statement.moduleSpecifier
+    && ts.isStringLiteral(statement.moduleSpecifier)
+    && statement.moduleSpecifier.text === addedModule
+  ));
+  const names = [];
+  const runtimeNames = [];
+  for (const statement of addedStatements) {
+    if (!statement.exportClause || !ts.isNamedExports(statement.exportClause)) return false;
+    for (const element of statement.exportClause.elements) {
+      if (element.propertyName) return false;
+      names.push(element.name.text);
+      if (!statement.isTypeOnly && !element.isTypeOnly) runtimeNames.push(element.name.text);
+    }
+  }
+  const ignoredModules = new Set(additionalChangedModules);
+  const retained = (source, added = []) => source.statements.filter(statement => {
+    if (added.includes(statement)) return false;
+    return !(
+      ts.isExportDeclaration(statement)
+      && statement.moduleSpecifier
+      && ts.isStringLiteral(statement.moduleSpecifier)
+      && ignoredModules.has(statement.moduleSpecifier.text)
+    );
+  }).map(statement => syntaxFingerprint(statement, source));
+  if (
+    addedStatements.length === 0
+    || [...requiredExports].some(name => !names.includes(name))
+    || new Set(names).size !== names.length
+    || stableJson(retained(currentSource, addedStatements))
+      !== stableJson(retained(baseSource))
+  ) return null;
+  return Object.freeze({
+    exportedNames: Object.freeze(names.sort()),
+    runtimeNames: Object.freeze(runtimeNames.sort()),
+  });
+}
+
+function compatibleAddedOperationModule({
+  addedCodecsExport,
+  addedMapExport,
+  addedOperations,
+  addedOperationsExport,
+  allowedValueImportModules,
+  currentModuleSource,
+  exportedNames,
+  runtimeExportNames,
+}) {
+  const source = sourceFile(currentModuleSource, 'added-operations.ts');
+  if (source === null) return false;
+  const statements = statementMap(source);
+  if (statements === null) return false;
+  const operationStatement = statements.get(`declaration:${addedOperationsExport}`);
+  const mapStatement = statements.get(`declaration:${addedMapExport}`);
+  const codecsStatement = statements.get(`declaration:${addedCodecsExport}`);
+  const operationValues = variableArrayStrings(operationStatement);
+  const codecMembers = variableObjectMembers(codecsStatement, source);
+  const exportedNameSet = new Set(exportedNames);
+  const runtimeExportNameSet = new Set(runtimeExportNames);
+  const allowedImports = new Set(allowedValueImportModules);
+  if (
+    !operationStatement
+    || !mapStatement
+    || !codecsStatement
+    || operationValues === null
+    || codecMembers === null
+    || !ts.isInterfaceDeclaration(mapStatement)
+  ) return false;
+  const mapMembers = mapStatement.members.map(member => (
+    ts.isPropertySignature(member)
+    && member.name
+    && (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name))
+      ? member.name.text
+      : null
+  ));
+  const codecFactory = statements.get('declaration:codec');
+  const safeCodecFactory = (() => {
+    if (
+      !codecFactory
+      || !ts.isFunctionDeclaration(codecFactory)
+      || codecFactory.parameters.length !== 2
+      || codecFactory.parameters.some(parameter => (
+        !ts.isIdentifier(parameter.name) || parameter.initializer !== undefined
+      ))
+      || codecFactory.body?.statements.length !== 1
+    ) return false;
+    const [only] = codecFactory.body.statements;
+    const returned = ts.isReturnStatement(only) ? only.expression : undefined;
+    const object = returned && ts.isCallExpression(returned)
+      && returned.expression.getText(source) === 'Object.freeze'
+      && returned.arguments.length === 1
+      && ts.isObjectLiteralExpression(returned.arguments[0])
+      ? returned.arguments[0]
+      : undefined;
+    if (!object || object.properties.length !== 2) return false;
+    const properties = new Map(object.properties.map(property => {
+      if (ts.isShorthandPropertyAssignment(property)) {
+        return [property.name.text, (
+          property.name.text === 'decodeRequest' || property.name.text === 'decodeResponse'
+        )];
+      }
+      if (
+        ts.isPropertyAssignment(property)
+        && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
+      ) {
+        return [property.name.text, ts.isArrowFunction(property.initializer)];
+      }
+      return ['', false];
+    }));
+    return properties.size === 2
+      && properties.get('decodeRequest') === true
+      && properties.get('decodeResponse') === true;
+  })();
+  const safeCodecInitializers = codecMembers !== null && [...codecMembers.values()].every(item => {
+    const initializer = item.property.initializer;
+    return ts.isCallExpression(initializer)
+      && !initializer.typeArguments?.length
+      && ts.isIdentifier(initializer.expression)
+      && initializer.expression.text === 'codec'
+      && initializer.arguments.length === 2
+      && initializer.arguments.every(argument => ts.isIdentifier(argument));
+  });
+  function safeConstantExpression(expression) {
+    while (ts.isAsExpression(expression) || ts.isSatisfiesExpression(expression)) {
+      expression = expression.expression;
+    }
+    if (
+      ts.isStringLiteral(expression)
+      || ts.isNumericLiteral(expression)
+      || expression.kind === ts.SyntaxKind.TrueKeyword
+      || expression.kind === ts.SyntaxKind.FalseKeyword
+      || expression.kind === ts.SyntaxKind.NullKeyword
+    ) return true;
+    if (ts.isPrefixUnaryExpression(expression)) {
+      return (expression.operator === ts.SyntaxKind.MinusToken
+        || expression.operator === ts.SyntaxKind.PlusToken)
+        && safeConstantExpression(expression.operand);
+    }
+    if (ts.isArrayLiteralExpression(expression)) {
+      return expression.elements.every(element => safeConstantExpression(element));
+    }
+    if (ts.isObjectLiteralExpression(expression)) {
+      return expression.properties.every(property => (
+        ts.isPropertyAssignment(property)
+        && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
+        && safeConstantExpression(property.initializer)
+      ));
+    }
+    return ts.isCallExpression(expression)
+      && expression.expression.getText(source) === 'Object.freeze'
+      && expression.arguments.length === 1
+      && safeConstantExpression(expression.arguments[0]);
+  }
+  const safeTopLevel = source.statements.every(statement => {
+    if (ts.isImportDeclaration(statement)) {
+      const imported = namedImport(statement);
+      return imported !== null
+        && /^\.\/[A-Za-z][A-Za-z0-9]*$/u.test(imported.module)
+        && (imported.typeOnly || allowedImports.has(imported.module));
+    }
+    if (
+      ts.isInterfaceDeclaration(statement)
+      || ts.isTypeAliasDeclaration(statement)
+      || ts.isFunctionDeclaration(statement)
+    ) return true;
+    if (!ts.isVariableStatement(statement)) return false;
+    const [name] = declaredNames(statement);
+    if (
+      declaredNames(statement).length !== 1
+      || !hasModifier(statement, ts.SyntaxKind.ExportKeyword)
+      || !runtimeExportNameSet.has(name)
+    ) return false;
+    if (name === addedOperationsExport) return operationValues !== null;
+    if (name === addedCodecsExport) return safeCodecInitializers;
+    const [declaration] = statement.declarationList.declarations;
+    return declaration.initializer !== undefined
+      && safeConstantExpression(declaration.initializer);
+  });
+  return !mapMembers.includes(null)
+    && safeCodecFactory
+    && safeCodecInitializers
+    && safeTopLevel
+    && exactSortedStrings(exportedNameSet, exportedModuleDeclarations(currentModuleSource) ?? [])
+    && stableJson([...operationValues].sort()) === stableJson([...addedOperations].sort())
+    && stableJson([...codecMembers.keys()].sort()) === stableJson([...addedOperations].sort())
+    && stableJson([...mapMembers].sort()) === stableJson([...addedOperations].sort());
+}
+
+export function proveCompatibleControlOperationModuleAdditionSources({
+  addedCodecsExport,
+  addedMapExport,
+  addedModule,
+  addedOperations,
+  addedOperationsExport,
+  additionalChangedModules = [],
+  allowedValueImportModules = [],
+  baseCodecsSource,
+  baseIndexSource,
+  baseProtocolSource,
+  currentCodecsSource,
+  currentIndexSource,
+  currentModuleSource,
+  currentProtocolSource,
+}) {
+  const operations = new Set(addedOperations);
+  const requiredExports = new Set([
+    addedCodecsExport,
+    addedMapExport,
+    addedOperationsExport,
+  ]);
+  const indexExports = compatibleIndexModuleExports({
+    addedModule,
+    additionalChangedModules,
+    baseIndexSource,
+    currentIndexSource,
+    requiredExports,
+  });
+  const moduleDeclarations = exportedModuleDeclarations(currentModuleSource);
+  if (
+    operations.size === 0
+    || [...operations].some(operation => !/^[A-Za-z][A-Za-z0-9]*$/u.test(operation))
+    || !/^\.\/[A-Za-z][A-Za-z0-9]*$/u.test(addedModule)
+    || !compatibleProtocolModuleSourceAddition({
+      addedMapExport,
+      addedModule,
+      baseProtocolSource,
+      currentProtocolSource,
+    })
+    || !compatibleCodecModuleSourceAddition({
+      addedCodecsExport,
+      addedModule,
+      baseCodecsSource,
+      currentCodecsSource,
+    })
+    || indexExports === null
+    || moduleDeclarations === null
+    || indexExports.exportedNames.some(name => !moduleDeclarations.has(name))
+    || !compatibleAddedOperationModule({
+      addedCodecsExport,
+      addedMapExport,
+      addedOperations: operations,
+      addedOperationsExport,
+      allowedValueImportModules,
+      currentModuleSource,
+      exportedNames: indexExports.exportedNames,
+      runtimeExportNames: indexExports.runtimeNames,
+    })
+  ) return null;
+  return Object.freeze({
+    [CONTROL_OPERATION_MODULE_ADDITION_PROOF]: true,
+    addedExports: indexExports.exportedNames,
+    addedModule,
+    addedOperations: Object.freeze([...operations].sort()),
+    addedRuntimeExports: indexExports.runtimeNames,
+    runtimeDigests: Object.freeze({
+      baseCodecs: digestTypeScriptBehavior(baseCodecsSource),
+      baseIndex: digestTypeScriptBehavior(baseIndexSource),
+      baseProtocol: digestTypeScriptBehavior(baseProtocolSource),
+      currentCodecs: digestTypeScriptBehavior(currentCodecsSource),
+      currentIndex: digestTypeScriptBehavior(currentIndexSource),
+      currentModule: digestTypeScriptBehavior(currentModuleSource),
+      currentProtocol: digestTypeScriptBehavior(currentProtocolSource),
+    }),
+  });
+}
+
+export function proveCompatibleCloudCapabilityAdditionSources({
+  addedCapabilities,
+  baseSource,
+  currentSource,
+}) {
+  const capabilities = new Set(addedCapabilities);
+  const baseFile = sourceFile(baseSource, 'base-cloud-binding.ts');
+  const currentFile = sourceFile(currentSource, 'current-cloud-binding.ts');
+  if (
+    capabilities.size === 0
+    || [...capabilities].some(capability => !/^[a-z][a-z0-9-]{0,63}$/u.test(capability))
+    || baseFile === null
+    || currentFile === null
+  ) return null;
+  const capabilityDeclaration = 'declaration:COLLAB_CLOUD_CAPABILITIES';
+  const baseStatements = baseFile.statements.filter(
+    statement => statementIdentity(statement, baseFile) === capabilityDeclaration,
+  );
+  const currentStatements = currentFile.statements.filter(
+    statement => statementIdentity(statement, currentFile) === capabilityDeclaration,
+  );
+  if (baseStatements.length !== 1 || currentStatements.length !== 1) return null;
+  const baseValues = variableArrayStrings(baseStatements[0]);
+  const currentValues = variableArrayStrings(currentStatements[0]);
+  const retainedFingerprints = (source, omitted) => source.statements
+    .filter(statement => statement !== omitted)
+    .map(statement => syntaxFingerprint(statement, source));
+  if (
+    baseValues === null
+    || currentValues === null
+    || stableJson(currentValues.filter(value => !capabilities.has(value)))
+      !== stableJson(baseValues)
+    || stableJson(currentValues.filter(value => capabilities.has(value)).sort())
+      !== stableJson([...capabilities].sort())
+    || stableJson(retainedFingerprints(baseFile, baseStatements[0]))
+      !== stableJson(retainedFingerprints(currentFile, currentStatements[0]))
+  ) return null;
+  return Object.freeze({
+    [CLOUD_CAPABILITY_ADDITION_PROOF]: true,
+    addedCapabilities: Object.freeze([...capabilities].sort()),
+    runtimeDigests: Object.freeze({
+      base: digestTypeScriptBehavior(baseSource),
+      current: digestTypeScriptBehavior(currentSource),
+    }),
+  });
+}
+
+function backupIndexExports(source, ignoredModules = []) {
   const parsed = sourceFile(source, 'index.ts');
   if (parsed === null) return null;
+  const ignored = new Set(ignoredModules);
   const exportedNames = new Set();
   const runtimeNames = new Set();
   const retainedFingerprints = [];
@@ -576,11 +1092,15 @@ function backupIndexExports(source) {
       !ts.isExportDeclaration(statement)
       || !statement.moduleSpecifier
       || !ts.isStringLiteral(statement.moduleSpecifier)
-      || statement.moduleSpecifier.text !== PROJECT_BACKUP_MODULE
+      || (
+        statement.moduleSpecifier.text !== PROJECT_BACKUP_MODULE
+        && !ignored.has(statement.moduleSpecifier.text)
+      )
     ) {
       retainedFingerprints.push(syntaxFingerprint(statement, parsed));
       continue;
     }
+    if (statement.moduleSpecifier.text !== PROJECT_BACKUP_MODULE) continue;
     if (!statement.exportClause || !ts.isNamedExports(statement.exportClause)) return null;
     for (const element of statement.exportClause.elements) {
       if (element.propertyName || exportedNames.has(element.name.text)) return null;
@@ -642,6 +1162,65 @@ export function proveCompatibleProjectBackupModuleAdditionSources({
       currentModule: digestTypeScriptBehavior(currentModuleSource),
     }),
     runtimeNames: current.runtimeNames,
+  });
+}
+
+function exportedStringConstant(sourceText, exportName) {
+  const source = sourceFile(sourceText, 'backup-replacement.ts');
+  if (source === null) return null;
+  const statement = statementMap(source)?.get(`declaration:${exportName}`);
+  if (!statement || !ts.isVariableStatement(statement)) return null;
+  const [declaration] = statement.declarationList.declarations;
+  let initializer = declaration?.initializer;
+  while (initializer && ts.isAsExpression(initializer)) initializer = initializer.expression;
+  return initializer && ts.isStringLiteral(initializer) ? initializer.text : null;
+}
+
+export function proveCompatiblePrelaunchProjectBackupReplacementSources({
+  additionalChangedModules = [],
+  baseCheckpointSource,
+  baseIndexSource,
+  baseModuleSource,
+  currentCheckpointSource,
+  currentIndexSource,
+  currentModuleSource,
+  stageExport,
+}) {
+  const baseIndex = backupIndexExports(baseIndexSource, additionalChangedModules);
+  const currentIndex = backupIndexExports(currentIndexSource, additionalChangedModules);
+  const baseDeclarations = exportedModuleDeclarations(baseModuleSource);
+  const currentDeclarations = exportedModuleDeclarations(currentModuleSource);
+  if (
+    baseCheckpointSource !== currentCheckpointSource
+    || baseIndex === null
+    || currentIndex === null
+    || baseDeclarations === null
+    || currentDeclarations === null
+    || baseIndex.exportedNames.length === 0
+    || currentIndex.exportedNames.length === 0
+    || stableJson(baseIndex.retainedFingerprints) !== stableJson(currentIndex.retainedFingerprints)
+    || baseIndex.exportedNames.some(name => !baseDeclarations.has(name))
+    || currentIndex.exportedNames.some(name => !currentDeclarations.has(name))
+    || !currentIndex.exportedNames.includes(stageExport)
+    || exportedStringConstant(currentModuleSource, stageExport)
+      !== 'pre-production-replaceable'
+  ) return null;
+  return Object.freeze({
+    [PRELAUNCH_PROJECT_BACKUP_REPLACEMENT_PROOF]: true,
+    baseExportedNames: baseIndex.exportedNames,
+    checkpointSourceSha256: createHash('sha256')
+      .update(currentCheckpointSource, 'utf8')
+      .digest('hex'),
+    currentExportedNames: currentIndex.exportedNames,
+    baseRuntimeNames: baseIndex.runtimeNames,
+    currentRuntimeNames: currentIndex.runtimeNames,
+    runtimeDigests: Object.freeze({
+      baseIndex: digestTypeScriptBehavior(baseIndexSource),
+      baseModule: digestTypeScriptBehavior(baseModuleSource),
+      currentIndex: digestTypeScriptBehavior(currentIndexSource),
+      currentModule: digestTypeScriptBehavior(currentModuleSource),
+    }),
+    stageExport,
   });
 }
 
@@ -807,6 +1386,256 @@ function isCompatibleControlOperationAddition(base, current, proof) {
   );
 }
 
+function exactSortedStrings(left, right) {
+  return stableJson([...left].sort()) === stableJson([...right].sort());
+}
+
+function exactSnapshotEntriesOutside(baseEntries, currentEntries, key, allowed) {
+  const base = entriesBy(baseEntries, key, `${key} base entry`);
+  const current = entriesBy(currentEntries, key, `${key} current entry`);
+  for (const [name, entry] of base) {
+    if (!allowed.has(name) && stableJson(current.get(name)) !== stableJson(entry)) return false;
+  }
+  return [...current.keys()].every(name => base.has(name) || allowed.has(name));
+}
+
+function proofRuntimeDigest(snapshot, pathName) {
+  return entriesBy(
+    snapshot.contract.runtimeBehaviorDigests,
+    'path',
+    'runtime behavior digest',
+  ).get(pathName)?.sha256;
+}
+
+export function isCompatibleStep12PrelaunchMinor(base, current, proof) {
+  const combined = proof?.[STEP_12_PRELAUNCH_MINOR_PROOF];
+  const membership = combined?.membership;
+  const capability = combined?.capability;
+  const backup = combined?.backup;
+  if (
+    membership?.[CONTROL_OPERATION_MODULE_ADDITION_PROOF] !== true
+    || capability?.[CLOUD_CAPABILITY_ADDITION_PROOF] !== true
+    || backup?.[PRELAUNCH_PROJECT_BACKUP_REPLACEMENT_PROOF] !== true
+    || membership.addedModule !== PROJECT_MEMBERSHIP_MODULE
+    || current.protocolVersion !== base.protocolVersion
+    || current.cloudBindingVersion !== base.cloudBindingVersion
+  ) return false;
+
+  const baseDeclarations = entriesBy(
+    base.contract.publicDeclarations,
+    'exportName',
+    'public declaration',
+  );
+  const currentDeclarations = entriesBy(
+    current.contract.publicDeclarations,
+    'exportName',
+    'public declaration',
+  );
+  const backupBaseExports = new Set(backup.baseExportedNames);
+  const backupCurrentExports = new Set(backup.currentExportedNames);
+  const membershipExports = new Set(membership.addedExports);
+  const changedDeclarations = new Map([
+    ['COLLAB_CLOUD_CAPABILITIES', './CollabCloudBinding'],
+    ['COLLAB_CONTROL_OPERATION_CODECS', './CollabControlOperationCodecs'],
+    ['CollabControlOperationMap', './CollabProtocol'],
+  ]);
+  const expectedDeclarationNames = new Set([
+    ...[...baseDeclarations.keys()].filter(name => !backupBaseExports.has(name)),
+    ...backupCurrentExports,
+    ...membershipExports,
+  ]);
+  if (!exactSortedStrings(currentDeclarations.keys(), expectedDeclarationNames)) return false;
+  for (const [name, declaration] of baseDeclarations) {
+    if (backupBaseExports.has(name) || changedDeclarations.has(name)) continue;
+    if (stableJson(currentDeclarations.get(name)) !== stableJson(declaration)) return false;
+  }
+  for (const [name, source] of changedDeclarations) {
+    if (
+      baseDeclarations.get(name)?.source !== source
+      || currentDeclarations.get(name)?.source !== source
+    ) return false;
+  }
+  for (const name of membershipExports) {
+    if (currentDeclarations.get(name)?.source !== PROJECT_MEMBERSHIP_MODULE) return false;
+  }
+  for (const name of backupCurrentExports) {
+    if (currentDeclarations.get(name)?.source !== PROJECT_BACKUP_MODULE) return false;
+  }
+
+  const expectedRuntimeExports = new Set([
+    ...base.contract.publicRuntimeExports.filter(name => !backup.baseRuntimeNames.includes(name)),
+    ...backup.currentRuntimeNames,
+    ...membership.addedRuntimeExports,
+  ]);
+  if (!exactSortedStrings(current.contract.publicRuntimeExports, expectedRuntimeExports)) return false;
+
+  const allowedRuntimePaths = new Set([
+    CLOUD_BINDING_MODULE_PATH,
+    CONTROL_CODECS_MODULE_PATH,
+    INDEX_MODULE_PATH,
+    PROJECT_BACKUP_MODULE_PATH,
+    PROJECT_MEMBERSHIP_MODULE_PATH,
+    PROTOCOL_MODULE_PATH,
+  ]);
+  const baseRuntime = entriesBy(
+    base.contract.runtimeBehaviorDigests,
+    'path',
+    'runtime behavior digest',
+  );
+  const currentRuntime = entriesBy(
+    current.contract.runtimeBehaviorDigests,
+    'path',
+    'runtime behavior digest',
+  );
+  const expectedRuntimePaths = new Set([...baseRuntime.keys(), PROJECT_MEMBERSHIP_MODULE_PATH]);
+  if (!exactSortedStrings(currentRuntime.keys(), expectedRuntimePaths)) return false;
+  for (const [pathName, digest] of baseRuntime) {
+    if (
+      !allowedRuntimePaths.has(pathName)
+      && stableJson(currentRuntime.get(pathName)) !== stableJson(digest)
+    ) return false;
+  }
+  const requiredRuntimeDigests = [
+    [base, CLOUD_BINDING_MODULE_PATH, capability.runtimeDigests.base],
+    [current, CLOUD_BINDING_MODULE_PATH, capability.runtimeDigests.current],
+    [base, CONTROL_CODECS_MODULE_PATH, membership.runtimeDigests.baseCodecs],
+    [current, CONTROL_CODECS_MODULE_PATH, membership.runtimeDigests.currentCodecs],
+    [base, INDEX_MODULE_PATH, membership.runtimeDigests.baseIndex],
+    [current, INDEX_MODULE_PATH, membership.runtimeDigests.currentIndex],
+    [base, PROJECT_BACKUP_MODULE_PATH, backup.runtimeDigests.baseModule],
+    [current, PROJECT_BACKUP_MODULE_PATH, backup.runtimeDigests.currentModule],
+    [current, PROJECT_MEMBERSHIP_MODULE_PATH, membership.runtimeDigests.currentModule],
+    [base, PROTOCOL_MODULE_PATH, membership.runtimeDigests.baseProtocol],
+    [current, PROTOCOL_MODULE_PATH, membership.runtimeDigests.currentProtocol],
+  ];
+  if (requiredRuntimeDigests.some(
+    ([snapshot, pathName, expected]) => proofRuntimeDigest(snapshot, pathName) !== expected,
+  )) return false;
+  if (
+    backup.runtimeDigests.baseIndex !== membership.runtimeDigests.baseIndex
+    || backup.runtimeDigests.currentIndex !== membership.runtimeDigests.currentIndex
+  ) return false;
+
+  const baseWire = base.contract.wire;
+  const currentWire = current.contract.wire;
+  const addedOperations = new Set(membership.addedOperations);
+  if (
+    !exactSortedStrings(
+      currentWire.operations,
+      new Set([...baseWire.operations, ...addedOperations]),
+    )
+  ) return false;
+  for (const key of new Set([...Object.keys(baseWire), ...Object.keys(currentWire)])) {
+    if (['declarations', 'operations', 'runtimeBehaviorDigests'].includes(key)) continue;
+    if (stableJson(baseWire[key]) !== stableJson(currentWire[key])) return false;
+  }
+  const baseWireDeclarations = entriesBy(
+    baseWire.declarations,
+    'exportName',
+    'wire declaration',
+  );
+  const currentWireDeclarations = entriesBy(
+    currentWire.declarations,
+    'exportName',
+    'wire declaration',
+  );
+  const wireChangedDeclarations = new Set([
+    'COLLAB_CONTROL_OPERATION_CODECS',
+    'CollabControlOperationMap',
+  ]);
+  const expectedWireDeclarationNames = new Set([
+    ...baseWireDeclarations.keys(),
+    ...membershipExports,
+  ]);
+  if (!exactSortedStrings(currentWireDeclarations.keys(), expectedWireDeclarationNames)) return false;
+  for (const [name, declaration] of baseWireDeclarations) {
+    if (
+      !wireChangedDeclarations.has(name)
+      && stableJson(currentWireDeclarations.get(name)) !== stableJson(declaration)
+    ) return false;
+  }
+  for (const name of membershipExports) {
+    if (currentWireDeclarations.get(name)?.source !== PROJECT_MEMBERSHIP_MODULE) return false;
+  }
+  const baseWireRuntime = entriesBy(
+    baseWire.runtimeBehaviorDigests,
+    'path',
+    'wire runtime behavior digest',
+  );
+  const currentWireRuntime = entriesBy(
+    currentWire.runtimeBehaviorDigests,
+    'path',
+    'wire runtime behavior digest',
+  );
+  const expectedWireRuntimePaths = new Set([
+    ...baseWireRuntime.keys(),
+    PROJECT_MEMBERSHIP_MODULE_PATH,
+  ]);
+  if (!exactSortedStrings(currentWireRuntime.keys(), expectedWireRuntimePaths)) return false;
+  for (const [pathName, digest] of baseWireRuntime) {
+    if (
+      pathName !== CONTROL_CODECS_MODULE_PATH
+      && stableJson(currentWireRuntime.get(pathName)) !== stableJson(digest)
+    ) return false;
+  }
+  if (
+    baseWireRuntime.get(CONTROL_CODECS_MODULE_PATH)?.sha256
+      !== membership.runtimeDigests.baseCodecs
+    || currentWireRuntime.get(CONTROL_CODECS_MODULE_PATH)?.sha256
+      !== membership.runtimeDigests.currentCodecs
+    || currentWireRuntime.get(PROJECT_MEMBERSHIP_MODULE_PATH)?.sha256
+      !== membership.runtimeDigests.currentModule
+  ) return false;
+
+  const baseCloud = base.contract.cloudBinding;
+  const currentCloud = current.contract.cloudBinding;
+  const addedCapabilities = new Set(capability.addedCapabilities);
+  if (
+    stableJson(currentCloud.capabilities.filter(item => !addedCapabilities.has(item)))
+      !== stableJson(baseCloud.capabilities)
+    || !exactSortedStrings(
+      currentCloud.capabilities.filter(item => addedCapabilities.has(item)),
+      addedCapabilities,
+    )
+  ) return false;
+  for (const key of new Set([...Object.keys(baseCloud), ...Object.keys(currentCloud)])) {
+    if (['capabilities', 'declarations', 'runtimeBehaviorDigests'].includes(key)) continue;
+    if (stableJson(baseCloud[key]) !== stableJson(currentCloud[key])) return false;
+  }
+  const cloudDeclarationChange = new Set(['COLLAB_CLOUD_CAPABILITIES']);
+  if (!exactSnapshotEntriesOutside(
+    baseCloud.declarations,
+    currentCloud.declarations,
+    'exportName',
+    cloudDeclarationChange,
+  )) return false;
+  const currentCloudDeclarations = entriesBy(
+    currentCloud.declarations,
+    'exportName',
+    'Cloud binding declaration',
+  );
+  if (
+    currentCloudDeclarations.size !== baseCloud.declarations.length
+    || currentCloudDeclarations.get('COLLAB_CLOUD_CAPABILITIES')?.source
+      !== './CollabCloudBinding'
+  ) return false;
+  const cloudRuntimeChange = new Set([CLOUD_BINDING_MODULE_PATH]);
+  if (!exactSnapshotEntriesOutside(
+    baseCloud.runtimeBehaviorDigests,
+    currentCloud.runtimeBehaviorDigests,
+    'path',
+    cloudRuntimeChange,
+  )) return false;
+  const currentCloudRuntime = entriesBy(
+    currentCloud.runtimeBehaviorDigests,
+    'path',
+    'Cloud binding runtime behavior digest',
+  );
+  return currentCloudRuntime.size === baseCloud.runtimeBehaviorDigests.length
+    && currentCloudRuntime.get(CLOUD_BINDING_MODULE_PATH)?.sha256
+      === capability.runtimeDigests.current;
+}
+
 export function classifyPackageApiChange(base, current, proof = null) {
   validateCurrentSnapshot(base);
   validateCurrentSnapshot(current);
@@ -825,6 +1654,9 @@ export function classifyPackageApiChange(base, current, proof = null) {
     ),
   ]);
   if (classification === 'major' && isCompatibleControlOperationAddition(base, current, proof)) {
+    return 'minor';
+  }
+  if (classification === 'major' && isCompatibleStep12PrelaunchMinor(base, current, proof)) {
     return 'minor';
   }
   if (
@@ -873,15 +1705,18 @@ export function assertVersionedContractChange(base, current, proof = null) {
         : 'additive public API requires a package minor or major release');
     }
     const wireChanged = stableJson(base.contract.wire) !== stableJson(current.contract.wire);
+    const step12Compatible = isCompatibleStep12PrelaunchMinor(base, current, proof);
     if (
       wireChanged
       && !isCompatibleControlOperationAddition(base, current, proof)
+      && !step12Compatible
       && current.protocolVersion <= base.protocolVersion
     ) {
       failures.push('wire protocol version must increase for a wire contract change');
     }
     if (
       stableJson(base.contract.cloudBinding) !== stableJson(current.contract.cloudBinding)
+      && !step12Compatible
       && current.cloudBindingVersion <= base.cloudBindingVersion
     ) {
       failures.push('Cloud binding version must increase for a Cloud binding change');
@@ -1176,12 +2011,122 @@ function projectBackupModuleAdditionProof(baseSha, base, current) {
   });
 }
 
-function compatibleAdditionProof(baseSha, base, current) {
+function controlOperationModuleAdditionProof(baseSha, base, current) {
+  const basePaths = new Set(
+    base.contract?.runtimeBehaviorDigests?.map(item => item.path) ?? [],
+  );
+  const currentPaths = new Set(
+    current.contract?.runtimeBehaviorDigests?.map(item => item.path) ?? [],
+  );
+  const baseOperations = base.contract?.wire?.operations;
+  const currentOperations = current.contract?.wire?.operations;
+  if (
+    basePaths.has(PROJECT_MEMBERSHIP_MODULE_PATH)
+    || !currentPaths.has(PROJECT_MEMBERSHIP_MODULE_PATH)
+    || !Array.isArray(baseOperations)
+    || !Array.isArray(currentOperations)
+  ) return null;
+  const addedOperations = currentOperations
+    .filter(operation => !baseOperations.includes(operation));
+  if (addedOperations.length === 0) return null;
+  return proveCompatibleControlOperationModuleAdditionSources({
+    addedCodecsExport: 'COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS',
+    addedMapExport: 'CollabProjectMembershipOperationMap',
+    addedModule: PROJECT_MEMBERSHIP_MODULE,
+    addedOperations,
+    addedOperationsExport: 'COLLAB_PROJECT_MEMBERSHIP_OPERATIONS',
+    additionalChangedModules: [PROJECT_BACKUP_MODULE],
+    allowedValueImportModules: [
+      './CollabConstants',
+      './CollabError',
+      './CollabValidation',
+    ],
+    baseCodecsSource: readBaseSource(baseSha, CONTROL_CODECS_MODULE_PATH),
+    baseIndexSource: readBaseSource(baseSha, INDEX_MODULE_PATH),
+    baseProtocolSource: readBaseSource(baseSha, PROTOCOL_MODULE_PATH),
+    currentCodecsSource: readFileSync(
+      path.join(repositoryRoot, CONTROL_CODECS_MODULE_PATH),
+      'utf8',
+    ),
+    currentIndexSource: readFileSync(path.join(repositoryRoot, INDEX_MODULE_PATH), 'utf8'),
+    currentModuleSource: readFileSync(
+      path.join(repositoryRoot, PROJECT_MEMBERSHIP_MODULE_PATH),
+      'utf8',
+    ),
+    currentProtocolSource: readFileSync(
+      path.join(repositoryRoot, PROTOCOL_MODULE_PATH),
+      'utf8',
+    ),
+  });
+}
+
+function cloudCapabilityAdditionProof(baseSha, base, current) {
+  const baseCapabilities = base.contract?.cloudBinding?.capabilities;
+  const currentCapabilities = current.contract?.cloudBinding?.capabilities;
+  if (!Array.isArray(baseCapabilities) || !Array.isArray(currentCapabilities)) return null;
+  const addedCapabilities = currentCapabilities
+    .filter(capability => !baseCapabilities.includes(capability));
+  if (addedCapabilities.length === 0) return null;
+  return proveCompatibleCloudCapabilityAdditionSources({
+    addedCapabilities,
+    baseSource: readBaseSource(baseSha, CLOUD_BINDING_MODULE_PATH),
+    currentSource: readFileSync(path.join(repositoryRoot, CLOUD_BINDING_MODULE_PATH), 'utf8'),
+  });
+}
+
+function prelaunchProjectBackupReplacementProof(baseSha, base, current) {
+  const baseDigests = entriesBy(
+    base.contract?.runtimeBehaviorDigests ?? [],
+    'path',
+    'base runtime behavior digest',
+  );
+  const currentDigests = entriesBy(
+    current.contract?.runtimeBehaviorDigests ?? [],
+    'path',
+    'current runtime behavior digest',
+  );
+  if (
+    !baseDigests.has(PROJECT_BACKUP_MODULE_PATH)
+    || !currentDigests.has(PROJECT_BACKUP_MODULE_PATH)
+    || stableJson(baseDigests.get(PROJECT_BACKUP_MODULE_PATH))
+      === stableJson(currentDigests.get(PROJECT_BACKUP_MODULE_PATH))
+  ) return null;
+  return proveCompatiblePrelaunchProjectBackupReplacementSources({
+    additionalChangedModules: [PROJECT_MEMBERSHIP_MODULE],
+    baseCheckpointSource: readBaseSource(baseSha, PROJECT_CHECKPOINT_MODULE_PATH),
+    baseIndexSource: readBaseSource(baseSha, INDEX_MODULE_PATH),
+    baseModuleSource: readBaseSource(baseSha, PROJECT_BACKUP_MODULE_PATH),
+    currentCheckpointSource: readFileSync(
+      path.join(repositoryRoot, PROJECT_CHECKPOINT_MODULE_PATH),
+      'utf8',
+    ),
+    currentIndexSource: readFileSync(path.join(repositoryRoot, INDEX_MODULE_PATH), 'utf8'),
+    currentModuleSource: readFileSync(
+      path.join(repositoryRoot, PROJECT_BACKUP_MODULE_PATH),
+      'utf8',
+    ),
+    stageExport: 'COLLAB_PROJECT_BACKUP_COMPATIBILITY_STAGE',
+  });
+}
+
+export function compatibleAdditionProof(baseSha, base, current) {
   const control = controlOperationAdditionProof(baseSha, base, current);
-  const backup = projectBackupModuleAdditionProof(baseSha, base, current);
-  if (control === null) return backup;
-  if (backup === null) return control;
-  return Object.freeze({ ...control, ...backup });
+  const backupAddition = projectBackupModuleAdditionProof(baseSha, base, current);
+  const membership = controlOperationModuleAdditionProof(baseSha, base, current);
+  const capability = cloudCapabilityAdditionProof(baseSha, base, current);
+  const backupReplacement = prelaunchProjectBackupReplacementProof(baseSha, base, current);
+  const proofs = [control, backupAddition, membership, capability, backupReplacement]
+    .filter(item => item !== null);
+  if (proofs.length === 0) return null;
+  const aggregate = Object.assign({}, ...proofs);
+  if (membership !== null && capability !== null && backupReplacement !== null) {
+    aggregate[STEP_12_PRELAUNCH_MINOR_PROOF] = Object.freeze({
+      backup: backupReplacement,
+      capability,
+      membership,
+    });
+  }
+  return Object.freeze(aggregate);
 }
 
 function run() {

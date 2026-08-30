@@ -1,3 +1,4 @@
+import type { CollabProjectBackupRecordKind } from '../src/CollabProjectBackupCheckpoint';
 import {
   COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION,
   COLLAB_PROJECT_BACKUP_RECORD_KINDS,
@@ -19,6 +20,8 @@ const LATER = '2026-08-28T00:00:01.000Z';
 const ACKNOWLEDGED = '2026-08-28T00:00:02.000Z';
 const EXPIRES = '2026-09-28T00:00:00.000Z';
 const EXTENDED = '2026-10-28T00:00:00.000Z';
+const MEMBERSHIP_DAY_EXPIRES = '2026-08-29T00:00:00.000Z';
+const MEMBERSHIP_REPLAY_EXPIRES = '2026-09-27T00:00:00.000Z';
 const MAIN = '1'.repeat(40);
 const MEMBER = '2'.repeat(40);
 const MEMBER_TWO = '3'.repeat(40);
@@ -29,13 +32,19 @@ const CLAIM_SHA256 = 'c'.repeat(64);
 const SIGNATURE = 'A'.repeat(86);
 const PUBLIC_KEY = 'A'.repeat(43);
 
+type Expect<Condition extends true> = Condition;
+type LifecycleStateIsExcluded = Expect<
+  'lifecycle-state' extends CollabProjectBackupRecordKind ? false : true
+>;
+const lifecycleStateIsExcluded: LifecycleStateIsExcluded = true;
+
 function manifest(overrides: Record<string, unknown> = {}) {
   return {
     artifacts: [
       { byteCount: 4096, name: 'coordination.ndjson', sha256: 'd'.repeat(64) },
       { byteCount: 8192, name: 'repository.bundle', sha256: 'e'.repeat(64) },
     ],
-    coordinationFormatVersion: 2,
+    coordinationFormatVersion: 3,
     createdAt: NOW,
     expectedMainOid: MAIN,
     gitObjectFormat: 'sha1',
@@ -194,6 +203,12 @@ function baseRecords() {
       },
     },
   ];
+}
+
+function unboundImportedBaseRecords(): Record<string, any>[] {
+  return baseRecords().filter(record => !(
+    record.kind === 'principal-binding' && record.recordId === 'member_2'
+  ));
 }
 
 function idempotencyRecord(memberId: string) {
@@ -606,6 +621,43 @@ function lanToCloudContinuityRecords(): Record<string, any>[] {
   });
 }
 
+function activeImportedClaimContinuityRecords(): Record<string, any>[] {
+  return lanToCloudContinuityRecords().filter(record => (
+    record.kind !== 'transfer-redemption-receipt'
+  )).map((record) => {
+    if (record.kind !== 'transferred-membership-claim') return record;
+    return {
+      ...record,
+      value: {
+        ...record.value,
+        operationIntentId: null,
+        redemptionReceiptId: null,
+        state: 'unclaimed',
+        targetPrincipalId: null,
+        updatedAt: NOW,
+      },
+    };
+  });
+}
+
+function overrideRedemptionReceipt(): Record<string, any> {
+  const source = lanToCloudContinuityRecords().find(record => (
+    record.kind === 'transfer-redemption-receipt'
+  )) as Record<string, any>;
+  return {
+    ...source,
+    value: {
+      ...source.value,
+      receipt: {
+        ...source.value.receipt,
+        claimSha256: BATCH_SHA256,
+        operationIntentId: 'override_claim_intent_1',
+        receiptId: 'override_redemption_1',
+      },
+    },
+  };
+}
+
 function acknowledgedCloudToLanContinuityRecords(): Record<string, any>[] {
   const records = continuityRecords().filter(record => (
     record.kind !== 'protected-claim-envelope'
@@ -640,11 +692,14 @@ function acknowledgedCloudToLanContinuityRecords(): Record<string, any>[] {
   ];
 }
 
-function canonicalRecords(extra: readonly Record<string, any>[] = []): Record<string, any>[] {
+function canonicalRecords(
+  extra: readonly Record<string, any>[] = [],
+  base: readonly Record<string, any>[] = baseRecords(),
+): Record<string, any>[] {
   const order = new Map<string, number>(
     COLLAB_PROJECT_BACKUP_RECORD_KINDS.map((kind, index) => [kind, index]),
   );
-  return [...baseRecords(), ...extra].sort((left, right) => {
+  return [...base, ...extra].sort((left, right) => {
     const kind = (order.get(String(left.kind)) ?? -1) - (order.get(String(right.kind)) ?? -1);
     return kind === 0
       ? String(left.recordId).localeCompare(String(right.recordId), 'en-US')
@@ -652,10 +707,168 @@ function canonicalRecords(extra: readonly Record<string, any>[] = []): Record<st
   });
 }
 
-describe('Project backup checkpoint format v2', () => {
+function membershipV3Records(): Record<string, any>[] {
+  return [
+    {
+      kind: 'lifecycle-journal',
+      recordId: 'create_project_1',
+      revision: 5,
+      value: {
+        actorMemberId: null,
+        batchRevision: null,
+        batchSha256: null,
+        checkpointSha256: null,
+        createdAt: NOW,
+        direction: null,
+        expectedAuthorityGeneration: 5,
+        expectedPersonalRefOid: null,
+        idempotencyKey: 'create_project_key',
+        operationId: 'create_project_1',
+        operationKind: 'create-project',
+        phase: 'completed',
+        projectId: 'project_1',
+        recoveryFromPhase: null,
+        requestFingerprint: SHA256,
+        resultSha256: BATCH_SHA256,
+        scheduledAt: NOW,
+        state: 'completed',
+        updatedAt: LATER,
+      },
+    },
+    {
+      kind: 'project-invitation',
+      recordId: 'invitation_1',
+      revision: 2,
+      value: {
+        createdAt: NOW,
+        expiresAt: MEMBERSHIP_DAY_EXPIRES,
+        idempotencyKey: 'invitation_key',
+        invitationId: 'invitation_1',
+        issuedByMemberId: 'member_1',
+        projectId: 'project_1',
+        requestFingerprint: SHA256,
+        revision: 2,
+        secretReplayExpiresAt: MEMBERSHIP_REPLAY_EXPIRES,
+        secretSha256: CLAIM_SHA256,
+        state: 'revoked',
+        terminalAt: LATER,
+      },
+    },
+    {
+      kind: 'protected-invitation-envelope',
+      recordId: 'invitation_1',
+      revision: 1,
+      value: {
+        associatedDataSha256: SHA256,
+        ciphertext: 'ciphertext_1',
+        createdAt: NOW,
+        expiresAt: MEMBERSHIP_REPLAY_EXPIRES,
+        invitationId: 'invitation_1',
+        keyId: 'key_1',
+        nonce: 'nonce_1',
+        projectId: 'project_1',
+      },
+    },
+    {
+      kind: 'transferred-membership-claim-override',
+      recordId: 'transfer_1:member_2:1',
+      revision: 1,
+      value: {
+        claimGeneration: 1,
+        claimSha256: BATCH_SHA256,
+        createdAt: NOW,
+        expiresAt: MEMBERSHIP_REPLAY_EXPIRES,
+        idempotencyKey: 'claim_override_key',
+        managerMemberId: 'member_1',
+        memberId: 'member_2',
+        projectId: 'project_1',
+        redemptionReceiptId: null,
+        requestFingerprint: SHA256,
+        secretReplayExpiresAt: MEMBERSHIP_REPLAY_EXPIRES,
+        state: 'active',
+        supersededClaimSha256: CLAIM_SHA256,
+        targetPrincipalId: null,
+        transferId: 'transfer_1',
+        updatedAt: NOW,
+      },
+    },
+    {
+      kind: 'protected-claim-override-envelope',
+      recordId: 'transfer_1:member_2:1',
+      revision: 1,
+      value: {
+        associatedDataSha256: SHA256,
+        ciphertext: 'ciphertext_2',
+        claimGeneration: 1,
+        createdAt: NOW,
+        expiresAt: MEMBERSHIP_REPLAY_EXPIRES,
+        keyId: 'key_1',
+        memberId: 'member_2',
+        nonce: 'nonce_2',
+        projectId: 'project_1',
+        transferId: 'transfer_1',
+      },
+    },
+    {
+      kind: 'manager-responsibility-offer',
+      recordId: 'offer_1',
+      revision: 1,
+      value: {
+        acknowledgedAt: null,
+        expiresAt: MEMBERSHIP_DAY_EXPIRES,
+        idempotencyKey: 'offer_key',
+        managerSetGenerationAtOffer: 1,
+        offeredAt: NOW,
+        offerId: 'offer_1',
+        projectId: 'project_1',
+        purpose: 'manager-promotion',
+        requestFingerprint: SHA256,
+        revision: 1,
+        sourceManagerMemberId: 'member_1',
+        state: 'offered',
+        targetMemberId: 'member_2',
+        targetMembershipRevisionAtOffer: 1,
+        terminalAt: null,
+      },
+    },
+    {
+      kind: 'project-membership-recovery',
+      recordId: 'create_project_1',
+      revision: 1,
+      value: {
+        expectedMainOid: MAIN,
+        expectedPersonalRefOid: MEMBER,
+        invitationId: null,
+        memberId: 'member_1',
+        operationId: 'create_project_1',
+        operationKind: 'create-project',
+        principalSha256: CLAIM_SHA256,
+        projectId: 'project_1',
+        publicationMarkerSha256: BATCH_SHA256,
+        repositoryPlanSha256: SHA256,
+        requestFingerprint: SHA256,
+      },
+    },
+    {
+      kind: 'secret-replay-tombstone',
+      recordId: 'reissueTransferredMembershipClaim:member_1:expired_claim_key',
+      revision: 1,
+      value: {
+        actorMemberId: 'member_1',
+        expiredAt: EXPIRES,
+        idempotencyKey: 'expired_claim_key',
+        operation: 'reissueTransferredMembershipClaim',
+        projectId: 'project_1',
+        requestFingerprint: BATCH_SHA256,
+      },
+    },
+  ];
+}
+
+describe('Project backup checkpoint format v3', () => {
   it('adds a backup-only coordination format without changing wire v6 format v1', () => {
     expect(COLLAB_PROJECT_COORDINATION_FORMAT_VERSION).toBe(1);
-    expect(COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION).toBe(2);
+    expect(COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION).toBe(3);
     expect(COLLAB_PROJECT_BACKUP_RECORD_KINDS).toEqual(expect.arrayContaining([
       'lifecycle-journal',
       'authority-transfer-recovery',
@@ -666,6 +879,13 @@ describe('Project backup checkpoint format v2', () => {
       'terminal-principal',
       'terminal-responder-replay',
       'leave-former-principal-replay',
+      'project-invitation',
+      'protected-invitation-envelope',
+      'transferred-membership-claim-override',
+      'protected-claim-override-envelope',
+      'manager-responsibility-offer',
+      'project-membership-recovery',
+      'secret-replay-tombstone',
     ]));
     expect(COLLAB_PROJECT_BACKUP_RECORD_KINDS).not.toContain('lifecycle-state');
     expect(decodeCollabProjectCheckpointManifest({
@@ -698,16 +918,20 @@ describe('Project backup checkpoint format v2', () => {
     )).toThrow('collab.error.protocol-payload-invalid');
   });
 
-  it('decodes and canonically encodes an exact backup v2 manifest', () => {
+  it('decodes and canonically encodes an exact backup v3 manifest', () => {
     const decoded = decodeCollabProjectBackupCheckpointManifest(manifest());
     expect(decoded).toEqual(manifest());
     expect(encodeCollabProjectBackupCheckpointManifestCanonicalJson(decoded))
       .toBe(JSON.stringify(manifest()));
     expect(encodeCollabProjectBackupCheckpointManifestDigestInput(decoded))
-      .toContain('"coordinationFormatVersion":2');
+      .toContain('"coordinationFormatVersion":3');
     expect(() => decodeCollabProjectBackupCheckpointManifest({
       ...manifest(),
       coordinationFormatVersion: 1,
+    })).toThrow('collab.error.protocol-payload-invalid');
+    expect(() => decodeCollabProjectBackupCheckpointManifest({
+      ...manifest(),
+      coordinationFormatVersion: 2,
     })).toThrow('collab.error.protocol-payload-invalid');
     expect(() => decodeCollabProjectBackupCheckpointManifest({
       ...manifest(),
@@ -751,6 +975,431 @@ describe('Project backup checkpoint format v2', () => {
       expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(incompleteJson))
         .toThrow('collab.error.protocol-payload-invalid');
     }
+  });
+
+  it('round-trips membership, live secret envelopes, offers, and recovery continuity', () => {
+    const records = canonicalRecords(
+      [...activeImportedClaimContinuityRecords(), ...membershipV3Records()],
+      unboundImportedBaseRecords(),
+    );
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+
+    for (const kind of [
+      'protected-invitation-envelope',
+      'protected-claim-override-envelope',
+    ]) {
+      const incomplete = records.filter(record => record.kind !== kind);
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        incomplete.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+
+    const plaintext = canonicalRecords([
+      ...activeImportedClaimContinuityRecords(),
+      ...membershipV3Records().map(record => (
+        record.kind === 'protected-invitation-envelope'
+          ? { ...record, value: { ...record.value, secret: 'plaintext' } }
+          : record
+      )),
+    ], unboundImportedBaseRecords());
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      plaintext.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('rejects an active claim override without unbound imported-claim continuity', () => {
+    expect(lifecycleStateIsExcluded).toBe(true);
+    const continuity = activeImportedClaimContinuityRecords();
+    const membership = membershipV3Records();
+    const bound = canonicalRecords([...continuity, ...membership]);
+    const orphaned = canonicalRecords([
+      ...continuity,
+      ...membership.map((record) => {
+        if (
+          record.kind !== 'transferred-membership-claim-override'
+          && record.kind !== 'protected-claim-override-envelope'
+        ) return record;
+        return {
+          ...record,
+          recordId: 'orphan_transfer:member_2:1',
+          value: { ...record.value, transferId: 'orphan_transfer' },
+        };
+      }),
+    ], unboundImportedBaseRecords());
+    for (const invalid of [bound, orphaned]) {
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        invalid.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it('requires one determinate terminal authority for the highest claim override', () => {
+    const continuity = activeImportedClaimContinuityRecords();
+    const redeemedWithoutContinuity = canonicalRecords([
+      ...continuity,
+      ...membershipV3Records().map(record => (
+        record.kind === 'transferred-membership-claim-override'
+          ? {
+              ...record,
+              value: {
+                ...record.value,
+                redemptionReceiptId: 'missing_receipt',
+                state: 'redeemed',
+                targetPrincipalId: 'principal_2',
+              },
+            }
+          : record
+      )),
+    ], unboundImportedBaseRecords());
+    const highestSuperseded = canonicalRecords([
+      ...continuity,
+      ...membershipV3Records().map(record => (
+        record.kind === 'transferred-membership-claim-override'
+          ? { ...record, value: { ...record.value, state: 'superseded' } }
+          : record
+      )),
+    ], unboundImportedBaseRecords());
+    for (const invalid of [redeemedWithoutContinuity, highestSuperseded]) {
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        invalid.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it('accepts a redeemed override only with its exact binding and receipt continuity', () => {
+    const records = canonicalRecords([
+      ...activeImportedClaimContinuityRecords(),
+      ...membershipV3Records().map(record => (
+        record.kind === 'transferred-membership-claim-override'
+          ? {
+              ...record,
+              value: {
+                ...record.value,
+                redemptionReceiptId: 'override_redemption_1',
+                state: 'redeemed',
+                targetPrincipalId: 'principal_2',
+              },
+            }
+          : record
+      )),
+      overrideRedemptionReceipt(),
+    ]);
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+  });
+
+  it('rejects membership records whose fixed lifetimes drift', () => {
+    for (const kind of [
+      'project-invitation',
+      'transferred-membership-claim-override',
+      'manager-responsibility-offer',
+    ]) {
+      const records = canonicalRecords([
+        ...activeImportedClaimContinuityRecords(),
+        ...membershipV3Records().map(record => (
+          record.kind === kind
+            ? { ...record, value: { ...record.value, expiresAt: EXTENDED } }
+            : record
+        )),
+      ], unboundImportedBaseRecords());
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        records.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it('requires completed membership journals to match their authoritative end state', () => {
+    const createLifecycle = membershipV3Records().find(record => (
+      record.kind === 'lifecycle-journal'
+    )) as Record<string, any>;
+    const createRecovery = membershipV3Records().find(record => (
+      record.kind === 'project-membership-recovery'
+    )) as Record<string, any>;
+    const removeLifecycle = {
+      ...createLifecycle,
+      recordId: 'remove_1',
+      value: {
+        ...createLifecycle.value,
+        actorMemberId: 'member_1',
+        idempotencyKey: 'remove_key',
+        operationId: 'remove_1',
+        operationKind: 'remove-member',
+      },
+    };
+    const removeRecovery = {
+      ...createRecovery,
+      recordId: 'remove_1',
+      value: {
+        ...createRecovery.value,
+        invitationId: null,
+        memberId: 'member_2',
+        operationId: 'remove_1',
+        operationKind: 'remove-member',
+        principalSha256: null,
+        publicationMarkerSha256: null,
+        repositoryPlanSha256: null,
+      },
+    };
+    const activeRemoval = canonicalRecords([removeLifecycle, removeRecovery]);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      activeRemoval.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const joinLifecycle = {
+      ...createLifecycle,
+      recordId: 'join_1',
+      value: {
+        ...createLifecycle.value,
+        idempotencyKey: 'join_key',
+        operationId: 'join_1',
+        operationKind: 'join-project',
+      },
+    };
+    const joinRecovery = {
+      ...createRecovery,
+      recordId: 'join_1',
+      value: {
+        ...createRecovery.value,
+        invitationId: 'invitation_1',
+        memberId: 'member_2',
+        operationId: 'join_1',
+        operationKind: 'join-project',
+        publicationMarkerSha256: null,
+        repositoryPlanSha256: null,
+      },
+    };
+    const activeInvitationJoin = canonicalRecords([
+      joinLifecycle,
+      joinRecovery,
+      ...membershipV3Records().filter(record => (
+        record.kind === 'project-invitation'
+        || record.kind === 'protected-invitation-envelope'
+      )).map(record => (
+        record.kind === 'project-invitation'
+          ? { ...record, value: { ...record.value, state: 'active', terminalAt: null } }
+          : record
+      )),
+    ]);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      activeInvitationJoin.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const unsettledCreation = canonicalRecords([
+      {
+        ...createLifecycle,
+        value: {
+          ...createLifecycle.value,
+          phase: 'activated',
+          state: 'active',
+        },
+      },
+      createRecovery,
+    ]);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      unsettledCreation.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('binds secret replay identities and tombstones to the exact retention deadline', () => {
+    const membership = membershipV3Records();
+    const invitation = membership.find(record => (
+      record.kind === 'project-invitation'
+    )) as Record<string, any>;
+    const duplicateInvitation = {
+      ...invitation,
+      recordId: 'invitation_2',
+      value: {
+        ...invitation.value,
+        invitationId: 'invitation_2',
+        secretSha256: BATCH_SHA256,
+      },
+    };
+    const invitationEnvelope = membership.find(record => (
+      record.kind === 'protected-invitation-envelope'
+    )) as Record<string, any>;
+    const duplicateInvitationEnvelope = {
+      ...invitationEnvelope,
+      recordId: 'invitation_2',
+      value: { ...invitationEnvelope.value, invitationId: 'invitation_2' },
+    };
+    const duplicateIssuance = canonicalRecords([
+      invitation,
+      invitationEnvelope,
+      duplicateInvitation,
+      duplicateInvitationEnvelope,
+    ]);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      duplicateIssuance.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const prematureInvitationTombstone = canonicalRecords([
+      invitation,
+      {
+        kind: 'secret-replay-tombstone',
+        recordId: 'createProjectInvitation:member_1:invitation_key',
+        revision: 1,
+        value: {
+          actorMemberId: 'member_1',
+          expiredAt: NOW,
+          idempotencyKey: 'invitation_key',
+          operation: 'createProjectInvitation',
+          projectId: 'project_1',
+          requestFingerprint: SHA256,
+        },
+      },
+    ]);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      prematureInvitationTombstone.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const override = membership.find(record => (
+      record.kind === 'transferred-membership-claim-override'
+    )) as Record<string, any>;
+    const firstOverride = {
+      ...override,
+      value: { ...override.value, state: 'superseded' },
+    };
+    const duplicateOverride = {
+      ...override,
+      recordId: 'transfer_1:member_2:2',
+      value: {
+        ...override.value,
+        claimGeneration: 2,
+        claimSha256: SHA256,
+        state: 'active',
+        supersededClaimSha256: BATCH_SHA256,
+      },
+    };
+    const overrideEnvelope = membership.find(record => (
+      record.kind === 'protected-claim-override-envelope'
+    )) as Record<string, any>;
+    const duplicateOverrideEnvelope = {
+      ...overrideEnvelope,
+      recordId: 'transfer_1:member_2:2',
+      value: { ...overrideEnvelope.value, claimGeneration: 2 },
+    };
+    const duplicateOverrideIdentity = canonicalRecords([
+      ...activeImportedClaimContinuityRecords(),
+      firstOverride,
+      duplicateOverride,
+      overrideEnvelope,
+      duplicateOverrideEnvelope,
+    ], unboundImportedBaseRecords());
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      duplicateOverrideIdentity.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const prematureOverrideTombstone = canonicalRecords([
+      ...activeImportedClaimContinuityRecords(),
+      override,
+      {
+        kind: 'secret-replay-tombstone',
+        recordId: 'reissueTransferredMembershipClaim:member_1:claim_override_key',
+        revision: 1,
+        value: {
+          actorMemberId: 'member_1',
+          expiredAt: NOW,
+          idempotencyKey: 'claim_override_key',
+          operation: 'reissueTransferredMembershipClaim',
+          projectId: 'project_1',
+          requestFingerprint: SHA256,
+        },
+      },
+    ], unboundImportedBaseRecords());
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      prematureOverrideTombstone.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('selects live secret envelopes or tombstones at the backup capture boundary', () => {
+    const membership = membershipV3Records();
+    const invitation = membership.find(record => (
+      record.kind === 'project-invitation'
+    )) as Record<string, any>;
+    const invitationEnvelope = membership.find(record => (
+      record.kind === 'protected-invitation-envelope'
+    )) as Record<string, any>;
+    const invitationTombstone = {
+      kind: 'secret-replay-tombstone',
+      recordId: 'createProjectInvitation:member_1:invitation_key',
+      revision: 1,
+      value: {
+        actorMemberId: 'member_1',
+        expiredAt: MEMBERSHIP_REPLAY_EXPIRES,
+        idempotencyKey: 'invitation_key',
+        operation: 'createProjectInvitation',
+        projectId: 'project_1',
+        requestFingerprint: SHA256,
+      },
+    };
+    const predeadlineTombstone = decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      canonicalRecords([invitation, invitationTombstone])
+        .map(record => JSON.stringify(record)).join('\n') + '\n',
+    );
+    expect(() => validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest()),
+      predeadlineTombstone,
+    )).toThrow('collab.error.protocol-payload-invalid');
+    const postdeadlineEnvelope = decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      canonicalRecords([invitation, invitationEnvelope])
+        .map(record => JSON.stringify(record)).join('\n') + '\n',
+    );
+    expect(() => validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest({ createdAt: EXTENDED })),
+      postdeadlineEnvelope,
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const override = membership.find(record => (
+      record.kind === 'transferred-membership-claim-override'
+    )) as Record<string, any>;
+    const overrideEnvelope = membership.find(record => (
+      record.kind === 'protected-claim-override-envelope'
+    )) as Record<string, any>;
+    const overrideTombstone = {
+      kind: 'secret-replay-tombstone',
+      recordId: 'reissueTransferredMembershipClaim:member_1:claim_override_key',
+      revision: 1,
+      value: {
+        actorMemberId: 'member_1',
+        expiredAt: MEMBERSHIP_REPLAY_EXPIRES,
+        idempotencyKey: 'claim_override_key',
+        operation: 'reissueTransferredMembershipClaim',
+        projectId: 'project_1',
+        requestFingerprint: SHA256,
+      },
+    };
+    const overrideBase = activeImportedClaimContinuityRecords();
+    const predeadlineOverrideTombstone = decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      canonicalRecords(
+        [...overrideBase, override, overrideTombstone],
+        unboundImportedBaseRecords(),
+      ).map(record => JSON.stringify(record)).join('\n') + '\n',
+    );
+    expect(() => validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest()),
+      predeadlineOverrideTombstone,
+    )).toThrow('collab.error.protocol-payload-invalid');
+    const postdeadlineOverrideEnvelope = decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      canonicalRecords(
+        [...overrideBase, override, overrideEnvelope],
+        unboundImportedBaseRecords(),
+      ).map(record => JSON.stringify(record)).join('\n') + '\n',
+    );
+    expect(() => validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest({ createdAt: EXTENDED })),
+      postdeadlineOverrideEnvelope,
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const futureOrphanTombstone = decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      canonicalRecords(membership.filter(record => (
+        record.kind === 'secret-replay-tombstone'
+      ))).map(record => JSON.stringify(record)).join('\n') + '\n',
+    );
+    expect(() => validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest()),
+      futureOrphanTombstone,
+    )).toThrow('collab.error.protocol-payload-invalid');
   });
 
   it('round-trips exact LAN-to-Cloud source evidence and inactive publication facts', () => {

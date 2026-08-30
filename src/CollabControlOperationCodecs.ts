@@ -5,6 +5,7 @@ import {
   decodeCollabAuthorityTransferOperationResponse,
 } from './CollabAuthorityTransfer';
 import { CollabError } from './CollabError';
+import { COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS } from './CollabProjectMembership';
 import {
   COLLAB_PROJECT_RETIREMENT_OPERATIONS,
   type CollabProjectRetirementOperation,
@@ -171,6 +172,7 @@ export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
   cancelProjectAuthorityTransfer: codec('cancelProjectAuthorityTransfer'),
   retireProject: codec('retireProject'),
   acknowledgeProjectRetirement: codec('acknowledgeProjectRetirement'),
+  ...COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS,
 } as const satisfies CodecMap);
 
 export function collabControlOperationCodec<Operation extends CollabControlOperation>(

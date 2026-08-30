@@ -129,13 +129,13 @@ const packageVersion = ${JSON.stringify(installedManifest.version)};
 assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 6);
 assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 2);
 assert.notEqual(packageVersion, String(protocol.COLLAB_PROTOCOL_VERSION));
-assert.equal(packageVersion, '3.2.1');
+assert.equal(packageVersion, '3.3.0');
 assert.equal(
   require.resolve('@claudian-collab/protocol'),
   path.join(__dirname, 'node_modules', '@claudian-collab', 'protocol', 'dist', 'index.js'),
 );
 assert.equal(protocol.COLLAB_PROJECT_COORDINATION_FORMAT_VERSION, 1);
-assert.equal(protocol.COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION, 2);
+assert.equal(protocol.COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION, 3);
 
 const codec = protocol.COLLAB_CONTROL_OPERATION_CODECS.ensureMyRequest;
 const valid = codec.decodeRequest({

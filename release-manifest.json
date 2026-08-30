@@ -6,11 +6,11 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "3.2.1"
+    "version": "3.3.0"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-3.2.1.tgz",
+    "filename": "claudian-collab-protocol-3.3.0.tgz",
     "files": [
       {
         "path": "dist/CollabAuthorityTransfer.d.ts",
@@ -22,11 +22,11 @@
       },
       {
         "path": "dist/CollabCloudBinding.d.ts",
-        "size": 8560
+        "size": 8762
       },
       {
         "path": "dist/CollabCloudBinding.js",
-        "size": 26016
+        "size": 26246
       },
       {
         "path": "dist/CollabCloudProjectEvent.d.ts",
@@ -54,11 +54,11 @@
       },
       {
         "path": "dist/CollabControlOperationCodecs.d.ts",
-        "size": 7138
+        "size": 11663
       },
       {
         "path": "dist/CollabControlOperationCodecs.js",
-        "size": 6626
+        "size": 6775
       },
       {
         "path": "dist/CollabError.d.ts",
@@ -86,11 +86,11 @@
       },
       {
         "path": "dist/CollabProjectBackupCheckpoint.d.ts",
-        "size": 9890
+        "size": 14941
       },
       {
         "path": "dist/CollabProjectBackupCheckpoint.js",
-        "size": 71979
+        "size": 102829
       },
       {
         "path": "dist/CollabProjectCheckpoint.d.ts",
@@ -99,6 +99,14 @@
       {
         "path": "dist/CollabProjectCheckpoint.js",
         "size": 55988
+      },
+      {
+        "path": "dist/CollabProjectMembership.d.ts",
+        "size": 16449
+      },
+      {
+        "path": "dist/CollabProjectMembership.js",
+        "size": 28653
       },
       {
         "path": "dist/CollabProjectRetirement.d.ts",
@@ -110,7 +118,7 @@
       },
       {
         "path": "dist/CollabProtocol.d.ts",
-        "size": 5956
+        "size": 6079
       },
       {
         "path": "dist/CollabProtocol.js",
@@ -162,7 +170,7 @@
       },
       {
         "path": "dist/esm/CollabCloudBinding.mjs",
-        "size": 23888
+        "size": 24118
       },
       {
         "path": "dist/esm/CollabCloudProjectEvent.mjs",
@@ -178,7 +186,7 @@
       },
       {
         "path": "dist/esm/CollabControlOperationCodecs.mjs",
-        "size": 6159
+        "size": 6302
       },
       {
         "path": "dist/esm/CollabError.mjs",
@@ -194,11 +202,15 @@
       },
       {
         "path": "dist/esm/CollabProjectBackupCheckpoint.mjs",
-        "size": 70388
+        "size": 100796
       },
       {
         "path": "dist/esm/CollabProjectCheckpoint.mjs",
         "size": 53750
+      },
+      {
+        "path": "dist/esm/CollabProjectMembership.mjs",
+        "size": 27458
       },
       {
         "path": "dist/esm/CollabProjectRetirement.mjs",
@@ -230,7 +242,7 @@
       },
       {
         "path": "dist/esm/index.mjs",
-        "size": 4645
+        "size": 4948
       },
       {
         "path": "dist/esm/types.mjs",
@@ -238,11 +250,11 @@
       },
       {
         "path": "dist/index.d.ts",
-        "size": 12214
+        "size": 14343
       },
       {
         "path": "dist/index.js",
-        "size": 25140
+        "size": 26698
       },
       {
         "path": "dist/types.d.ts",
@@ -262,14 +274,14 @@
       },
       {
         "path": "README.md",
-        "size": 8115
+        "size": 8535
       }
     ],
-    "integrity": "sha512-FqUca4/S9Jgu5QsMR4Gs3KgAfYytIdVn8V7w7Fn2hQjJ0nA9D9ULgJlvqOojqwaNh+ci+DblLcD5Z2oC7WJCcw==",
-    "sha256": "080cfd269bedb51264a017be531b231187cbca1f5237207c0a5efa083d0bbc9f",
-    "shasum": "d1001ae311adf4d039a6240a90be3b81ba03fd8a",
-    "size": 111868,
-    "unpackedSize": 709833
+    "integrity": "sha512-7Wc275dddo7ajn+jJQ6P0njXG8g17zmHHfglZ7ZZK/+7GHzcDR/tCiO9yqv4axiEcv4pBnZ3XwDBSqeC85BHaw==",
+    "sha256": "39bfb807bf104b87abb79e6de40bd06befd408988b026139763536663f50aa6e",
+    "shasum": "6c29cb822ac65de37e8e4ead351c14ab8c077741",
+    "size": 129407,
+    "unpackedSize": 858714
   },
   "toolchain": {
     "node": "24.16.0",

@@ -27,6 +27,13 @@ export const COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION = 2 as const;
 export const COLLAB_CLOUD_CAPABILITIES = Object.freeze([
   'accept',
   'authority-transfer',
+  'cloud-imported-membership-claims',
+  'cloud-project-create',
+  'cloud-project-invitations',
+  'cloud-project-join',
+  'cloud-project-leave',
+  'cloud-project-manager-responsibility',
+  'cloud-project-membership',
   'development-bootstrap',
   'git-receive-pack-personal-ref',
   'git-upload-pack',

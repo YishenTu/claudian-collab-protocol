@@ -52,6 +52,13 @@ describe('Cloud binding v2 lifecycle integration', () => {
     expect(COLLAB_CLOUD_CAPABILITIES).toEqual([
       'accept',
       'authority-transfer',
+      'cloud-imported-membership-claims',
+      'cloud-project-create',
+      'cloud-project-invitations',
+      'cloud-project-join',
+      'cloud-project-leave',
+      'cloud-project-manager-responsibility',
+      'cloud-project-membership',
       'development-bootstrap',
       'git-receive-pack-personal-ref',
       'git-upload-pack',

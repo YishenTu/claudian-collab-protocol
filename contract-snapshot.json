@@ -656,7 +656,7 @@
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
-        "declaration": "export declare const COLLAB_PROJECT_BACKUP_RECORD_KINDS: readonly [\"project\", \"member\", \"request\", \"request-comment\", \"ticket\", \"ticket-comment\", \"ticket-relation\", \"ticket-mention\", \"cloud-event\", \"cloud-event-cursor\", \"idempotency-result\", \"principal-binding\", \"repository-placement\", \"lifecycle-journal\", \"authority-transfer-recovery\", \"transferred-membership-claim\", \"transfer-receipt-key\", \"transfer-claim-batch-receipt\", \"transfer-redemption-receipt\", \"terminal-principal\", \"terminal-responder-replay\", \"leave-former-principal-replay\", \"project-invitation\", \"protected-invitation-envelope\", \"transferred-membership-claim-override\", \"protected-claim-override-envelope\", \"manager-responsibility-offer\", \"project-membership-recovery\", \"secret-replay-tombstone\", \"terminal-responder\", \"protected-claim-envelope\", \"tombstone\", \"schema-catalog\", \"server-compatibility\", \"authority-volume-pair\"];",
+        "declaration": "export declare const COLLAB_PROJECT_BACKUP_RECORD_KINDS: readonly [\"project\", \"member\", \"request\", \"request-comment\", \"ticket\", \"ticket-comment\", \"ticket-relation\", \"ticket-mention\", \"cloud-event\", \"cloud-event-cursor\", \"idempotency-result\", \"principal-binding\", \"repository-placement\", \"lifecycle-journal\", \"authority-transfer-recovery\", \"transferred-membership-claim\", \"transfer-receipt-key\", \"transfer-claim-batch-receipt\", \"transfer-redemption-receipt\", \"terminal-principal\", \"terminal-responder-replay\", \"leave-former-principal-replay\", \"project-invitation\", \"protected-invitation-envelope\", \"transferred-membership-claim-override\", \"protected-claim-override-envelope\", \"manager-responsibility-offer\", \"membership-idempotency-tombstone\", \"project-membership-recovery\", \"secret-replay-tombstone\", \"terminal-responder\", \"protected-claim-envelope\", \"tombstone\", \"schema-catalog\", \"server-compatibility\", \"authority-volume-pair\"];",
         "exportName": "COLLAB_PROJECT_BACKUP_RECORD_KINDS",
         "source": "./CollabProjectBackupCheckpoint"
       },
@@ -1296,7 +1296,7 @@
         "source": "./CollabProjectBackupCheckpoint"
       },
       {
-        "declaration": "export type CollabProjectBackupContinuityRecord = CollabProjectBackupLifecycleJournalRecord | CollabProjectBackupAuthorityTransferRecoveryRecord | CollabProjectBackupTransferredMembershipClaimRecord | CollabProjectBackupTransferReceiptKeyRecord | CollabProjectBackupTransferClaimBatchReceiptRecord | CollabProjectBackupTransferRedemptionReceiptRecord | CollabProjectBackupTerminalPrincipalRecord | CollabProjectBackupTerminalResponderReplayRecord | CollabProjectBackupLeaveFormerPrincipalReplayRecord | CollabProjectBackupInvitationRecord | CollabProjectBackupProtectedInvitationEnvelopeRecord | CollabProjectBackupTransferredMembershipClaimOverrideRecord | CollabProjectBackupProtectedClaimOverrideEnvelopeRecord | CollabProjectBackupManagerResponsibilityOfferRecord | CollabProjectBackupMembershipRecoveryRecord | CollabProjectBackupSecretReplayTombstoneRecord;",
+        "declaration": "export type CollabProjectBackupContinuityRecord = CollabProjectBackupLifecycleJournalRecord | CollabProjectBackupAuthorityTransferRecoveryRecord | CollabProjectBackupTransferredMembershipClaimRecord | CollabProjectBackupTransferReceiptKeyRecord | CollabProjectBackupTransferClaimBatchReceiptRecord | CollabProjectBackupTransferRedemptionReceiptRecord | CollabProjectBackupTerminalPrincipalRecord | CollabProjectBackupTerminalResponderReplayRecord | CollabProjectBackupLeaveFormerPrincipalReplayRecord | CollabProjectBackupInvitationRecord | CollabProjectBackupProtectedInvitationEnvelopeRecord | CollabProjectBackupTransferredMembershipClaimOverrideRecord | CollabProjectBackupProtectedClaimOverrideEnvelopeRecord | CollabProjectBackupManagerResponsibilityOfferRecord | CollabProjectBackupMembershipIdempotencyTombstoneRecord | CollabProjectBackupMembershipRecoveryRecord | CollabProjectBackupSecretReplayTombstoneRecord;",
         "exportName": "CollabProjectBackupContinuityRecord",
         "source": "./CollabProjectBackupCheckpoint"
       },
@@ -2507,7 +2507,7 @@
       },
       {
         "path": "src/CollabProjectBackupCheckpoint.ts",
-        "sha256": "b53918f3b0b9780314e6236a011d4fd3ab819d0baca8ba1a96f46089d3432a4f"
+        "sha256": "7761e24e415b582cd237ee047a2651ba19d12135683c0d9598fe31070d5c4bd9"
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
@@ -3979,7 +3979,7 @@
       ]
     }
   },
-  "packageVersion": "3.3.0",
+  "packageVersion": "3.3.1",
   "protocolVersion": 6,
   "schemaVersion": 2
 }

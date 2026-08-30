@@ -176,9 +176,16 @@ const PROJECT_BACKUP_MODULE_ADDITION_PROOF = Symbol('project-backup-module-addit
 const PRELAUNCH_PROJECT_BACKUP_REPLACEMENT_PROOF = Symbol(
   'prelaunch-project-backup-replacement-proof',
 );
+const PRELAUNCH_PROJECT_BACKUP_PATCH_PROOF = Symbol(
+  'prelaunch-project-backup-patch-proof',
+);
 const STEP_12_PRELAUNCH_MINOR_PROOF = Symbol('step-12-prelaunch-minor-proof');
 const PROJECT_BACKUP_MODULE = './CollabProjectBackupCheckpoint';
 const PROJECT_BACKUP_MODULE_PATH = 'src/CollabProjectBackupCheckpoint.ts';
+const APPROVED_3_3_0_BACKUP_SOURCE_SHA256 =
+  'cc108beceb82d85251cbfb8d048a1f4c84876249f381200c17c2212eb4b2a728';
+const APPROVED_3_3_1_BACKUP_SOURCE_SHA256 =
+  '4438410b476eb7fd951c9773f6225f7c50d0948c0fdf2c0be6681d143f5fa759';
 const PROJECT_CHECKPOINT_MODULE_PATH = 'src/CollabProjectCheckpoint.ts';
 const PROJECT_MEMBERSHIP_MODULE = './CollabProjectMembership';
 const PROJECT_MEMBERSHIP_MODULE_PATH = 'src/CollabProjectMembership.ts';
@@ -1224,6 +1231,43 @@ export function proveCompatiblePrelaunchProjectBackupReplacementSources({
   });
 }
 
+export function proveCompatiblePrelaunchProjectBackupPatchSources({
+  approvedBaseSourceSha256,
+  approvedCurrentSourceSha256,
+  baseCheckpointSource,
+  baseIndexSource,
+  baseModuleSource,
+  currentCheckpointSource,
+  currentIndexSource,
+  currentModuleSource,
+  stageExport,
+}) {
+  const baseSourceSha256 = createHash('sha256').update(baseModuleSource, 'utf8').digest('hex');
+  const currentSourceSha256 = createHash('sha256')
+    .update(currentModuleSource, 'utf8')
+    .digest('hex');
+  const baseRuntimeSha256 = digestTypeScriptBehavior(baseModuleSource);
+  const currentRuntimeSha256 = digestTypeScriptBehavior(currentModuleSource);
+  if (
+    baseCheckpointSource !== currentCheckpointSource
+    || baseIndexSource !== currentIndexSource
+    || exportedStringConstant(baseModuleSource, stageExport)
+      !== 'pre-production-replaceable'
+    || exportedStringConstant(currentModuleSource, stageExport)
+      !== 'pre-production-replaceable'
+    || baseSourceSha256 !== approvedBaseSourceSha256
+    || currentSourceSha256 !== approvedCurrentSourceSha256
+    || baseSourceSha256 === currentSourceSha256
+  ) return null;
+  return Object.freeze({
+    [PRELAUNCH_PROJECT_BACKUP_PATCH_PROOF]: true,
+    baseRuntimeSha256,
+    baseSourceSha256,
+    currentRuntimeSha256,
+    currentSourceSha256,
+  });
+}
+
 function isCompatibleProjectBackupModuleAddition(base, current, proof) {
   if (proof?.[PROJECT_BACKUP_MODULE_ADDITION_PROOF] !== true) return false;
   const baseDeclarations = entriesBy(
@@ -1636,6 +1680,65 @@ export function isCompatibleStep12PrelaunchMinor(base, current, proof) {
       === capability.runtimeDigests.current;
 }
 
+function isCompatiblePrelaunchProjectBackupPatch(base, current, proof) {
+  if (
+    proof?.[PRELAUNCH_PROJECT_BACKUP_PATCH_PROOF] !== true
+    || base.packageVersion !== '3.3.0'
+    || current.packageVersion !== '3.3.1'
+    || current.protocolVersion !== base.protocolVersion
+    || current.cloudBindingVersion !== base.cloudBindingVersion
+    || stableJson(current.contract.wire) !== stableJson(base.contract.wire)
+    || stableJson(current.contract.cloudBinding) !== stableJson(base.contract.cloudBinding)
+    || stableJson(current.contract.publicRuntimeExports)
+      !== stableJson(base.contract.publicRuntimeExports)
+  ) return false;
+
+  const baseDeclarations = entriesBy(
+    base.contract.publicDeclarations,
+    'exportName',
+    'public declaration',
+  );
+  const currentDeclarations = entriesBy(
+    current.contract.publicDeclarations,
+    'exportName',
+    'public declaration',
+  );
+  if (!exactSortedStrings(baseDeclarations.keys(), currentDeclarations.keys())) return false;
+  let changedDeclarationCount = 0;
+  for (const [name, declaration] of baseDeclarations) {
+    const currentDeclaration = currentDeclarations.get(name);
+    if (stableJson(currentDeclaration) === stableJson(declaration)) continue;
+    changedDeclarationCount += 1;
+    if (
+      declaration.source !== PROJECT_BACKUP_MODULE
+      || currentDeclaration?.source !== PROJECT_BACKUP_MODULE
+    ) return false;
+  }
+  if (changedDeclarationCount === 0) return false;
+
+  const baseRuntime = entriesBy(
+    base.contract.runtimeBehaviorDigests,
+    'path',
+    'runtime behavior digest',
+  );
+  const currentRuntime = entriesBy(
+    current.contract.runtimeBehaviorDigests,
+    'path',
+    'runtime behavior digest',
+  );
+  if (!exactSortedStrings(baseRuntime.keys(), currentRuntime.keys())) return false;
+  for (const [pathName, digest] of baseRuntime) {
+    const currentDigest = currentRuntime.get(pathName);
+    if (pathName === PROJECT_BACKUP_MODULE_PATH) {
+      if (
+        digest.sha256 !== proof.baseRuntimeSha256
+        || currentDigest?.sha256 !== proof.currentRuntimeSha256
+      ) return false;
+    } else if (stableJson(currentDigest) !== stableJson(digest)) return false;
+  }
+  return true;
+}
+
 export function classifyPackageApiChange(base, current, proof = null) {
   validateCurrentSnapshot(base);
   validateCurrentSnapshot(current);
@@ -1659,6 +1762,10 @@ export function classifyPackageApiChange(base, current, proof = null) {
   if (classification === 'major' && isCompatibleStep12PrelaunchMinor(base, current, proof)) {
     return 'minor';
   }
+  if (
+    classification === 'major'
+    && isCompatiblePrelaunchProjectBackupPatch(base, current, proof)
+  ) return 'none';
   if (
     classification === 'major'
     && isCompatibleProjectBackupModuleAddition(base, current, proof)
@@ -2109,13 +2216,35 @@ function prelaunchProjectBackupReplacementProof(baseSha, base, current) {
   });
 }
 
+function prelaunchProjectBackupPatchProof(baseSha, base, current) {
+  if (base.packageVersion !== '3.3.0' || current.packageVersion !== '3.3.1') return null;
+  return proveCompatiblePrelaunchProjectBackupPatchSources({
+    approvedBaseSourceSha256: APPROVED_3_3_0_BACKUP_SOURCE_SHA256,
+    approvedCurrentSourceSha256: APPROVED_3_3_1_BACKUP_SOURCE_SHA256,
+    baseCheckpointSource: readBaseSource(baseSha, PROJECT_CHECKPOINT_MODULE_PATH),
+    baseIndexSource: readBaseSource(baseSha, INDEX_MODULE_PATH),
+    baseModuleSource: readBaseSource(baseSha, PROJECT_BACKUP_MODULE_PATH),
+    currentCheckpointSource: readFileSync(
+      path.join(repositoryRoot, PROJECT_CHECKPOINT_MODULE_PATH),
+      'utf8',
+    ),
+    currentIndexSource: readFileSync(path.join(repositoryRoot, INDEX_MODULE_PATH), 'utf8'),
+    currentModuleSource: readFileSync(
+      path.join(repositoryRoot, PROJECT_BACKUP_MODULE_PATH),
+      'utf8',
+    ),
+    stageExport: 'COLLAB_PROJECT_BACKUP_COMPATIBILITY_STAGE',
+  });
+}
+
 export function compatibleAdditionProof(baseSha, base, current) {
   const control = controlOperationAdditionProof(baseSha, base, current);
   const backupAddition = projectBackupModuleAdditionProof(baseSha, base, current);
   const membership = controlOperationModuleAdditionProof(baseSha, base, current);
   const capability = cloudCapabilityAdditionProof(baseSha, base, current);
   const backupReplacement = prelaunchProjectBackupReplacementProof(baseSha, base, current);
-  const proofs = [control, backupAddition, membership, capability, backupReplacement]
+  const backupPatch = prelaunchProjectBackupPatchProof(baseSha, base, current);
+  const proofs = [control, backupAddition, membership, capability, backupReplacement, backupPatch]
     .filter(item => item !== null);
   if (proofs.length === 0) return null;
   const aggregate = Object.assign({}, ...proofs);

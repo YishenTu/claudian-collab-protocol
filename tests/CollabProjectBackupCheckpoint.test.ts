@@ -884,6 +884,7 @@ describe('Project backup checkpoint format v3', () => {
       'transferred-membership-claim-override',
       'protected-claim-override-envelope',
       'manager-responsibility-offer',
+      'membership-idempotency-tombstone',
       'project-membership-recovery',
       'secret-replay-tombstone',
     ]));
@@ -915,6 +916,110 @@ describe('Project backup checkpoint format v3', () => {
     });
     expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
       legacyLifecycle.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('round-trips compacted Manager-responsibility idempotency tombstones', () => {
+    const tombstone = {
+      kind: 'membership-idempotency-tombstone',
+      recordId: 'createManagerResponsibilityOffer:member_1:compacted_offer_key',
+      revision: 1,
+      value: {
+        actorMemberId: 'member_1',
+        compactedAt: NOW,
+        idempotencyKey: 'compacted_offer_key',
+        operation: 'createManagerResponsibilityOffer',
+        projectId: 'project_1',
+        requestFingerprint: SHA256,
+      },
+    };
+    const records = canonicalRecords([tombstone]);
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+    expect(validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest()),
+      records as any,
+    )).toEqual(records);
+
+    const futureTombstone = canonicalRecords([{
+      ...tombstone,
+      value: { ...tombstone.value, compactedAt: EXTENDED },
+    }]);
+    expect(() => validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest()),
+      futureTombstone as any,
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('rejects a compacted tombstone that coexists with its exact response or offer', () => {
+    const transitionValue = {
+      createdAt: NOW,
+      idempotencyKey: 'decline_key',
+      memberId: 'member_2',
+      operation: 'declineManagerResponsibility' as const,
+      projectId: 'project_1',
+      requestFingerprint: SHA256,
+      responseJson: JSON.stringify({
+        offer: {
+          acknowledgedAt: null,
+          expiresAt: MEMBERSHIP_DAY_EXPIRES,
+          managerSetGenerationAtOffer: 1,
+          offeredAt: NOW,
+          offerId: 'offer_1',
+          purpose: 'manager-promotion',
+          revision: 2,
+          sourceManagerMemberId: 'member_1',
+          state: 'declined',
+          targetMemberId: 'member_2',
+          targetMembershipRevisionAtOffer: 1,
+          terminalAt: NOW,
+        },
+      }),
+    };
+    const exactResponse = {
+      kind: 'idempotency-result',
+      recordId: collabProjectBackupIdempotencyRecordId(transitionValue),
+      revision: 1,
+      value: transitionValue,
+    };
+    const transitionTombstone = {
+      kind: 'membership-idempotency-tombstone',
+      recordId: 'declineManagerResponsibility:member_2:decline_key',
+      revision: 1,
+      value: {
+        actorMemberId: 'member_2',
+        compactedAt: NOW,
+        idempotencyKey: 'decline_key',
+        operation: 'declineManagerResponsibility',
+        projectId: 'project_1',
+        requestFingerprint: SHA256,
+      },
+    };
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      canonicalRecords([exactResponse, transitionTombstone])
+        .map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const liveOffer = membershipV3Records().find(record => (
+      record.kind === 'manager-responsibility-offer'
+    )) as Record<string, any>;
+    const createTombstone = {
+      kind: 'membership-idempotency-tombstone',
+      recordId: 'createManagerResponsibilityOffer:member_1:offer_key',
+      revision: 1,
+      value: {
+        actorMemberId: 'member_1',
+        compactedAt: NOW,
+        idempotencyKey: 'offer_key',
+        operation: 'createManagerResponsibilityOffer',
+        projectId: 'project_1',
+        requestFingerprint: SHA256,
+      },
+    };
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      canonicalRecords([liveOffer, createTombstone])
+        .map(record => JSON.stringify(record)).join('\n') + '\n',
     )).toThrow('collab.error.protocol-payload-invalid');
   });
 

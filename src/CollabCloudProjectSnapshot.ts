@@ -25,6 +25,7 @@ import {
 } from './CollabValidation';
 
 export interface CollabCloudProjectSummary {
+  readonly authorityGeneration: number;
   readonly createdAt: CollabIsoTimestamp;
   readonly expectedMainOid: CollabGitOid;
   readonly id: CollabProjectId;
@@ -147,6 +148,7 @@ function positiveInteger(source: UnknownRecord, field: string): number {
 
 function decodeProject(value: unknown): CollabCloudProjectSummary {
   const source = exactRecord(value, 'project', [
+    'authorityGeneration',
     'createdAt',
     'expectedMainOid',
     'id',
@@ -155,6 +157,7 @@ function decodeProject(value: unknown): CollabCloudProjectSummary {
   ]);
   if (source.mainRef !== COLLAB_MAIN_REF) throw invalidPayload('mainRef');
   return {
+    authorityGeneration: positiveInteger(source, 'authorityGeneration'),
     createdAt: timestamp(source, 'createdAt'),
     expectedMainOid: stringField(source, 'expectedMainOid', 64, isCollabGitOid),
     id: stringField(source, 'id', 64, isCollabProjectId),

@@ -61,7 +61,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     operationId: 'operation_1',
     profile: 'authority-transfer',
     projectId: 'project_1',
-    protocolVersion: 6,
+    protocolVersion: 7,
     refs: [
       { name: 'refs/heads/main', oid: MAIN },
       { name: 'refs/heads/members/member_1', oid: MEMBER },
@@ -279,7 +279,7 @@ function operationalBackupRecords() {
           occurredAt: NOW,
           payload: { transferId: 'transfer_1' },
           projectId: 'project_1',
-          protocolVersion: 6,
+          protocolVersion: 7,
           sequence: 1,
         },
       },
@@ -470,7 +470,7 @@ describe('Project checkpoint contract', () => {
     const digestInput = encodeCollabProjectCheckpointManifestDigestInput(decoded);
     expect(digestInput).not.toContain('manifestSha256');
     expect(createHash('sha256').update(digestInput).digest('hex'))
-      .toBe('51719bf2fa0f3fcaf8e8cc59e29615d848c7a39ce0ed551d28ea97891ab465b9');
+      .toBe('82532c75406314aee61060f9f34802ac9b30f5267f7bcc6f00fb22ebff8a261e');
   });
 
   it('binds one decoded coordination set to the manifest Project and authority fences', () => {
@@ -556,6 +556,7 @@ describe('Project checkpoint contract', () => {
     manifest({ futureField: true }),
     manifest({ manifestSchemaVersion: 2 }),
     manifest({ protocolVersion: 4 }),
+    manifest({ protocolVersion: 6 }),
     manifest({ gitObjectFormat: 'sha256' }),
     manifest({ targetAuthority: { generation: 5, kind: 'cloud' } }),
     manifest({ refs: [
@@ -989,7 +990,7 @@ describe('Project checkpoint contract', () => {
                 retirementId: 'retirement_1',
               },
               projectId: 'project_1',
-              protocolVersion: 6,
+              protocolVersion: 7,
               sequence: 1,
             },
           },
@@ -1102,7 +1103,7 @@ describe('Project checkpoint contract', () => {
               occurredAt: NOW,
               payload: { mainOid: '5'.repeat(64), requestId: 'request_1' },
               projectId: 'project_1',
-              protocolVersion: 6,
+              protocolVersion: 7,
               sequence: 1,
             },
           },

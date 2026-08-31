@@ -2,7 +2,7 @@ import {
   COLLAB_PROJECT_MEMBERSHIP_LIMITS,
   COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS,
   COLLAB_PROJECT_MEMBERSHIP_OPERATIONS,
-} from '../src/CollabProjectMembership';
+} from '../src/index';
 
 const CREATED = '2026-08-30T00:00:00.000Z';
 const EXPIRES = '2026-08-31T00:00:00.000Z';
@@ -117,6 +117,7 @@ const cases = {
       members: [{
         bindingState: 'bound',
         displayName: 'Manager',
+        importedClaimGeneration: null,
         importedClaimState: 'not-applicable',
         memberId: 'member_manager',
         membershipRevision: 2,
@@ -142,6 +143,8 @@ const cases = {
       memberId: 'member_imported',
       projectId: 'project_1',
       secretReplayExpiresAt: REPLAY_EXPIRES,
+      targetAuthorityGeneration: 7,
+      transferId: 'transfer_1',
     },
   },
   revokeTransferredMembershipClaim: {
@@ -329,6 +332,73 @@ describe('Cloud Project membership contract', () => {
       .toThrow('collab.error.protocol-payload-invalid');
   });
 
+  it.each([
+    ['not-applicable', null],
+    ['hidden', null],
+    ['original-active', 0],
+    ['override-active', 3],
+    ['revoked', 0],
+    ['revoked', 4],
+    ['expired', 0],
+    ['expired', 5],
+    ['redeemed', 0],
+    ['redeemed', 6],
+  ])('lists the canonical %s claim generation %s', (importedClaimState, importedClaimGeneration) => {
+    const response = {
+      ...cases.listProjectMembers.response,
+      members: [{
+        ...cases.listProjectMembers.response.members[0],
+        importedClaimGeneration,
+        importedClaimState,
+      }],
+    };
+    expect(COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS.listProjectMembers.decodeResponse(response))
+      .toEqual(response);
+  });
+
+  it('retains the explicit role-redacted member-list shape without claim or principal metadata', () => {
+    const response = {
+      managerSetGeneration: 3,
+      members: [{
+        bindingState: 'hidden',
+        displayName: 'Imported Member',
+        importedClaimGeneration: null,
+        importedClaimState: 'hidden',
+        memberId: 'member_imported',
+        membershipRevision: 4,
+        role: 'member',
+      }],
+      projectId: 'project_1',
+    };
+    const codec = COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS.listProjectMembers;
+    expect(codec.decodeResponse(response)).toEqual(response);
+    for (const extra of [{ transferId: 'transfer_1' }, { principalId: 'principal_1' }, { claim: SECRET }]) {
+      expect(() => codec.decodeResponse({
+        ...response,
+        members: [{ ...response.members[0], ...extra }],
+      })).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it.each([
+    ['not-applicable', 0], ['hidden', 0], ['hidden', 1],
+    ['original-active', null], ['original-active', 1], ['override-active', 0],
+    ['override-active', null], ['revoked', null], ['expired', null], ['redeemed', null],
+    ['revoked', -1], ['expired', 1.5], ['redeemed', '2'],
+    ['override-active', Number.MAX_SAFE_INTEGER + 1], ['hidden', undefined],
+  ])('rejects the invalid %s claim generation %s', (importedClaimState, importedClaimGeneration) => {
+    const member: Record<string, unknown> = {
+      ...cases.listProjectMembers.response.members[0],
+      importedClaimGeneration,
+      importedClaimState,
+    };
+    if (importedClaimGeneration === undefined) delete member.importedClaimGeneration;
+    expect(() => COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS.listProjectMembers.decodeResponse({
+      ...cases.listProjectMembers.response,
+      members: [member],
+    })).toThrow('collab.error.protocol-payload-invalid');
+  });
+
   it('requires nullable Leave succession fields together', () => {
     const codec = COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS.leaveProject;
     expect(codec.decodeRequest({
@@ -348,6 +418,31 @@ describe('Cloud Project membership contract', () => {
         expectedClaimGeneration,
       })).toMatchObject({ status: 'invalid' });
     }
+  });
+
+  it('retains the exact canonical transfer identity in reissued claim replies and replay bytes', () => {
+    const response = cases.reissueTransferredMembershipClaim.response;
+    const codec = COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS.reissueTransferredMembershipClaim;
+    expect(codec.decodeResponse(response)).toEqual(response);
+    expect(codec.decodeResponse(JSON.parse(JSON.stringify(response)))).toEqual(response);
+  });
+
+  it.each([
+    ['targetAuthorityGeneration', undefined], ['targetAuthorityGeneration', null],
+    ['targetAuthorityGeneration', 0], ['targetAuthorityGeneration', -1],
+    ['targetAuthorityGeneration', 1.5], ['targetAuthorityGeneration', '7'],
+    ['targetAuthorityGeneration', Number.MAX_SAFE_INTEGER + 1],
+    ['transferId', undefined], ['transferId', ''], ['transferId', '../transfer_1'],
+    ['transferId', 7], ['transferId', 't'.repeat(129)],
+  ])('rejects invalid reissue %s: %s', (field, value) => {
+    const response: Record<string, unknown> = {
+      ...cases.reissueTransferredMembershipClaim.response,
+      [field as string]: value,
+    };
+    if (value === undefined) delete response[field as string];
+    expect(() => COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS
+      .reissueTransferredMembershipClaim.decodeResponse(response))
+      .toThrow('collab.error.protocol-payload-invalid');
   });
 
   it('rejects noncanonical 32-byte base64url secret encodings', () => {

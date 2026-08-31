@@ -17,7 +17,7 @@
 ## Compatibility
 
 - Package SemVer, canonical wire version, and Cloud binding version are independent authorities. Claudian's LAN protocol version is independently consumer-owned.
-- The current published baseline is `3.3.2`, canonical wire v6, Cloud binding v2, authority-transfer/export coordination format v1, and offline-backup coordination format v3.
+- The current source contract is `4.0.0`, canonical wire v7, Cloud binding v3, authority-transfer/export coordination format v1, and offline-backup coordination format v3. Source readiness does not establish registry publication; consumers wait for verified release evidence.
 - `CollabProjectCheckpoint` owns wire-visible authority-transfer/export coordination format v1. `CollabProjectBackupCheckpoint` owns offline backup coordination. Cloud has no deployed legacy backup population; keep only the current backup format and do not add prior decoders or pre-production compatibility exceptions. Future contract changes follow the normal package, wire, and binding classification policy.
 - Checkpoint families share private parsed-record and manifest-field validation below their public entry points. Keep format-specific principal and continuity rules explicit; never adapt one format by fabricating principals or rewriting its declared version through another public decoder. Backup coordination admission measures the actual UTF-8 artifact, including its final newline, against the inclusive 256 MiB cap; encoding and consistency checking use the same admission boundary.
 - Use a patch release for compatible defect corrections that preserve the accepted public declarations and wire/binding semantics, a minor release for backward-compatible public additions, and a major release only for an accepted breaking public change. Classify the semantic contract change before editing any version or compatibility snapshot.
@@ -34,7 +34,7 @@
 - Release-candidate construction owns the single packed artifact and inventory check. Clean-consumer verification uses those exact reviewed bytes without rebuilding or repacking; standalone `npm pack` retains its `prepack` build guarantee.
 - Releases originate from a reviewed tag in this public repository on a GitHub-hosted runner with npm provenance. Never commit, print, or store credentials in repository files or `.context`.
 - Consumers pin exact published versions. Never republish or overwrite an existing version; a defective release requires an explicitly approved successor version.
-- Do not publish a protocol release when only Claudian or Cloud Server implementation changed. A compatible protocol correction uses the next `3.3.x` version unless the user explicitly approves a different release line.
+- Do not publish a protocol release when only Claudian or Cloud Server implementation changed. A compatible protocol correction uses the next `4.0.x` version unless the user explicitly approves a different release line.
 - Keep package contents sensitive-data free and auditable. `dist/` and tarballs are generated artifacts, not committed source.
 
 ## Development

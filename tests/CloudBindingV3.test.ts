@@ -26,7 +26,7 @@ const PROJECT_ID = 'project_1';
 
 function capabilityDocument(overrides: Record<string, unknown> = {}) {
   return {
-    bindingVersions: [2],
+    bindingVersions: [3],
     capabilities: [...COLLAB_CLOUD_CAPABILITIES],
     limits: {
       maxCheckpointCoordinationBytes: 256 * 1024 * 1024,
@@ -41,16 +41,37 @@ function capabilityDocument(overrides: Record<string, unknown> = {}) {
       maxJsonPayloadUtf8Bytes: 512 * 1024,
       maxRepositoryBytes: 1024 * 1024 * 1024,
     },
-    protocolVersions: [6],
+    protocolVersions: [7],
     schemaVersion: 2,
     ...overrides,
   };
 }
 
-describe('Cloud binding v2', () => {
+describe('Cloud binding v3', () => {
+  it('admits only binding 3 with wire 7', () => {
+    const current = capabilityDocument({ bindingVersions: [3], protocolVersions: [7] });
+    expect(decodeCollabCloudCapabilityDocument(current)).toEqual(current);
+    expect(() => decodeCollabCloudCapabilityDocument({ ...current, bindingVersions: [2] }))
+      .toThrow('collab.error.protocol-version-unsupported');
+    expect(() => decodeCollabCloudCapabilityDocument({ ...current, protocolVersions: [6] }))
+      .toThrow('collab.error.protocol-version-unsupported');
+  });
+
+  it.each([
+    ['POST', '/v2/projects/project_1/operations/getProjectSnapshot'],
+    ['GET', '/v2/projects/project_1/events?afterSequence=0'],
+    ['GET', '/v2/projects/project_1/repository.git/info/refs?service=git-upload-pack'],
+    ['POST', '/v2/projects/project_1/repository.git/git-receive-pack'],
+    ['GET', '/v2/projects/project_1/authority-transfers/transfer_1/checkpoint/checkpoint.json'],
+    ['GET', '/v2/projects/project_1/checkpoint-exports/export_1/checkpoint/coordination.ndjson'],
+    ['POST', '/v2/development/bootstrap/attempts'],
+  ])('does not route a previous-binding request: %s %s', (method, target) => {
+    expect(matchCollabCloudRoute(method, target)).toBeNull();
+  });
+
   it('keeps package, canonical wire, Cloud binding, and LAN binding independent', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(6);
-    expect(COLLAB_CLOUD_BINDING_VERSION).toBe(2);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(7);
+    expect(COLLAB_CLOUD_BINDING_VERSION).toBe(3);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
     expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(51);
     expect(COLLAB_CLOUD_JSON_OPERATIONS).toEqual([
@@ -77,17 +98,17 @@ describe('Cloud binding v2', () => {
 
     expect(routes.map(route => `${route.method} ${route.target}`)).toEqual([
       'GET /collab/capabilities',
-      'POST /v2/projects/project_1/operations/getProjectSnapshot',
-      'GET /v2/projects/project_1/events?afterSequence=42',
-      'GET /v2/projects/project_1/repository.git/info/refs?service=git-upload-pack',
-      'POST /v2/projects/project_1/repository.git/git-upload-pack',
-      'POST /v2/projects/project_1/repository.git/git-receive-pack',
-      'POST /v2/development/bootstrap/attempts',
-      'POST /v2/development/bootstrap/attempts/attempt_1/reports',
-      'GET /v2/development/bootstrap/attempts/attempt_1',
-      'POST /v2/development/bootstrap/attempts/attempt_1/activate',
-      'POST /v2/development/bootstrap/attempts/attempt_1/cancel',
-      'PUT /v2/development/bootstrap/attempts/attempt_1/git-bundle',
+      'POST /v3/projects/project_1/operations/getProjectSnapshot',
+      'GET /v3/projects/project_1/events?afterSequence=42',
+      'GET /v3/projects/project_1/repository.git/info/refs?service=git-upload-pack',
+      'POST /v3/projects/project_1/repository.git/git-upload-pack',
+      'POST /v3/projects/project_1/repository.git/git-receive-pack',
+      'POST /v3/development/bootstrap/attempts',
+      'POST /v3/development/bootstrap/attempts/attempt_1/reports',
+      'GET /v3/development/bootstrap/attempts/attempt_1',
+      'POST /v3/development/bootstrap/attempts/attempt_1/activate',
+      'POST /v3/development/bootstrap/attempts/attempt_1/cancel',
+      'PUT /v3/development/bootstrap/attempts/attempt_1/git-bundle',
     ]);
     for (const route of routes) {
       expect(matchCollabCloudRoute(route.method, route.target)).toEqual(route.match);
@@ -97,23 +118,23 @@ describe('Cloud binding v2', () => {
   it('rejects unknown operations, non-canonical targets, and malformed identifiers', () => {
     expect(matchCollabCloudRoute(
       'POST',
-      '/v2/projects/project_1/operations/futureOperation',
+      '/v3/projects/project_1/operations/futureOperation',
     )).toBeNull();
     expect(matchCollabCloudRoute(
       'GET',
-      '/v2/projects/project_1/events?afterSequence=1&afterSequence=2',
+      '/v3/projects/project_1/events?afterSequence=1&afterSequence=2',
     )).toBeNull();
     expect(matchCollabCloudRoute(
       'GET',
-      '/v2/projects/project_1/repository.git/info/refs?service=git-archive',
+      '/v3/projects/project_1/repository.git/info/refs?service=git-archive',
     )).toBeNull();
     expect(matchCollabCloudRoute(
       'POST',
-      '/v2//projects/project_1/operations/getProjectSnapshot',
+      '/v3//projects/project_1/operations/getProjectSnapshot',
     )).toBeNull();
     expect(matchCollabCloudRoute(
       'POST',
-      '/v2/projects/project_1/operations/getProjectSnapshot/',
+      '/v3/projects/project_1/operations/getProjectSnapshot/',
     )).toBeNull();
     expect(matchCollabCloudRoute('GET', '/collab/capabilities?')).toBeNull();
     expect(() => collabCloudProjectOperationRoute('../escape', 'getProjectSnapshot'))

@@ -1,5 +1,5 @@
 {
-  "cloudBindingVersion": 2,
+  "cloudBindingVersion": 3,
   "contract": {
     "cloudBinding": {
       "capabilities": [
@@ -49,7 +49,7 @@
           "source": "./CollabCloudBinding"
         },
         {
-          "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 2;",
+          "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 3;",
           "exportName": "COLLAB_CLOUD_BINDING_VERSION",
           "source": "./CollabCloudBinding"
         },
@@ -209,7 +209,7 @@
           "source": "./CollabCloudProjectSnapshot"
         },
         {
-          "declaration": "export interface CollabCloudProjectSummary {\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expectedMainOid: CollabGitOid;\n    readonly id: CollabProjectId;\n    readonly mainRef: typeof COLLAB_MAIN_REF;\n    readonly name: string;\n}",
+          "declaration": "export interface CollabCloudProjectSummary {\n    readonly authorityGeneration: number;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expectedMainOid: CollabGitOid;\n    readonly id: CollabProjectId;\n    readonly mainRef: typeof COLLAB_MAIN_REF;\n    readonly name: string;\n}",
           "exportName": "CollabCloudProjectSummary",
           "source": "./CollabCloudProjectSnapshot"
         },
@@ -540,7 +540,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/CollabCloudBinding.ts",
-          "sha256": "0dea1bbed214fcbd8f5790e3aefc1e9b90eefec7707fc24e017a0c2462c86f0d"
+          "sha256": "04cbbb43f7ca544de05994f2869f84df2a63cf6a7938be8e0ce24a5dccaf6869"
         },
         {
           "path": "src/CollabCloudProjectEvent.ts",
@@ -548,7 +548,7 @@
         },
         {
           "path": "src/CollabCloudProjectSnapshot.ts",
-          "sha256": "a9e26e4e6647f9138de2b140c8de488a2fe3ae399dbe3f3ad629a158462b545f"
+          "sha256": "7479ef59c4527aa28ee26d65d31903bcd060390f351bf787a6d308ec46baf0ca"
         },
         {
           "path": "src/DevelopmentBootstrap.ts",
@@ -668,7 +668,7 @@
         "source": "./CollabCloudBinding"
       },
       {
-        "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 2;",
+        "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 3;",
         "exportName": "COLLAB_CLOUD_BINDING_VERSION",
         "source": "./CollabCloudBinding"
       },
@@ -798,7 +798,7 @@
         "source": "./CollabProjectCheckpoint"
       },
       {
-        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 6;",
+        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 7;",
         "exportName": "COLLAB_PROTOCOL_VERSION",
         "source": "./CollabConstants"
       },
@@ -1148,7 +1148,7 @@
         "source": "./CollabCloudProjectSnapshot"
       },
       {
-        "declaration": "export interface CollabCloudProjectSummary {\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expectedMainOid: CollabGitOid;\n    readonly id: CollabProjectId;\n    readonly mainRef: typeof COLLAB_MAIN_REF;\n    readonly name: string;\n}",
+        "declaration": "export interface CollabCloudProjectSummary {\n    readonly authorityGeneration: number;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expectedMainOid: CollabGitOid;\n    readonly id: CollabProjectId;\n    readonly mainRef: typeof COLLAB_MAIN_REF;\n    readonly name: string;\n}",
         "exportName": "CollabCloudProjectSummary",
         "source": "./CollabCloudProjectSnapshot"
       },
@@ -1543,7 +1543,7 @@
         "source": "./CollabProjectMembership"
       },
       {
-        "declaration": "export interface CollabProjectMemberSummary {\n    readonly bindingState: CollabProjectMemberBindingState;\n    readonly displayName: string;\n    readonly importedClaimState: CollabImportedClaimState;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: number;\n    readonly role: CollabRole;\n}",
+        "declaration": "export interface CollabProjectMemberSummary {\n    readonly bindingState: CollabProjectMemberBindingState;\n    readonly displayName: string;\n    readonly importedClaimGeneration: number | null;\n    readonly importedClaimState: CollabImportedClaimState;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: number;\n    readonly role: CollabRole;\n}",
         "exportName": "CollabProjectMemberSummary",
         "source": "./CollabProjectMembership"
       },
@@ -2343,7 +2343,7 @@
         "source": "./CollabProjectMembership"
       },
       {
-        "declaration": "export interface ReissueTransferredMembershipClaimResponse {\n    readonly claim: string;\n    readonly claimGeneration: number;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n}",
+        "declaration": "export interface ReissueTransferredMembershipClaimResponse extends CollabTransferredMembershipClaim {\n    readonly claimGeneration: number;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n}",
         "exportName": "ReissueTransferredMembershipClaimResponse",
         "source": "./CollabProjectMembership"
       },
@@ -2562,7 +2562,7 @@
       },
       {
         "path": "src/CollabCloudBinding.ts",
-        "sha256": "0dea1bbed214fcbd8f5790e3aefc1e9b90eefec7707fc24e017a0c2462c86f0d"
+        "sha256": "04cbbb43f7ca544de05994f2869f84df2a63cf6a7938be8e0ce24a5dccaf6869"
       },
       {
         "path": "src/CollabCloudProjectEvent.ts",
@@ -2570,11 +2570,11 @@
       },
       {
         "path": "src/CollabCloudProjectSnapshot.ts",
-        "sha256": "a9e26e4e6647f9138de2b140c8de488a2fe3ae399dbe3f3ad629a158462b545f"
+        "sha256": "7479ef59c4527aa28ee26d65d31903bcd060390f351bf787a6d308ec46baf0ca"
       },
       {
         "path": "src/CollabConstants.ts",
-        "sha256": "71cf6b1c73dcb752e45b96432c588f5d8b2c3d0ca261662b3f18bc1aed9f07d5"
+        "sha256": "5023c758be7a85450ceda2dbc428cb0ca3cd2e2d7dfb0f43c3444a4831771b31"
       },
       {
         "path": "src/CollabControlOperationCodecs.ts",
@@ -2602,7 +2602,7 @@
       },
       {
         "path": "src/CollabProjectMembership.ts",
-        "sha256": "c18295eb9d69a7c45d0e0ed41b8a2231ff0c49c939c564233f7c9c9e20c7517d"
+        "sha256": "5d30f4bf5286f6818ed0434fc6bce4aefc05b41cbd8bac803947054d5e3c8aa8"
       },
       {
         "path": "src/CollabProjectRetirement.ts",
@@ -2819,7 +2819,7 @@
           "source": "./CollabProjectCheckpoint"
         },
         {
-          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 6;",
+          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 7;",
           "exportName": "COLLAB_PROTOCOL_VERSION",
           "source": "./CollabConstants"
         },
@@ -3254,7 +3254,7 @@
           "source": "./CollabProjectMembership"
         },
         {
-          "declaration": "export interface CollabProjectMemberSummary {\n    readonly bindingState: CollabProjectMemberBindingState;\n    readonly displayName: string;\n    readonly importedClaimState: CollabImportedClaimState;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: number;\n    readonly role: CollabRole;\n}",
+          "declaration": "export interface CollabProjectMemberSummary {\n    readonly bindingState: CollabProjectMemberBindingState;\n    readonly displayName: string;\n    readonly importedClaimGeneration: number | null;\n    readonly importedClaimState: CollabImportedClaimState;\n    readonly memberId: CollabMemberId;\n    readonly membershipRevision: number;\n    readonly role: CollabRole;\n}",
           "exportName": "CollabProjectMemberSummary",
           "source": "./CollabProjectMembership"
         },
@@ -3809,7 +3809,7 @@
           "source": "./CollabProjectMembership"
         },
         {
-          "declaration": "export interface ReissueTransferredMembershipClaimResponse {\n    readonly claim: string;\n    readonly claimGeneration: number;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly expiresAt: CollabIsoTimestamp;\n    readonly memberId: CollabMemberId;\n    readonly projectId: CollabProjectId;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n}",
+          "declaration": "export interface ReissueTransferredMembershipClaimResponse extends CollabTransferredMembershipClaim {\n    readonly claimGeneration: number;\n    readonly createdAt: CollabIsoTimestamp;\n    readonly secretReplayExpiresAt: CollabIsoTimestamp;\n}",
           "exportName": "ReissueTransferredMembershipClaimResponse",
           "source": "./CollabProjectMembership"
         },
@@ -4021,7 +4021,7 @@
         },
         {
           "path": "src/CollabConstants.ts",
-          "sha256": "71cf6b1c73dcb752e45b96432c588f5d8b2c3d0ca261662b3f18bc1aed9f07d5"
+          "sha256": "5023c758be7a85450ceda2dbc428cb0ca3cd2e2d7dfb0f43c3444a4831771b31"
         },
         {
           "path": "src/CollabControlOperationCodecs.ts",
@@ -4037,7 +4037,7 @@
         },
         {
           "path": "src/CollabProjectMembership.ts",
-          "sha256": "c18295eb9d69a7c45d0e0ed41b8a2231ff0c49c939c564233f7c9c9e20c7517d"
+          "sha256": "5d30f4bf5286f6818ed0434fc6bce4aefc05b41cbd8bac803947054d5e3c8aa8"
         },
         {
           "path": "src/CollabProjectRetirement.ts",
@@ -4066,7 +4066,7 @@
       ]
     }
   },
-  "packageVersion": "3.3.2",
-  "protocolVersion": 6,
+  "packageVersion": "4.0.0",
+  "protocolVersion": 7,
   "schemaVersion": 2
 }

@@ -71,6 +71,7 @@ function snapshot(overrides: Record<string, unknown> = {}) {
     ],
     openTicketCount: 2,
     project: {
+      authorityGeneration: 7,
       createdAt: EARLIER,
       expectedMainOid: MAIN,
       id: 'project_1',
@@ -86,11 +87,33 @@ function snapshot(overrides: Record<string, unknown> = {}) {
 }
 
 describe('Cloud Project snapshot', () => {
+  it('retains the server-established logical authority generation above one', () => {
+    expect(COLLAB_CLOUD_PROJECT_SNAPSHOT_CODEC.decodeResponse(snapshot()).project)
+      .toEqual({
+        authorityGeneration: 7,
+        createdAt: EARLIER,
+        expectedMainOid: MAIN,
+        id: 'project_1',
+        mainRef: COLLAB_MAIN_REF,
+        name: 'Private project',
+      });
+  });
+
   it('decodes the exact authority-neutral bounded projection', () => {
     expect(decodeCollabCloudProjectSnapshot(snapshot())).toEqual(snapshot());
     expect(JSON.stringify(decodeCollabCloudProjectSnapshot(snapshot())))
       .not.toMatch(/host|credential|endpoint|placement|managerSetGeneration/i);
   });
+
+  it.each([undefined, null, 0, -1, 1.5, '7', Number.MAX_SAFE_INTEGER + 1])(
+    'rejects a missing or invalid logical authority generation: %s',
+    (authorityGeneration) => {
+      const project: Record<string, unknown> = { ...snapshot().project, authorityGeneration };
+      if (authorityGeneration === undefined) delete project.authorityGeneration;
+      expect(() => decodeCollabCloudProjectSnapshot(snapshot({ project })))
+        .toThrow('collab.error.protocol-payload-invalid');
+    },
+  );
 
   it.each([
     snapshot({ futureField: true }),
@@ -158,7 +181,7 @@ describe('Cloud Project events', () => {
         ...event,
         occurredAt: NOW,
         projectId: 'project_1',
-        protocolVersion: 6,
+        protocolVersion: 7,
         sequence: index + 1,
       };
       expect(decodeCollabCloudProjectEventMessage(envelope)).toEqual(envelope);

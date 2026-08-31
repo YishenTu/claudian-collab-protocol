@@ -2,11 +2,10 @@
 /**
  * Packed-artifact verification for @claudian-collab/protocol.
  *
- * 1. builds the package;
- * 2. packs it and asserts the exact published file inventory;
- * 3. installs the tarball into a clean temporary consumer using only the
+ * 1. verifies the release candidate against its reviewed tarball digest;
+ * 2. installs those exact bytes into a clean temporary consumer using only the
  *    dependency metadata in the packed artifact;
- * 4. executes CJS and ESM import smoke tests, including a runtime codec
+ * 3. executes CJS and ESM import smoke tests, including a runtime codec
  *    round-trip through the installed artifact.
  *
  * All artifacts stay under the repository's ignored .context/ directory.
@@ -15,16 +14,16 @@ import {
   execFileSync,
 } from 'node:child_process';
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+
+import { verifyReviewedTarball } from './release-candidate.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const contextRoot = path.join(packageRoot, '.context');
@@ -51,50 +50,19 @@ function runNpm(args, options = {}) {
   return run(process.execPath, [npmCliPath, ...args], options);
 }
 
+const reviewedRecord = JSON.parse(readFileSync(
+  path.join(packageRoot, 'release-manifest.json'),
+  'utf8',
+));
+const tarballPath = verifyReviewedTarball(
+  path.join(contextRoot, 'release', reviewedRecord.tarball.filename),
+  reviewedRecord,
+);
 const workRoot = mkdtempSync(path.join(contextRoot, 'collab-protocol-pack-'));
+console.log(`reviewed tarball: ${tarballPath}`);
 console.log(`workspace: ${workRoot}`);
 
-// 1. Build + pack.
-runNpm(['run', 'build']);
-const packResult = JSON.parse(runNpm([
-  'pack',
-  '--json',
-  '--silent',
-  '--pack-destination',
-  workRoot,
-]));
-assert(Array.isArray(packResult) && packResult.length === 1, 'npm pack returned no artifact');
-const [{ filename: tarballName, files: packedFileEntries }] = packResult;
-assert(typeof tarballName === 'string', 'npm pack omitted the artifact filename');
-assert(Array.isArray(packedFileEntries), 'npm pack omitted the artifact inventory');
-const tarballPath = path.join(workRoot, tarballName);
-assert(existsSync(tarballPath), `tarball missing: ${tarballPath}`);
-console.log(`packed: ${tarballName}`);
-
-// 2. Exact packed-file inventory: dist build output and reviewed package metadata.
-const expectedFiles = [
-  'LICENSE',
-  'README.md',
-  'package.json',
-  ...readdirSync(path.join(packageRoot, 'src'))
-    .filter(name => name.endsWith('.ts'))
-    .flatMap((name) => {
-      const base = name.replace(/\.ts$/, '');
-      return [
-        `dist/${base}.js`,
-        `dist/${base}.d.ts`,
-        `dist/esm/${base}.mjs`,
-      ];
-    }),
-].sort();
-const packedFiles = packedFileEntries.map(entry => entry.path).sort();
-assert(
-  JSON.stringify(packedFiles) === JSON.stringify(expectedFiles),
-  `packed inventory mismatch:\nexpected: ${JSON.stringify(expectedFiles, null, 2)}\nactual: ${JSON.stringify(packedFiles, null, 2)}`,
-);
-console.log(`inventory: ${packedFiles.length} files exactly as expected`);
-
-// 3. Clean consumer install without registry access.
+// 2. Install the reviewed artifact into a clean consumer.
 const consumerRoot = path.join(workRoot, 'consumer');
 mkdirSync(consumerRoot);
 writeFileSync(
@@ -119,7 +87,7 @@ const installedManifest = JSON.parse(readFileSync(
 ));
 console.log(`installed artifact version: ${installedManifest.version}`);
 
-// 4. Runtime smoke: CJS require, then ESM import, with codec execution.
+// 3. Runtime smoke: CJS require, then ESM import, with codec execution.
 const smokeSource = `
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -255,7 +223,7 @@ run(process.execPath, [
 ], { cwd: consumerRoot });
 console.log('TypeScript ESM and CJS declarations OK');
 
-// 5. Subpath imports must be blocked by the exports map.
+// 4. Subpath imports must be blocked by the exports map.
 for (const subpath of ['dist/CollabError.js', 'package.json']) {
   run(process.execPath, [
     '-e',

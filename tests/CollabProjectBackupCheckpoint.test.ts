@@ -11,7 +11,9 @@ import {
   validateCollabProjectBackupCheckpointConsistency,
 } from '../src/CollabProjectBackupCheckpoint';
 import {
+  COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
   COLLAB_PROJECT_COORDINATION_FORMAT_VERSION,
+  decodeCollabProjectCheckpointCoordinationNdjson,
   decodeCollabProjectCheckpointManifest,
 } from '../src/CollabProjectCheckpoint';
 
@@ -707,6 +709,40 @@ function canonicalRecords(
   });
 }
 
+function coordinationLimitRecords(extraBodyByte = ''): Record<string, any>[] {
+  const fullBody = 'é'.repeat(16_384);
+  const tickets = Array.from({ length: 8_114 }, (_, index) => {
+    const number = 10_000 + index;
+    const ticketId = `ticket_${number}`;
+    return {
+      kind: 'ticket',
+      recordId: ticketId,
+      revision: 1,
+      value: {
+        authorMemberId: 'member_1',
+        body: index === 8_113 ? 'é'.repeat(11_060) + extraBodyByte : fullBody,
+        closedAt: null,
+        closedByMemberId: null,
+        createdAt: NOW,
+        number,
+        projectId: 'project_1',
+        status: 'open',
+        ticketId,
+        title: 'T',
+        updatedAt: NOW,
+      },
+    };
+  });
+  const base = baseRecords().map(record => record.kind === 'principal-binding'
+    ? {
+      ...record,
+      value: { ...record.value, principalId: record.recordId === 'member_1' ? 'a' : 'b' },
+    }
+    : record);
+  // 2,528 base bytes + 8,113 * 33,084 full-ticket bytes + 22,436 tail bytes = 256 MiB.
+  return canonicalRecords(tickets, base);
+}
+
 function membershipV3Records(): Record<string, any>[] {
   return [
     {
@@ -866,6 +902,41 @@ function membershipV3Records(): Record<string, any>[] {
 }
 
 describe('Project backup checkpoint format v3', () => {
+  it('admits backups at the actual UTF-8 artifact byte limit through every entry point', () => {
+    const records = coordinationLimitRecords();
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    const checkpointManifest = manifest();
+    checkpointManifest.artifacts[0].byteCount = 268_435_456;
+
+    expect(COLLAB_CHECKPOINT_ARTIFACT_LIMITS.maxCoordinationBytes).toBe(268_435_456);
+    expect(Buffer.byteLength(encoded)).toBe(268_435_456);
+    expect(encoded.length).toBeLessThan(268_435_456);
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toHaveLength(8_125);
+    expect(encodeCollabProjectBackupCheckpointCoordinationNdjson(records as any) === encoded).toBe(true);
+    expect(validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(checkpointManifest),
+      records as any,
+    )).toHaveLength(8_125);
+  }, 30_000);
+
+  it('rejects backups one UTF-8 byte over the artifact limit through every entry point', () => {
+    const records = coordinationLimitRecords('x');
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    const error = expect.objectContaining({
+      code: 'protocol-payload-invalid',
+      safeContext: { field: 'coordination' },
+    });
+
+    expect(Buffer.byteLength(encoded)).toBe(268_435_457);
+    expect(encoded.length).toBeLessThan(268_435_456);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toThrow(error);
+    expect(() => encodeCollabProjectBackupCheckpointCoordinationNdjson(records as any)).toThrow(error);
+    expect(() => validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest()),
+      records as any,
+    )).toThrow(error);
+  }, 30_000);
+
   it('adds a backup-only coordination format without changing wire v6 format v1', () => {
     expect(COLLAB_PROJECT_COORDINATION_FORMAT_VERSION).toBe(1);
     expect(COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION).toBe(3);
@@ -2435,5 +2506,178 @@ describe('Project backup checkpoint format v3', () => {
         records.map(record => JSON.stringify(record)).join('\n') + '\n',
       )).toThrow('collab.error.protocol-payload-invalid');
     }
+  });
+
+  it('preserves the distinct v1 and v3 principal syntax at their public seams', () => {
+    const records = canonicalRecords().map(record => (
+      record.kind === 'principal-binding' && record.recordId === 'member_1'
+        ? { ...record, value: { ...record.value, principalId: 'oidc:user.example:com' } }
+        : record
+    ));
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    const decoded = decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded);
+
+    expect(encodeCollabProjectBackupCheckpointCoordinationNdjson(decoded)).toBe(encoded);
+    expect(validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest()),
+      decoded,
+    )).toBe(decoded);
+    expect(() => decodeCollabProjectCheckpointCoordinationNdjson(encoded, 'backup'))
+      .toThrow(expect.objectContaining({
+        code: 'protocol-payload-invalid',
+        safeContext: { field: 'principalId' },
+      }));
+  });
+
+  it('reports a missing base binding principal as non-canonical coordination', () => {
+    const records = canonicalRecords().map(record => {
+      if (record.kind !== 'principal-binding' || record.recordId !== 'member_1') return record;
+      const value = { ...record.value };
+      delete value.principalId;
+      return { ...record, value };
+    });
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded))
+      .toThrow(expect.objectContaining({
+        code: 'protocol-payload-invalid',
+        safeContext: { field: 'coordination' },
+      }));
+  });
+
+  it('validates base fields and canonical order before deferred principal fields', () => {
+    const invalidPrincipal = canonicalRecords().map(record => (
+      record.kind === 'principal-binding' && record.recordId === 'member_1'
+        ? { ...record, value: { ...record.value, principalId: null } }
+        : record
+    ));
+    const invalidProject = invalidPrincipal.map(record => (
+      record.kind === 'principal-binding' && record.recordId === 'member_1'
+        ? { ...record, value: { ...record.value, projectId: -1 } }
+        : record
+    ));
+    const missingLaterTimestamp = invalidPrincipal.map(record => {
+      if (record.kind !== 'principal-binding' || record.recordId !== 'member_2') return record;
+      const value = { ...record.value };
+      delete value.boundAt;
+      return { ...record, value };
+    });
+    const nonCanonicalBinding = invalidPrincipal.map(record => (
+      record.kind === 'principal-binding' && record.recordId === 'member_1'
+        ? {
+            ...record,
+            value: {
+              projectId: 'project_1',
+              principalId: null,
+              memberId: 'member_1',
+              boundAt: NOW,
+            },
+          }
+        : record
+    ));
+
+    for (const [records, field] of [
+      [invalidProject, 'projectId'],
+      [missingLaterTimestamp, 'value'],
+      [nonCanonicalBinding, 'coordination'],
+    ] as const) {
+      const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded))
+        .toThrow(expect.objectContaining({
+          code: 'protocol-payload-invalid',
+          safeContext: { field },
+        }));
+    }
+  });
+
+  it('validates preceding continuity fields before terminal principal fields', () => {
+    const records = canonicalRecords(acknowledgedCloudToLanContinuityRecords()).map(record => {
+      if (record.kind === 'lifecycle-journal') {
+        const value = { ...record.value };
+        delete value.actorMemberId;
+        return { ...record, value };
+      }
+      if (record.kind === 'terminal-responder') {
+        return {
+          ...record,
+          value: {
+            ...record.value,
+            acknowledgements: [{ acknowledgedAt: ACKNOWLEDGED, memberId: 'member_1' }],
+          },
+        };
+      }
+      return record;
+    });
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded))
+      .toThrow(expect.objectContaining({
+        code: 'protocol-payload-invalid',
+        safeContext: { field: 'value' },
+      }));
+  });
+
+  it('preserves decoder acceptance and consistency rejection for distinct terminal principals', () => {
+    const principalId = 'oidc:user.example:com';
+    const records = canonicalRecords(continuityRecords()).map(record => {
+      if (record.kind === 'terminal-responder') {
+        return {
+          ...record,
+          value: {
+            ...record.value,
+            acknowledgements: [{
+              acknowledgedAt: ACKNOWLEDGED,
+              memberId: 'member_1',
+              principalId,
+            }],
+          },
+        };
+      }
+      if (record.kind === 'terminal-principal' && record.recordId === 'transfer_1:member_1') {
+        return {
+          ...record,
+          value: { ...record.value, acknowledgedAt: ACKNOWLEDGED, principalId },
+        };
+      }
+      return record;
+    });
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    const decoded = decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded);
+
+    expect(decoded).toEqual(records);
+    expect(encodeCollabProjectBackupCheckpointCoordinationNdjson(decoded)).toBe(encoded);
+    expect(() => validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest()),
+      decoded,
+    )).toThrow(expect.objectContaining({
+      code: 'protocol-payload-invalid',
+      safeContext: { field: 'records' },
+    }));
+    const terminal = decoded.find(record => record.kind === 'terminal-responder');
+    expect(Object.isFrozen(terminal?.value.acknowledgements)).toBe(false);
+    expect(Object.isFrozen(terminal?.value.eligibleMemberIds)).toBe(true);
+  });
+
+  it('reports base-record errors before continuity errors and preserves canonical-byte rejection', () => {
+    const records = canonicalRecords(continuityRecords()).map(record => {
+      if (record.kind === 'principal-binding' && record.recordId === 'member_1') {
+        return { ...record, value: { ...record.value, boundAt: 'invalid' } };
+      }
+      if (record.kind === 'lifecycle-journal') {
+        return { ...record, value: { ...record.value, createdAt: 'invalid' } };
+      }
+      return record;
+    });
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded))
+      .toThrow(expect.objectContaining({
+        code: 'protocol-payload-invalid',
+        safeContext: { field: 'boundAt' },
+      }));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(` ${encoded}`))
+      .toThrow(expect.objectContaining({
+        code: 'protocol-payload-invalid',
+        safeContext: { field: 'coordination' },
+      }));
   });
 });

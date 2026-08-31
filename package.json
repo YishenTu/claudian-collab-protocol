@@ -46,7 +46,7 @@
     "release:candidate": "node scripts/release-candidate.mjs --output .context/release",
     "test": "jest && node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.jest.json",
-    "verify": "npm run lint && npm run typecheck && npm run build && npm run test && npm run check:compatibility && npm run check:migration-provenance && npm run verify:pack && npm run release:candidate",
+    "verify": "npm run lint && npm run typecheck && npm run release:candidate && npm run test && npm run check:compatibility && npm run check:migration-provenance && npm run verify:pack",
     "verify:pack": "node scripts/verify-pack.mjs"
   },
   "dependencies": {

@@ -1,3 +1,4 @@
+import type { CollabTransferredMembershipClaim } from './CollabAuthorityTransfer';
 import { COLLAB_MEMBER_REF_PREFIX } from './CollabConstants';
 import { CollabError } from './CollabError';
 import type { CollabDecodeResult } from './CollabProtocol';
@@ -151,6 +152,7 @@ export interface JoinCloudProjectResponse {
 export interface CollabProjectMemberSummary {
   readonly bindingState: CollabProjectMemberBindingState;
   readonly displayName: string;
+  readonly importedClaimGeneration: number | null;
   readonly importedClaimState: CollabImportedClaimState;
   readonly memberId: CollabMemberId;
   readonly membershipRevision: number;
@@ -172,13 +174,9 @@ export interface ReissueTransferredMembershipClaimRequest extends CollabProjectM
   readonly memberId: CollabMemberId;
 }
 
-export interface ReissueTransferredMembershipClaimResponse {
-  readonly claim: string;
+export interface ReissueTransferredMembershipClaimResponse extends CollabTransferredMembershipClaim {
   readonly claimGeneration: number;
   readonly createdAt: CollabIsoTimestamp;
-  readonly expiresAt: CollabIsoTimestamp;
-  readonly memberId: CollabMemberId;
-  readonly projectId: CollabProjectId;
   readonly secretReplayExpiresAt: CollabIsoTimestamp;
 }
 
@@ -777,11 +775,31 @@ function decodeMemberSummary(value: unknown): CollabProjectMemberSummary {
   const source = exactRecord(value, 'member', [
     'bindingState',
     'displayName',
+    'importedClaimGeneration',
     'importedClaimState',
     'memberId',
     'membershipRevision',
     'role',
   ]);
+  const importedClaimState = literal(source, 'importedClaimState', [
+    'not-applicable',
+    'original-active',
+    'override-active',
+    'revoked',
+    'expired',
+    'redeemed',
+    'hidden',
+  ] as const);
+  const importedClaimGeneration = source.importedClaimGeneration === null
+    ? null
+    : nonNegativeInteger(source, 'importedClaimGeneration');
+  if (importedClaimState === 'hidden' || importedClaimState === 'not-applicable') {
+    if (importedClaimGeneration !== null) throw invalidPayload('importedClaimGeneration');
+  } else if (
+    importedClaimGeneration === null
+    || (importedClaimState === 'original-active' && importedClaimGeneration !== 0)
+    || (importedClaimState === 'override-active' && importedClaimGeneration === 0)
+  ) throw invalidPayload('importedClaimGeneration');
   return {
     bindingState: literal(source, 'bindingState', ['bound', 'unbound', 'hidden'] as const),
     displayName: boundedText(
@@ -789,15 +807,8 @@ function decodeMemberSummary(value: unknown): CollabProjectMemberSummary {
       'displayName',
       COLLAB_PROJECT_MEMBERSHIP_LIMITS.maxDisplayNameUtf8Bytes,
     ),
-    importedClaimState: literal(source, 'importedClaimState', [
-      'not-applicable',
-      'original-active',
-      'override-active',
-      'revoked',
-      'expired',
-      'redeemed',
-      'hidden',
-    ] as const),
+    importedClaimGeneration,
+    importedClaimState,
     memberId: token(source, 'memberId', isCollabMemberId),
     membershipRevision: positiveInteger(source, 'membershipRevision'),
     role: literal(source, 'role', ['manager', 'member'] as const),
@@ -852,6 +863,8 @@ function decodeReissueClaimResponse(
     'memberId',
     'projectId',
     'secretReplayExpiresAt',
+    'targetAuthorityGeneration',
+    'transferId',
   ]);
   const createdAt = timestamp(source, 'createdAt');
   const expiresAt = timestamp(source, 'expiresAt');
@@ -876,6 +889,8 @@ function decodeReissueClaimResponse(
     memberId: token(source, 'memberId', isCollabMemberId),
     projectId: token(source, 'projectId', isCollabProjectId),
     secretReplayExpiresAt,
+    targetAuthorityGeneration: positiveInteger(source, 'targetAuthorityGeneration'),
+    transferId: token(source, 'transferId'),
   };
 }
 

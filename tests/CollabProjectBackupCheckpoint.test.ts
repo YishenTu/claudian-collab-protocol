@@ -55,7 +55,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     operationId: 'backup_1',
     profile: 'backup',
     projectId: 'project_1',
-    protocolVersion: 6,
+    protocolVersion: 7,
     refs: [
       { name: 'refs/heads/main', oid: MAIN },
       { name: 'refs/heads/members/member_1', oid: MEMBER },
@@ -902,6 +902,14 @@ function membershipV3Records(): Record<string, any>[] {
 }
 
 describe('Project backup checkpoint format v3', () => {
+  it('rejects a wire-6 backup manifest without rewriting recovery evidence', () => {
+    const previous = manifest({ protocolVersion: 6 });
+    const retained = structuredClone(previous);
+    expect(() => decodeCollabProjectBackupCheckpointManifest(previous))
+      .toThrow('collab.error.protocol-payload-invalid');
+    expect(previous).toEqual(retained);
+  });
+
   it('admits backups at the actual UTF-8 artifact byte limit through every entry point', () => {
     const records = coordinationLimitRecords();
     const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
@@ -937,7 +945,7 @@ describe('Project backup checkpoint format v3', () => {
     )).toThrow(error);
   }, 30_000);
 
-  it('adds a backup-only coordination format without changing wire v6 format v1', () => {
+  it('adds a backup-only coordination format while retaining transfer/export format v1', () => {
     expect(COLLAB_PROJECT_COORDINATION_FORMAT_VERSION).toBe(1);
     expect(COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION).toBe(3);
     expect(COLLAB_PROJECT_BACKUP_RECORD_KINDS).toEqual(expect.arrayContaining([

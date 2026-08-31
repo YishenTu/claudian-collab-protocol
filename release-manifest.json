@@ -6,11 +6,11 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "3.3.2"
+    "version": "4.0.0"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-3.3.2.tgz",
+    "filename": "claudian-collab-protocol-4.0.0.tgz",
     "files": [
       {
         "path": "dist/CollabAuthorityTransfer.d.ts",
@@ -38,11 +38,11 @@
       },
       {
         "path": "dist/CollabCloudProjectSnapshot.d.ts",
-        "size": 1975
+        "size": 2017
       },
       {
         "path": "dist/CollabCloudProjectSnapshot.js",
-        "size": 11402
+        "size": 11510
       },
       {
         "path": "dist/CollabConstants.d.ts",
@@ -102,11 +102,11 @@
       },
       {
         "path": "dist/CollabProjectMembership.d.ts",
-        "size": 16449
+        "size": 16474
       },
       {
         "path": "dist/CollabProjectMembership.js",
-        "size": 28653
+        "size": 29550
       },
       {
         "path": "dist/CollabProjectRetirement.d.ts",
@@ -178,7 +178,7 @@
       },
       {
         "path": "dist/esm/CollabCloudProjectSnapshot.mjs",
-        "size": 10689
+        "size": 10797
       },
       {
         "path": "dist/esm/CollabConstants.mjs",
@@ -210,7 +210,7 @@
       },
       {
         "path": "dist/esm/CollabProjectMembership.mjs",
-        "size": 27458
+        "size": 28355
       },
       {
         "path": "dist/esm/CollabProjectRetirement.mjs",
@@ -274,14 +274,14 @@
       },
       {
         "path": "README.md",
-        "size": 9829
+        "size": 9967
       }
     ],
-    "integrity": "sha512-oOSfYrCZNSjVbDK9tE2d8wlhvIf9nUi5mCHf/lLQwQ2jeZ4sW7dLgygE+NEhZFqfICXwF3V++UTsAfcle5AAdg==",
-    "sha256": "31c7fc6099091fac4b467322385f16df478ef46fa0eae3165b8960d8bbb709eb",
-    "shasum": "ae37ef1fdbb1748e8a7fe11731a391b15919d85c",
-    "size": 131052,
-    "unpackedSize": 866505
+    "integrity": "sha512-ca5848qPj0Xcb3+pp1JQSWEHV/F4g6URbl/4GqH9T24idg0+CgtJ5mGRETLPXgDNix8wJHVuEOwXfr4HxZDzhg==",
+    "sha256": "5c9e6c8070acb38914170d32d689b3e5d3daf0c45af01aacd1c62a77d94a93e7",
+    "shasum": "b501e2f0151d8a0f993a35b12bc124b0d66108da",
+    "size": 131372,
+    "unpackedSize": 868720
   },
   "toolchain": {
     "node": "24.16.0",

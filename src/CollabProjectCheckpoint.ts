@@ -403,6 +403,28 @@ export type CollabCheckpointBackupRecord =
   | CollabCheckpointServerCompatibilityRecord
   | CollabCheckpointAuthorityVolumePairRecord;
 
+type ParsedCheckpointPrincipalBindingRecord = CollabCheckpointRecordBase<
+  'principal-binding',
+  Omit<CollabCheckpointPrincipalBindingRecord['value'], 'principalId'> & {
+    readonly principalId: unknown;
+  }
+>;
+
+type ParsedCheckpointTerminalResponderRecord = CollabCheckpointRecordBase<
+  'terminal-responder',
+  Omit<CollabCheckpointTerminalResponderRecord['value'], 'acknowledgements'> & {
+    readonly acknowledgements: readonly (Omit<CollabCheckpointTerminalAcknowledgement, 'principalId'> & {
+      readonly principalId: unknown;
+    })[];
+  }
+>;
+
+/** @internal Format v3 validates principal fields after the shared base-record phase. */
+export type ParsedCheckpointRecord = Exclude<
+  CollabCheckpointBackupRecord,
+  CollabCheckpointPrincipalBindingRecord | CollabCheckpointTerminalResponderRecord
+> | ParsedCheckpointPrincipalBindingRecord | ParsedCheckpointTerminalResponderRecord;
+
 type UnknownRecord = Readonly<Record<string, unknown>>;
 
 const CHECKPOINT_PROFILE_SET: ReadonlySet<string> = new Set(COLLAB_CHECKPOINT_PROFILES);
@@ -626,10 +648,15 @@ function gitRefs(value: unknown, expectedMainOid: CollabGitOid): readonly Collab
   return Object.freeze(decoded);
 }
 
-function manifestObject(
+type CheckpointManifestFields<CoordinationVersion extends number> =
+  Omit<CollabProjectCheckpointManifest, 'coordinationFormatVersion'> & {
+    readonly coordinationFormatVersion: CoordinationVersion;
+  };
+
+function manifestObject<CoordinationVersion extends number>(
   source: UnknownRecord,
-  includeManifestSha256: boolean,
-): CollabProjectCheckpointManifest | Omit<CollabProjectCheckpointManifest, 'manifestSha256'> {
+  coordinationFormatVersion: CoordinationVersion,
+): CheckpointManifestFields<CoordinationVersion> {
   const profile = literal(source, 'profile', COLLAB_CHECKPOINT_PROFILES);
   const expectedMainOid = token(source, 'expectedMainOid', isCollabGitOid);
   const gitObjectFormat = literal(source, 'gitObjectFormat', ['sha1', 'sha256']);
@@ -667,14 +694,13 @@ function manifestObject(
     targetAuthority,
   };
   if (
-    common.coordinationFormatVersion !== COLLAB_PROJECT_COORDINATION_FORMAT_VERSION
+    common.coordinationFormatVersion !== coordinationFormatVersion
     || common.manifestSchemaVersion !== COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION
     || common.protocolVersion !== COLLAB_PROTOCOL_VERSION
   ) throw invalidPayload('manifest');
-  if (!includeManifestSha256) return common as Omit<CollabProjectCheckpointManifest, 'manifestSha256'>;
   return {
     artifacts: common.artifacts,
-    coordinationFormatVersion: COLLAB_PROJECT_COORDINATION_FORMAT_VERSION,
+    coordinationFormatVersion,
     createdAt: common.createdAt,
     expectedMainOid: common.expectedMainOid,
     gitObjectFormat: common.gitObjectFormat,
@@ -690,9 +716,11 @@ function manifestObject(
   };
 }
 
-export function decodeCollabProjectCheckpointManifest(
+/** @internal Shared field validation; public entry points select their own format. */
+export function decodeCheckpointManifestFields<CoordinationVersion extends number>(
   value: unknown,
-): CollabProjectCheckpointManifest {
+  coordinationFormatVersion: CoordinationVersion,
+): CheckpointManifestFields<CoordinationVersion> {
   const source = exactRecord(value, 'manifest', [
     'artifacts',
     'coordinationFormatVersion',
@@ -709,12 +737,18 @@ export function decodeCollabProjectCheckpointManifest(
     'sourceAuthority',
     'targetAuthority',
   ]);
-  const decoded = manifestObject(source, true) as CollabProjectCheckpointManifest;
+  const decoded = manifestObject(source, coordinationFormatVersion);
   const encoded = JSON.stringify(decoded);
   if (!hasUtf8ByteLengthAtMost(encoded, COLLAB_CHECKPOINT_ARTIFACT_LIMITS.maxManifestBytes)) {
     throw invalidPayload('manifest');
   }
   return decoded;
+}
+
+export function decodeCollabProjectCheckpointManifest(
+  value: unknown,
+): CollabProjectCheckpointManifest {
+  return decodeCheckpointManifestFields(value, COLLAB_PROJECT_COORDINATION_FORMAT_VERSION);
 }
 
 export function encodeCollabProjectCheckpointManifestCanonicalJson(
@@ -726,7 +760,13 @@ export function encodeCollabProjectCheckpointManifestCanonicalJson(
 export function encodeCollabProjectCheckpointManifestDigestInput(
   manifest: CollabProjectCheckpointManifest,
 ): string {
-  const decoded = decodeCollabProjectCheckpointManifest(manifest);
+  return encodeCheckpointManifestDigestInput(decodeCollabProjectCheckpointManifest(manifest));
+}
+
+/** @internal Encode already validated fields without changing their format. */
+export function encodeCheckpointManifestDigestInput(
+  decoded: CheckpointManifestFields<number>,
+): string {
   const source = {
     artifacts: decoded.artifacts,
     coordinationFormatVersion: decoded.coordinationFormatVersion,
@@ -1137,13 +1177,14 @@ function principalBindingRecord(
   source: UnknownRecord,
   recordId: string,
   revision: number,
-): CollabCheckpointPrincipalBindingRecord {
-  const value = exactRecord(source.value, 'value', [
+  deferPrincipals: boolean,
+): ParsedCheckpointPrincipalBindingRecord {
+  const value = principalRecord(source.value, 'value', [
     'boundAt',
     'memberId',
     'principalId',
     'projectId',
-  ]);
+  ], deferPrincipals);
   const memberId = token(value, 'memberId', isCollabMemberId);
   if (recordId !== memberId) throw invalidPayload('recordId');
   return {
@@ -1153,7 +1194,7 @@ function principalBindingRecord(
     value: {
       boundAt: timestamp(value, 'boundAt'),
       memberId,
-      principalId: token(value, 'principalId'),
+      principalId: deferPrincipals ? value.principalId : token(value, 'principalId'),
       projectId: token(value, 'projectId', isCollabProjectId),
     },
   };
@@ -1301,11 +1342,24 @@ function lifecycleStateRecord(
   };
 }
 
+function principalRecord(
+  value: unknown,
+  field: string,
+  keys: readonly string[],
+  deferPrincipals: boolean,
+): UnknownRecord {
+  const source = record(value, field);
+  return exactRecord(source, field, deferPrincipals && !Object.hasOwn(source, 'principalId')
+    ? keys.filter(key => key !== 'principalId')
+    : keys);
+}
+
 function terminalResponderRecord(
   source: UnknownRecord,
   recordId: string,
   revision: number,
-): CollabCheckpointTerminalResponderRecord {
+  deferPrincipals: boolean,
+): ParsedCheckpointTerminalResponderRecord {
   const value = exactRecord(source.value, 'value', [
     'acknowledgements',
     'eligibleMemberIds',
@@ -1355,18 +1409,20 @@ function terminalResponderRecord(
   ))) throw invalidPayload('eligibleMemberIds');
   if (!Array.isArray(value.acknowledgements)) throw invalidPayload('acknowledgements');
   const acknowledgements = value.acknowledgements.map((item) => {
-    const acknowledgement = exactRecord(item, 'acknowledgement', [
+    const acknowledgement = principalRecord(item, 'acknowledgement', [
       'acknowledgedAt',
       'memberId',
       'principalId',
-    ]);
+    ], deferPrincipals);
     return {
       acknowledgedAt: timestamp(acknowledgement, 'acknowledgedAt'),
       memberId: token(acknowledgement, 'memberId', isCollabMemberId),
-      principalId: token(acknowledgement, 'principalId'),
+      principalId: deferPrincipals
+        ? acknowledgement.principalId
+        : token(acknowledgement, 'principalId'),
     };
   });
-  const acknowledgementPrincipals = new Set<string>();
+  const acknowledgementPrincipals = new Set<unknown>();
   acknowledgements.forEach((item, index) => {
     if (
       !eligibleMemberIds.includes(item.memberId)
@@ -1374,7 +1430,7 @@ function terminalResponderRecord(
         item.memberId,
         'en-US',
       ) >= 0)
-      || acknowledgementPrincipals.has(item.principalId)
+      || (!deferPrincipals && acknowledgementPrincipals.has(item.principalId))
     ) throw invalidPayload('acknowledgements');
     acknowledgementPrincipals.add(item.principalId);
   });
@@ -1383,7 +1439,7 @@ function terminalResponderRecord(
     recordId,
     revision,
     value: {
-      acknowledgements: Object.freeze(acknowledgements),
+      acknowledgements,
       eligibleMemberIds: Object.freeze(eligibleMemberIds),
       expiresAt,
       operation,
@@ -1604,8 +1660,19 @@ function authorityVolumePairRecord(
   };
 }
 
-function decodeCheckpointRecord(value: unknown): CollabCheckpointBackupRecord {
+/** @internal Public v1 decoding validates principals in each record. */
+export function decodeCheckpointRecord(value: unknown): CollabCheckpointBackupRecord;
+/** @internal Offline v3 decoding validates principals after the base-record sequence. */
+export function decodeCheckpointRecord(
+  value: unknown,
+  principalPhase: 'deferred',
+): ParsedCheckpointRecord;
+export function decodeCheckpointRecord(
+  value: unknown,
+  principalPhase?: 'deferred',
+): ParsedCheckpointRecord {
   const { kind, recordId, revision, source } = recordEnvelope(value);
+  const deferPrincipals = principalPhase === 'deferred';
   switch (kind) {
     case 'project': return projectRecord(source, recordId, revision);
     case 'member': return memberRecord(source, recordId, revision);
@@ -1618,10 +1685,12 @@ function decodeCheckpointRecord(value: unknown): CollabCheckpointBackupRecord {
     case 'cloud-event': return cloudEventRecord(source, recordId, revision);
     case 'cloud-event-cursor': return cloudEventCursorRecord(source, recordId, revision);
     case 'idempotency-result': return idempotencyResultRecord(source, recordId, revision);
-    case 'principal-binding': return principalBindingRecord(source, recordId, revision);
+    case 'principal-binding':
+      return principalBindingRecord(source, recordId, revision, deferPrincipals);
     case 'repository-placement': return repositoryPlacementRecord(source, recordId, revision);
     case 'lifecycle-state': return lifecycleStateRecord(source, recordId, revision);
-    case 'terminal-responder': return terminalResponderRecord(source, recordId, revision);
+    case 'terminal-responder':
+      return terminalResponderRecord(source, recordId, revision, deferPrincipals);
     case 'protected-claim-envelope':
       return protectedClaimEnvelopeRecord(source, recordId, revision);
     case 'tombstone': return tombstoneRecord(source, recordId, revision);
@@ -1636,16 +1705,18 @@ function recordKindOrder(kind: CollabCheckpointBackupRecordKind): number {
 }
 
 function compareRecords(
-  left: CollabCheckpointBackupRecord,
-  right: CollabCheckpointBackupRecord,
+  left: ParsedCheckpointRecord,
+  right: ParsedCheckpointRecord,
 ): number {
   const kindOrder = recordKindOrder(left.kind) - recordKindOrder(right.kind);
   return kindOrder !== 0 ? kindOrder : left.recordId.localeCompare(right.recordId, 'en-US');
 }
 
-function validateRecordSequence(
-  records: readonly CollabCheckpointBackupRecord[],
+/** @internal V3 decoding checks terminal principals separately; consistency binds current principals. */
+export function validateCheckpointRecordSequence(
+  records: readonly ParsedCheckpointRecord[],
   profile: CollabCheckpointProfile,
+  acknowledgementBinding: 'current-principal' | 'member' = 'current-principal',
 ): void {
   if (records.length === 0 || records[0].kind !== 'project') throw invalidPayload('records');
   const projectId = records[0].recordId;
@@ -1693,12 +1764,12 @@ function validateRecordSequence(
     .filter((item): item is CollabCheckpointTicketCommentRecord => item.kind === 'ticket-comment')
     .map(item => [item.value.commentId, item.value.ticketId]));
   const principalBindings = new Map(records
-    .filter((item): item is CollabCheckpointPrincipalBindingRecord => (
+    .filter((item): item is ParsedCheckpointPrincipalBindingRecord => (
       item.kind === 'principal-binding'
     ))
     .map(item => [item.value.memberId, item.value.principalId]));
   const terminalResponders = records.filter(
-    (item): item is CollabCheckpointTerminalResponderRecord => (
+    (item): item is ParsedCheckpointTerminalResponderRecord => (
       item.kind === 'terminal-responder'
     ),
   );
@@ -1775,7 +1846,9 @@ function validateRecordSequence(
     if (item.kind === 'terminal-responder' && (
       item.value.eligibleMemberIds.some(memberId => !members.has(memberId))
       || item.value.acknowledgements.some(acknowledgement => (
-        principalBindings.get(acknowledgement.memberId) !== acknowledgement.principalId
+        acknowledgementBinding === 'current-principal'
+          ? principalBindings.get(acknowledgement.memberId) !== acknowledgement.principalId
+          : !principalBindings.has(acknowledgement.memberId)
       ))
     )) throw invalidPayload('records');
   }
@@ -1810,10 +1883,11 @@ export function decodeCollabProjectCheckpointCoordinationNdjson(
       throw invalidPayload('coordination');
     }
     const result = decodeCheckpointRecord(parsed);
+    if (result.kind === 'terminal-responder') Object.freeze(result.value.acknowledgements);
     if (JSON.stringify(result) !== line) throw invalidPayload('coordination');
     return result;
   });
-  validateRecordSequence(decoded, profile);
+  validateCheckpointRecordSequence(decoded, profile);
   return Object.freeze(decoded);
 }
 
@@ -1856,7 +1930,15 @@ export function validateCollabProjectCheckpointConsistency(
   records: readonly CollabCheckpointBackupRecord[],
 ): readonly CollabCheckpointBackupRecord[] {
   const decodedManifest = decodeCollabProjectCheckpointManifest(manifest);
-  validateRecordSequence(records, decodedManifest.profile);
+  validateCheckpointRecordSequence(records, decodedManifest.profile);
+  return validateCheckpointManifestConsistency(decodedManifest, records);
+}
+
+/** @internal Cross-artifact checks operate on validated fields, not another format. */
+export function validateCheckpointManifestConsistency(
+  decodedManifest: CheckpointManifestFields<number>,
+  records: readonly CollabCheckpointBackupRecord[],
+): readonly CollabCheckpointBackupRecord[] {
   const project = records[0];
   if (
     project.kind !== 'project'

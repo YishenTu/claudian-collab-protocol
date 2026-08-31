@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
@@ -7,6 +10,7 @@ import {
   createReleaseRecord,
   expectedPackedPaths,
   isMissingRegistryVersion,
+  verifyReviewedTarball,
 } from '../scripts/release-candidate.mjs';
 
 const packageManifest = {
@@ -126,4 +130,23 @@ test('rejects non-public or non-provenance package metadata', () => {
     }),
     /public access and provenance/u,
   );
+});
+
+test('verifies the exact reviewed tarball before a clean consumer can install it', () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'protocol-reviewed-artifact-'));
+  try {
+    const tarballPath = path.join(directory, 'claudian-collab-protocol-3.3.2.tgz');
+    const reviewed = record({
+      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    });
+    writeFileSync(tarballPath, '');
+    assert.equal(verifyReviewedTarball(tarballPath, reviewed), tarballPath);
+    writeFileSync(tarballPath, 'modified');
+    assert.throws(
+      () => verifyReviewedTarball(tarballPath, reviewed),
+      /tarball differs from the reviewed release candidate/u,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

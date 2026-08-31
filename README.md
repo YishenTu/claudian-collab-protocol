@@ -39,6 +39,8 @@ accepted relations also have shared authority-enforced total limits; summary
 counts let complete consumers reject partial or cross-snapshot assembly.
 Cloud binding v2 adds the authority-neutral Project snapshot, nine redacted durable event kinds plus `snapshot.required`, eighteen capability tokens, the exact ordinary Project/Git route catalog, bounded authority-transfer artifact routes, and six private-development bootstrap bindings. Wire v6 includes the Cloud Project-membership operation family. The shared checkpoint container is exactly `checkpoint.json`, `coordination.ndjson`, and `repository.bundle`; authority-transfer and export use wire-visible coordination format v1, and offline backup uses format v3. Backup v3 adds Project invitations, protected invitation and transferred-claim override envelopes, manager-responsibility offers, membership recovery journals, secret-replay tombstones, and compacted Manager-responsibility idempotency tombstones to the existing continuity records. Portable profiles exclude engine storage, paths, credentials, tokens, private keys, and operational refs, and backups exclude plaintext invitation secrets, raw claims, and private keys. Domain-separated canonical UTF-8 inputs define protected-claim AEAD associated data and bind every declared field of transferred-membership redemption receipts and authority-relinquishment proofs before consumer-owned Ed25519 signing or verification. Existing LAN v9 Join, invitation, endpoint, membership lifecycle, Host-transfer, snapshot, event, and HTTP bindings remain independently application-owned; the dedicated LAN authority-transfer transport binds these shared payloads without creating another shared operation registry.
 
+Backup coordination artifacts are limited to 256 MiB of actual UTF-8 bytes, including the final newline. The decoder, encoder, and consistency checker apply this same inclusive limit without rewriting principals into an intermediate format. Valid current-format artifacts at the limit are accepted; an additional byte is rejected.
+
 ## Usage
 
 ```ts
@@ -62,15 +64,7 @@ part of the public surface.
 
 Package SemVer, canonical wire version, and Cloud binding version are independent concepts.
 
-- **Package version** (this `package.json`): `3.3.2`. Patch releases preserve
-  every existing public declaration and runtime behavior baseline. Minor
-  releases may add backward-compatible API. Removing or changing an existing
-  declaration, export, runtime behavior, codec, error, limit, ref rule,
-  operation, or compatibility rule requires a major release. Package API SemVer
-  is classified independently from the wire and Cloud binding contracts, but a
-  compatible package addition cannot exempt a changed wire contract from a wire
-  version increase or a changed Cloud binding contract from a binding version
-  increase. The package version never signals wire compatibility by itself.
+- **Package version** (this `package.json`): `3.3.2`. Behavior-preserving implementation refactors and reviewed compatible defect corrections may use a patch release when public declarations, runtime exports, and accepted wire/binding semantics remain unchanged. Minor releases may add backward-compatible API. Removing or incompatibly changing an existing declaration, export, runtime behavior, codec, error, limit, ref rule, operation, or compatibility rule requires a major release. Package API SemVer is classified independently from the wire and Cloud binding contracts, but a compatible package addition cannot exempt a changed wire contract from a wire-version increase or a changed Cloud binding contract from a binding-version increase. The package version never signals wire compatibility by itself.
 - **Wire version** (`COLLAB_PROTOCOL_VERSION`): currently `6`. The supported
   range is exactly `[6, 6]`. This is independent from Cloud binding version `2` and the existing application
   LAN control version `9`. Any change to an existing envelope, DTO, operation
@@ -96,14 +90,18 @@ Compatibility is tested with executable fixtures in this package
 (`tests/`), and cross-repository contract fixtures pin client and server to
 the same behavior.
 
+The compatibility snapshot also fingerprints implementation tokens. Those fingerprints detect edits but cannot establish whether behavior changed. A reviewed implementation-only refactor or approved compatible defect correction uses `compatibility-review.json`, generated with `npm run check:compatibility -- --base <base-sha> --record-implementation-only-review "<reviewed reason>"` after updating the generated snapshot and characterizing the public seams. The reason distinguishes preserved behavior from any approved correction and its executable evidence. The record binds the exact base and candidate snapshots; the classifier independently rejects any changed public declaration, export, or wire/binding semantic fact. Missing or stale evidence cannot authorize an implementation change, and the record never applies to another version or later edit merely because an earlier change was accepted. This review requirement is general, not a prelaunch or one-release compatibility exception, and it is not an automated proof of behavioral equivalence.
+
 ## Development
 
 ```bash
 npm run build        # compile src/ -> dist/ (CommonJS + declarations)
 npm test             # package unit tests
 npm run check:compatibility
-npm run verify:pack  # pack the artifact and smoke-test a clean consumer
+npm run release:candidate # build and verify the reviewed release artifact
+npm run verify:pack  # smoke-test that exact artifact in a clean consumer
 ```
 
 `dist/` is generated output and is never committed. The packed artifact is
 reproducible from source: `npm pack` rebuilds via `prepack`.
+The full verification gate constructs one release candidate and uses those same reviewed tarball bytes for clean-consumer smoke tests and publication.

@@ -23,17 +23,18 @@ import { CollabError } from './CollabError';
 import {
   COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
   COLLAB_CHECKPOINT_PORTABLE_RECORD_KINDS,
-  COLLAB_PROJECT_COORDINATION_FORMAT_VERSION,
   type CollabCheckpointAuthority,
   type CollabCheckpointBackupRecord,
   type CollabCheckpointGitRef,
   type CollabCheckpointIdempotencyResultRecord,
-  type CollabCheckpointPrincipalBindingRecord,
   type CollabCheckpointTerminalResponderRecord,
   type CollabProjectCheckpointManifest,
-  decodeCollabProjectCheckpointCoordinationNdjson,
-  decodeCollabProjectCheckpointManifest,
-  validateCollabProjectCheckpointConsistency,
+  decodeCheckpointManifestFields,
+  decodeCheckpointRecord,
+  encodeCheckpointManifestDigestInput,
+  type ParsedCheckpointRecord,
+  validateCheckpointManifestConsistency,
+  validateCheckpointRecordSequence,
 } from './CollabProjectCheckpoint';
 import {
   COLLAB_PROJECT_MEMBERSHIP_LIMITS,
@@ -420,6 +421,8 @@ type CollabProjectBackupBaseRecord = Exclude<
   { readonly kind: 'lifecycle-state' }
 >;
 
+type ParsedBackupBaseRecord = Exclude<ParsedCheckpointRecord, { readonly kind: 'lifecycle-state' }>;
+
 export type CollabProjectBackupRecord =
   | CollabProjectBackupBaseRecord
   | CollabProjectBackupContinuityRecord;
@@ -637,70 +640,18 @@ function principal(source: UnknownRecord, field: string): string {
   ));
 }
 
-function sanitizeBackupBasePrincipalRecord(item: unknown): unknown {
-  const source = record(item, 'record');
-  const value = record(source.value, 'value');
-  if (source.kind === 'principal-binding') {
-    return {
-      ...source,
-      value: { ...value, principalId: `principal_${String(value.memberId)}` },
-    };
-  }
-  if (source.kind === 'terminal-responder' && Array.isArray(value.acknowledgements)) {
-    return {
-      ...source,
-      value: {
-        ...value,
-        acknowledgements: value.acknowledgements.map(item => ({
-          ...record(item, 'acknowledgement'),
-          principalId: `principal_${String(record(item, 'acknowledgement').memberId)}`,
-        })),
-      },
-    };
-  }
-  return item;
-}
-
-function restoreBackupBasePrincipals(
-  source: UnknownRecord,
-  base: CollabProjectBackupBaseRecord,
-): CollabProjectBackupBaseRecord {
-  if (base.kind === 'principal-binding') {
-    const value = exactRecord(source.value, 'value', [
-      'boundAt', 'memberId', 'principalId', 'projectId',
-    ]);
-    return {
-      ...base,
-      value: { ...base.value, principalId: principal(value, 'principalId') },
-    } satisfies CollabCheckpointPrincipalBindingRecord;
-  }
+function validateBackupBasePrincipals(
+  base: ParsedBackupBaseRecord,
+): asserts base is CollabProjectBackupBaseRecord {
+  if (base.kind === 'principal-binding') principal(base.value, 'principalId');
   if (base.kind === 'terminal-responder') {
-    const value = exactRecord(source.value, 'value', [
-      'acknowledgements',
-      'eligibleMemberIds',
-      'expiresAt',
-      'operation',
-      'operationId',
-      'projectId',
-      'responseJson',
-    ]);
-    const sourceAcknowledgements = value.acknowledgements;
-    if (
-      !Array.isArray(sourceAcknowledgements)
-      || sourceAcknowledgements.length !== base.value.acknowledgements.length
-    ) throw invalidPayload('acknowledgements');
-    const acknowledgements = base.value.acknowledgements.map((item, index) => {
-      const original = exactRecord(sourceAcknowledgements[index], 'acknowledgement', [
-        'acknowledgedAt', 'memberId', 'principalId',
-      ]);
-      return { ...item, principalId: principal(original, 'principalId') };
-    });
-    if (new Set(acknowledgements.map(item => item.principalId)).size !== acknowledgements.length) {
-      throw invalidPayload('acknowledgements');
+    for (const acknowledgement of base.value.acknowledgements) {
+      if (acknowledgement.principalId === undefined) throw invalidPayload('acknowledgement');
+      principal(acknowledgement, 'principalId');
     }
-    return { ...base, value: { ...base.value, acknowledgements } };
+    if (new Set(base.value.acknowledgements.map(item => item.principalId)).size
+      !== base.value.acknowledgements.length) throw invalidPayload('acknowledgements');
   }
-  return base;
 }
 
 function repositoryPublicationRef(value: unknown): CollabCheckpointGitRef {
@@ -2781,38 +2732,18 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
   }
 }
 
-function manifestWithFormatOne(value: unknown): CollabProjectCheckpointManifest {
+export function decodeCollabProjectBackupCheckpointManifest(
+  value: unknown,
+): CollabProjectBackupCheckpointManifest {
   const source = record(value, 'manifest');
   if (
     source.profile !== 'backup'
     || source.coordinationFormatVersion !== COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION
   ) throw invalidPayload('manifest');
-  return decodeCollabProjectCheckpointManifest({
-    ...source,
-    coordinationFormatVersion: COLLAB_PROJECT_COORDINATION_FORMAT_VERSION,
-  });
-}
-
-export function decodeCollabProjectBackupCheckpointManifest(
-  value: unknown,
-): CollabProjectBackupCheckpointManifest {
-  const decoded = manifestWithFormatOne(value);
-  return {
-    artifacts: decoded.artifacts,
-    coordinationFormatVersion: COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION,
-    createdAt: decoded.createdAt,
-    expectedMainOid: decoded.expectedMainOid,
-    gitObjectFormat: decoded.gitObjectFormat,
-    manifestSchemaVersion: decoded.manifestSchemaVersion,
-    manifestSha256: decoded.manifestSha256,
-    operationId: decoded.operationId,
-    profile: 'backup',
-    projectId: decoded.projectId,
-    protocolVersion: decoded.protocolVersion,
-    refs: decoded.refs,
-    sourceAuthority: decoded.sourceAuthority,
-    targetAuthority: decoded.targetAuthority,
-  };
+  return decodeCheckpointManifestFields(
+    source,
+    COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION,
+  ) as CollabProjectBackupCheckpointManifest;
 }
 
 export function encodeCollabProjectBackupCheckpointManifestCanonicalJson(
@@ -2824,22 +2755,7 @@ export function encodeCollabProjectBackupCheckpointManifestCanonicalJson(
 export function encodeCollabProjectBackupCheckpointManifestDigestInput(
   manifest: CollabProjectBackupCheckpointManifest,
 ): string {
-  const decoded = decodeCollabProjectBackupCheckpointManifest(manifest);
-  return JSON.stringify({
-    artifacts: decoded.artifacts,
-    coordinationFormatVersion: decoded.coordinationFormatVersion,
-    createdAt: decoded.createdAt,
-    expectedMainOid: decoded.expectedMainOid,
-    gitObjectFormat: decoded.gitObjectFormat,
-    manifestSchemaVersion: decoded.manifestSchemaVersion,
-    operationId: decoded.operationId,
-    profile: decoded.profile,
-    projectId: decoded.projectId,
-    protocolVersion: decoded.protocolVersion,
-    refs: decoded.refs,
-    sourceAuthority: decoded.sourceAuthority,
-    targetAuthority: decoded.targetAuthority,
-  });
+  return encodeCheckpointManifestDigestInput(decodeCollabProjectBackupCheckpointManifest(manifest));
 }
 
 export function decodeCollabProjectBackupCheckpointCoordinationNdjson(
@@ -2861,22 +2777,36 @@ export function decodeCollabProjectBackupCheckpointCoordinationNdjson(
       throw invalidPayload('coordination');
     }
     if (JSON.stringify(item) !== line) throw invalidPayload('coordination');
-    return { envelope: recordEnvelope(item), item };
+    return {
+      envelope: recordEnvelope(item),
+      item,
+      base: undefined as ParsedBackupBaseRecord | undefined,
+    };
   });
 
   const baseItems = parsed.filter(({ envelope }) => (
     !CONTINUITY_KIND_SET.has(envelope.kind) && envelope.kind !== 'idempotency-result'
   ));
-  const baseDecoded = decodeCollabProjectCheckpointCoordinationNdjson(
-    baseItems.map(({ item }) => JSON.stringify(
-      sanitizeBackupBasePrincipalRecord(item),
-    )).join('\n') + '\n',
-    'backup',
-  );
-  const baseByIdentity = new Map<string, CollabProjectBackupBaseRecord>(baseDecoded.map(item => (
-    [`${item.kind}\0${item.recordId}`, item as CollabProjectBackupBaseRecord] as const
-  )));
-  const decoded = parsed.map(({ envelope }) => {
+  for (const { envelope } of baseItems) {
+    const value = record(envelope.source.value, 'value');
+    if (envelope.kind === 'terminal-responder' && Array.isArray(value.acknowledgements)) {
+      for (const acknowledgement of value.acknowledgements) record(acknowledgement, 'acknowledgement');
+    }
+  }
+  const baseRecords: ParsedBackupBaseRecord[] = [];
+  for (const entry of baseItems) {
+    entry.base = decodeCheckpointRecord(entry.item, 'deferred') as ParsedBackupBaseRecord;
+    if (
+      JSON.stringify(entry.base) !== JSON.stringify(entry.item)
+      || (entry.base.kind === 'principal-binding' && entry.base.value.principalId === undefined)
+    ) {
+      throw invalidPayload('coordination');
+    }
+    baseRecords.push(entry.base);
+  }
+  if (baseRecords.length === 0) throw invalidPayload('coordination');
+  validateCheckpointRecordSequence(baseRecords, 'backup', 'member');
+  const decoded = parsed.map(({ envelope, base }) => {
     if (envelope.kind === 'idempotency-result') {
       return idempotencyResultRecord(
         envelope.source,
@@ -2892,9 +2822,9 @@ export function decodeCollabProjectBackupCheckpointCoordinationNdjson(
         envelope.revision,
       );
     }
-    const base = baseByIdentity.get(`${envelope.kind}\0${envelope.recordId}`);
     if (base === undefined) throw invalidPayload('records');
-    return restoreBackupBasePrincipals(envelope.source, base);
+    validateBackupBasePrincipals(base);
+    return base;
   });
   if (decoded.some((item, index) => JSON.stringify(item) !== lines[index])) {
     throw invalidPayload('coordination');
@@ -2967,12 +2897,7 @@ export function validateCollabProjectBackupCheckpointConsistency(
   const baseRecords = decodedRecords.filter(item => (
     !CONTINUITY_KIND_SET.has(item.kind) && item.kind !== 'idempotency-result'
   )) as readonly CollabCheckpointBackupRecord[];
-  validateCollabProjectCheckpointConsistency(
-    decodeCollabProjectCheckpointManifest({
-      ...decodedManifest,
-      coordinationFormatVersion: COLLAB_PROJECT_COORDINATION_FORMAT_VERSION,
-    }),
-    baseRecords,
-  );
+  validateCheckpointRecordSequence(baseRecords, 'backup');
+  validateCheckpointManifestConsistency(decodedManifest, baseRecords);
   return records;
 }

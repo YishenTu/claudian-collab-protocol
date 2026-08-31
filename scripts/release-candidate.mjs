@@ -110,6 +110,15 @@ export function assertReleaseRecord(actual, expected) {
   }
 }
 
+export function verifyReviewedTarball(tarballPath, reviewedRecord) {
+  const digest = createHash('sha256').update(readFileSync(tarballPath)).digest('hex');
+  assert(
+    digest === reviewedRecord.tarball.sha256,
+    'tarball differs from the reviewed release candidate',
+  );
+  return tarballPath;
+}
+
 export function assertPublishedArtifact(publishedIntegrity, reviewedIntegrity) {
   assert(
     publishedIntegrity === reviewedIntegrity,

@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
+  copyFileSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
@@ -18,6 +22,7 @@ import {
   generateContractSnapshot,
   publicDeclarationsFromDist,
 } from '../scripts/check-compatibility.mjs';
+import * as compatibility from '../scripts/check-compatibility.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -80,6 +85,95 @@ test('accepts patch releases only when the public package API is unchanged', () 
     snapshot(),
     snapshot({ packageVersion: '1.0.1' }),
   ));
+});
+
+test('accepts an explicitly reviewed implementation-only refactor', () => {
+  const base = snapshot({
+    wire: {
+      operations: ['getRequest'],
+      runtimeBehaviorDigests: [{ path: 'src/types.ts', sha256: 'runtime-a' }],
+    },
+  });
+  const current = snapshot({
+    packageVersion: '1.0.1',
+    runtime: [{ path: 'src/types.ts', sha256: 'runtime-refactored' }],
+    wire: {
+      operations: ['getRequest'],
+      runtimeBehaviorDigests: [{ path: 'src/types.ts', sha256: 'runtime-refactored' }],
+    },
+  });
+  const review = compatibility.createImplementationOnlyReview(
+    base,
+    current,
+    'Extract shared validation while preserving the accepted public fixtures.',
+  );
+
+  assert.doesNotThrow(() => assertVersionedContractChange(base, current, review));
+});
+
+test('an implementation review cannot waive public or declarative contract changes', () => {
+  const base = snapshot();
+  const changes = [
+    { declarations: [{ declaration: 'export interface A { value: string }', exportName: 'A', source: './types' }] },
+    { runtimeExports: ['A', 'B'] },
+    { wire: { operations: ['getRequest', 'deleteRequest'] } },
+    { wire: { operations: ['getRequest'], limits: { maxBytes: 1 } } },
+    { binding: { routes: ['capabilities', 'snapshot'] } },
+  ];
+  for (const change of changes) {
+    assert.throws(() => compatibility.createImplementationOnlyReview(
+      base,
+      snapshot({ packageVersion: '1.0.1', ...change }),
+      'This explanation cannot exempt a changed contract.',
+    ), /cannot change public API, wire, or Cloud binding semantic facts/u);
+  }
+});
+
+test('implementation reviews preserve the captured Cloud operation inventory', () => {
+  const base = snapshot({
+    binding: { jsonOperations: ['getProjectSnapshot', 'retireProject'] },
+    wire: { operations: ['retireProject'] },
+  });
+  const current = snapshot({
+    packageVersion: '1.0.1',
+    runtime: [{ path: 'src/types.ts', sha256: 'refactored-runtime' }],
+    binding: { jsonOperations: ['getProjectSnapshot'] },
+    wire: { operations: ['retireProject'] },
+  });
+
+  assert.throws(() => compatibility.createImplementationOnlyReview(
+    base,
+    current,
+    'An unchanged wire inventory cannot replace a changed Cloud binding fact.',
+  ), /cannot change public API, wire, or Cloud binding semantic facts/u);
+
+  const baseIdentity = compatibility.createImplementationOnlyReview(base, base, 'Unchanged base.');
+  const candidateIdentity = compatibility.createImplementationOnlyReview(current, current, 'Unchanged candidate.');
+  const matchingClaim = {
+    ...baseIdentity,
+    candidateSnapshotSha256: candidateIdentity.candidateSnapshotSha256,
+  };
+  assert.throws(() => assertVersionedContractChange(base, current, matchingClaim),
+    /cannot change public API, wire, or Cloud binding semantic facts/u);
+});
+
+test('implementation reviews are exact, fail closed, and retain version monotonicity', () => {
+  const base = snapshot();
+  const current = snapshot({
+    packageVersion: '1.0.1',
+    runtime: [{ path: 'src/types.ts', sha256: 'refactored-runtime' }],
+  });
+  const review = compatibility.createImplementationOnlyReview(base, current, 'Preserve public behavior.');
+  assert.throws(() => assertVersionedContractChange(base, current), /package major release/u);
+  assert.throws(() => assertVersionedContractChange(snapshot({ packageVersion: '0.9.0' }), current, review), /exact base and candidate/u);
+  assert.throws(() => assertVersionedContractChange(base, { ...current, packageVersion: '1.0.2' }, review), /exact base and candidate/u);
+  assert.throws(() => assertVersionedContractChange(base, current, { ...review, allowWireChange: true }), /unknown implementation-only review field/u);
+  assert.throws(() => assertVersionedContractChange(base, current, { ...review, reason: '' }), /Invalid implementation-only review/u);
+  assert.throws(() => assertVersionedContractChange(base, current, { ...review, schemaVersion: 2 }), /Invalid implementation-only review/u);
+
+  const decreased = { ...current, protocolVersion: 3 };
+  const decreasedReview = compatibility.createImplementationOnlyReview(base, decreased, 'Cannot lower wire versions.');
+  assert.throws(() => assertVersionedContractChange(base, decreased, decreasedReview), /wire protocol version cannot decrease/u);
 });
 
 test('requires at least a minor release for additive public API', () => {
@@ -322,4 +416,71 @@ test('an inline type-only root export cannot pass as a patch release', (t) => {
     ),
     /package minor or major release/u,
   );
+});
+
+test('the compatibility command binds explicit review to exact generated snapshots', (t) => {
+  const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'collab-compatibility-command-'));
+  t.after(() => rmSync(fixtureRoot, { force: true, recursive: true }));
+  for (const directory of ['scripts', 'src', 'dist']) {
+    mkdirSync(path.join(fixtureRoot, directory));
+  }
+  copyFileSync(
+    path.join(repositoryRoot, 'scripts/check-compatibility.mjs'),
+    path.join(fixtureRoot, 'scripts/check-compatibility.mjs'),
+  );
+  symlinkSync(path.join(repositoryRoot, 'node_modules'), path.join(fixtureRoot, 'node_modules'), 'dir');
+  writeFileSync(path.join(fixtureRoot, 'package.json'), JSON.stringify({ version: '1.0.0' }));
+  writeFileSync(path.join(fixtureRoot, 'src/index.ts'), 'export function decode(value: unknown) { return value; }\n');
+  writeFileSync(path.join(fixtureRoot, 'dist/index.d.ts'), 'export declare function decode(value: unknown): unknown;\n');
+  writeFileSync(path.join(fixtureRoot, 'dist/index.js'), `module.exports = {
+    COLLAB_CLOUD_BINDING_VERSION: 1,
+    COLLAB_PROTOCOL_VERSION: 4,
+    COLLAB_PROJECT_CHECKPOINT_ARTIFACTS: [],
+    COLLAB_CLOUD_CAPABILITIES: [],
+    COLLAB_CLOUD_EVENT_KINDS: [],
+    COLLAB_CLOUD_JSON_OPERATIONS: ['getProjectSnapshot'],
+    COLLAB_CLOUD_BINDING_LIMITS: {},
+    COLLAB_LIMITS: { maxJsonPayloadUtf8Bytes: 1 },
+    COLLAB_ERROR_CODES: [],
+    COLLAB_MAIN_REF: 'refs/heads/main',
+    COLLAB_MEMBER_REF_PREFIX: 'refs/heads/members/',
+    COLLAB_CONTROL_OPERATION_CODECS: {},
+  };\n`);
+  const command = (...args) => spawnSync(process.execPath, ['scripts/check-compatibility.mjs', ...args], {
+    cwd: fixtureRoot,
+    encoding: 'utf8',
+  });
+  const git = (...args) => execFileSync('git', [
+    '-c', `core.hooksPath=${path.join(fixtureRoot, 'disabled-hooks')}`,
+    '-c', 'commit.gpgSign=false',
+    '-c', 'user.name=Protocol compatibility test',
+    '-c', 'user.email=protocol-test@example.invalid',
+    ...args,
+  ], { cwd: fixtureRoot, encoding: 'utf8' }).trim();
+  assert.equal(command('--write').status, 0);
+  git('init', '--quiet');
+  git('add', 'contract-snapshot.json');
+  git('commit', '--quiet', '-m', 'test: record base snapshot');
+  const base = git('rev-parse', 'HEAD');
+
+  writeFileSync(path.join(fixtureRoot, 'src/index.ts'), 'const identity = (value: unknown) => value; export function decode(value: unknown) { return identity(value); }\n');
+  assert.equal(command('--write').status, 0);
+  assert.notEqual(command('--base', base).status, 0);
+  const reason = 'Extract identity without changing the observable fixture contract.';
+  const recorded = command('--base', base, '--record-implementation-only-review', reason);
+  assert.equal(recorded.status, 0, recorded.stderr);
+  assert.equal(JSON.parse(readFileSync(path.join(fixtureRoot, 'compatibility-review.json'), 'utf8')).reason, reason);
+  const accepted = command('--base', base);
+  assert.equal(accepted.status, 0, accepted.stderr);
+
+  git('add', 'contract-snapshot.json', 'compatibility-review.json');
+  git('commit', '--quiet', '-m', 'test: record reviewed refactor');
+  const nextBase = git('rev-parse', 'HEAD');
+  assert.equal(command('--base', nextBase).status, 0);
+
+  writeFileSync(path.join(fixtureRoot, 'src/index.ts'), 'export function decode() { return null; }\n');
+  assert.equal(command('--write').status, 0);
+  const stale = command('--base', nextBase);
+  assert.notEqual(stale.status, 0);
+  assert.match(stale.stderr, /exact base and candidate snapshots/u);
 });

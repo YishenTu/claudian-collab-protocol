@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const snapshotRelativePath = 'contract-snapshot.json';
 const snapshotPath = path.join(repositoryRoot, snapshotRelativePath);
+const reviewRelativePath = 'compatibility-review.json';
+const reviewPath = path.join(repositoryRoot, reviewRelativePath);
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
 
@@ -32,6 +34,12 @@ const CONTRACT_FIELDS = new Set([
   'publicRuntimeExports',
   'runtimeBehaviorDigests',
   'wire',
+]);
+const IMPLEMENTATION_REVIEW_FIELDS = new Set([
+  'schemaVersion',
+  'baseSnapshotSha256',
+  'candidateSnapshotSha256',
+  'reason',
 ]);
 const WIRE_MODULES = new Set([
   './CollabAuthorityTransfer',
@@ -247,9 +255,58 @@ function effectiveCloudBindingContract(snapshot) {
   });
 }
 
-export function assertVersionedContractChange(base, current) {
+function withoutImplementationDigests(contract) {
+  const semantics = { ...contract };
+  delete semantics.runtimeBehaviorDigests;
+  return semantics;
+}
+
+function contractSemantics(snapshot) {
+  return {
+    ...withoutImplementationDigests(snapshot.contract),
+    wire: withoutImplementationDigests(snapshot.contract.wire),
+    cloudBinding: withoutImplementationDigests(snapshot.contract.cloudBinding),
+  };
+}
+
+function snapshotDigest(snapshot) {
+  return createHash('sha256').update(stableJson(snapshot)).digest('hex');
+}
+
+function assertImplementationOnlyReview(base, current, review) {
+  exactFields(review, IMPLEMENTATION_REVIEW_FIELDS, 'implementation-only review');
+  if (
+    review.schemaVersion !== 1
+    || typeof review.reason !== 'string'
+    || review.reason.trim().length === 0
+    || review.reason.length > 4096
+  ) throw new Error('Invalid implementation-only review');
+  if (
+    review.baseSnapshotSha256 !== snapshotDigest(base)
+    || review.candidateSnapshotSha256 !== snapshotDigest(current)
+  ) throw new Error('Implementation-only review does not match the exact base and candidate snapshots');
+  if (stableJson(contractSemantics(base)) !== stableJson(contractSemantics(current))) {
+    throw new Error('Implementation-only review cannot change public API, wire, or Cloud binding semantic facts');
+  }
+}
+
+export function createImplementationOnlyReview(base, current, reason) {
   validateCurrentSnapshot(base);
   validateCurrentSnapshot(current);
+  const review = {
+    schemaVersion: 1,
+    baseSnapshotSha256: snapshotDigest(base),
+    candidateSnapshotSha256: snapshotDigest(current),
+    reason,
+  };
+  assertImplementationOnlyReview(base, current, review);
+  return review;
+}
+
+export function assertVersionedContractChange(base, current, review) {
+  validateCurrentSnapshot(base);
+  validateCurrentSnapshot(current);
+  if (review !== undefined) assertImplementationOnlyReview(base, current, review);
   const failures = [];
   if (compareSemver(current.packageVersion, base.packageVersion) < 0) {
     failures.push('package version cannot decrease');
@@ -261,21 +318,22 @@ export function assertVersionedContractChange(base, current) {
   if (current.cloudBindingVersion < base.cloudBindingVersion) {
     failures.push('Cloud binding version cannot decrease');
   }
-  const classification = classifyPackageApiChange(base, current);
+  const classification = review === undefined ? classifyPackageApiChange(base, current) : 'none';
   if (!packageReleaseSatisfies(base.packageVersion, current.packageVersion, classification)) {
     failures.push(classification === 'major'
       ? 'public API change requires a package major release'
       : 'additive public API requires a package minor or major release');
   }
+  const comparedContract = review === undefined ? value => value : withoutImplementationDigests;
   if (
-    stableJson(base.contract.wire) !== stableJson(current.contract.wire)
+    stableJson(comparedContract(base.contract.wire)) !== stableJson(comparedContract(current.contract.wire))
     && current.protocolVersion <= base.protocolVersion
   ) {
     failures.push('wire protocol version must increase for a wire contract change');
   }
   if (
-    stableJson(effectiveCloudBindingContract(base))
-      !== stableJson(effectiveCloudBindingContract(current))
+    stableJson(comparedContract(effectiveCloudBindingContract(base)))
+      !== stableJson(comparedContract(effectiveCloudBindingContract(current)))
     && current.cloudBindingVersion <= base.cloudBindingVersion
   ) {
     failures.push('Cloud binding version must increase for a Cloud binding change');
@@ -517,6 +575,11 @@ function run() {
   const baseIndex = args.indexOf('--base');
   const baseSha = baseIndex >= 0 ? args[baseIndex + 1] : null;
   if (baseIndex >= 0 && !baseSha) throw new Error('--base requires a commit SHA');
+  const reviewIndex = args.indexOf('--record-implementation-only-review');
+  const reviewReason = reviewIndex >= 0 ? args[reviewIndex + 1] : null;
+  if (reviewIndex >= 0 && (!baseSha || !reviewReason || reviewReason.startsWith('--') || write)) {
+    throw new Error('--record-implementation-only-review requires a reason, --base, and a current written snapshot');
+  }
   const generated = generateContractSnapshot();
   if (write) {
     writeFileSync(snapshotPath, `${JSON.stringify(generated, null, 2)}\n`);
@@ -530,8 +593,21 @@ function run() {
   }
   if (baseSha) {
     const base = readBaseSnapshot(baseSha);
+    if (!base && reviewReason !== null) throw new Error('Implementation-only review requires an existing base snapshot');
     if (base) {
-      assertVersionedContractChange(base, committed);
+      if (reviewReason !== null) {
+        const review = createImplementationOnlyReview(base, committed, reviewReason);
+        assertVersionedContractChange(base, committed, review);
+        writeFileSync(reviewPath, `${JSON.stringify(review, null, 2)}\n`);
+        process.stdout.write(`Recorded ${reviewRelativePath}\n`);
+      } else {
+        try {
+          assertVersionedContractChange(base, committed);
+        } catch (error) {
+          if (!existsSync(reviewPath)) throw error;
+          assertVersionedContractChange(base, committed, JSON.parse(readFileSync(reviewPath, 'utf8')));
+        }
+      }
     }
   }
   process.stdout.write('Collab protocol compatibility: PASS\n');

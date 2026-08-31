@@ -2594,11 +2594,11 @@
       },
       {
         "path": "src/CollabProjectBackupCheckpoint.ts",
-        "sha256": "7761e24e415b582cd237ee047a2651ba19d12135683c0d9598fe31070d5c4bd9"
+        "sha256": "6d781599afab1d3ed6eb6b6374c5e2c2d5d8007a751650d999072d3b02af5d32"
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
-        "sha256": "2cc9e9348a32ae0f90a4cd4f4926a031e0c5e28219f969327c9a75a77a276db1"
+        "sha256": "51c7d25bc553ef2d6f0351380c58f828ca7437addcb03136e2b58a370eb31872"
       },
       {
         "path": "src/CollabProjectMembership.ts",
@@ -4033,7 +4033,7 @@
         },
         {
           "path": "src/CollabProjectCheckpoint.ts",
-          "sha256": "2cc9e9348a32ae0f90a4cd4f4926a031e0c5e28219f969327c9a75a77a276db1"
+          "sha256": "51c7d25bc553ef2d6f0351380c58f828ca7437addcb03136e2b58a370eb31872"
         },
         {
           "path": "src/CollabProjectMembership.ts",

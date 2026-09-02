@@ -2685,13 +2685,16 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
         !members.has(item.value.memberId)
         || lifecycle?.value.operationKind !== 'authority-transfer'
         || lifecycle.value.direction !== 'cloud-to-lan'
-        || lifecycle.value.state !== 'completed'
+        || (lifecycle.value.state !== 'completed' && lifecycle.value.state !== 'cancelled')
         || terminal === undefined
         || recovery === undefined
         || item.value.memberId !== recovery.value.targetHostMemberId
-        || item.value.requestSha256 !== recovery.value.targetActivationRequestSha256
         || !terminal.value.eligibleMemberIds.includes(item.value.memberId)
         || response === undefined
+        || response.phase !== lifecycle.value.phase
+        || response.state !== lifecycle.value.state
+        || (response.state === 'completed'
+          && item.value.requestSha256 !== recovery.value.targetActivationRequestSha256)
         || response.batchRevision !== lifecycle.value.batchRevision
         || response.batchSha256 !== lifecycle.value.batchSha256
         || response.checkpointSha256 !== lifecycle.value.checkpointSha256

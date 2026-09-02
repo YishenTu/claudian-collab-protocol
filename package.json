@@ -1,6 +1,6 @@
 {
   "name": "@claudian-collab/protocol",
-  "version": "4.1.1",
+  "version": "4.1.2",
   "description": "Canonical Collab wire and Cloud binding contract for Claudian clients and servers.",
   "license": "MIT",
   "repository": {

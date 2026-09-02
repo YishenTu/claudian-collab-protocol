@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "64c13e818fabfe0bc6c56d8ebcfe4493d296e8a9ecc07d158b236fb5ed0c6caa",
-  "candidateSnapshotSha256": "97af9b9ae5d155eae11b77947fb2ff21901dfb14a8d486e207e11f3b56965085",
-  "reason": "Backup v3 structurally permits the second Cloud source public verifier required to validate an already-canonical Cloud-to-LAN relinquishment proof after signing-key rotation and clean restore. Public declarations, wire v8, Cloud binding v4, record schemas, and signing inputs are unchanged; codec tests bound the allowance to exactly two keys only after Cloud relinquishment, while the Cloud restore owner performs the cryptographic match."
+  "baseSnapshotSha256": "97af9b9ae5d155eae11b77947fb2ff21901dfb14a8d486e207e11f3b56965085",
+  "candidateSnapshotSha256": "0b309a111bedbd0c20f4f1258559f76a55d66f39ec2000172d2e653ebc83bf80",
+  "reason": "Cloud-to-LAN cancellation already has a public terminal cancelled status and backup v3 already stores terminal responders plus exact replay authorization. This correction admits that existing terminal state without a retirement tombstone and binds its replay to the exact target while preserving completed-transfer activation binding. Public declarations, runtime exports, wire v8, Cloud binding v4, backup record schemas, operation codecs, and signing inputs are unchanged; the backup seam test round-trips only a consistent cancelled lifecycle, compact recovery evidence, terminal response, and target replay."
 }

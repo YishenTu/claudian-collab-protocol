@@ -1392,8 +1392,10 @@ function terminalResponderRecord(
   } else if (operation === 'getProjectAuthorityTransfer') {
     if (
       response.decoded.direction !== 'cloud-to-lan'
-      || response.decoded.phase !== 'completed'
-      || response.decoded.state !== 'completed'
+      || !(
+        (response.decoded.phase === 'completed' && response.decoded.state === 'completed')
+        || (response.decoded.phase === 'cancelled' && response.decoded.state === 'cancelled')
+      )
       || response.decoded.expiresAt !== expiresAt
     ) throw invalidPayload('responseJson');
   } else {
@@ -1776,12 +1778,26 @@ export function validateCheckpointRecordSequence(
   const tombstones = records.filter((item): item is CollabCheckpointTombstoneRecord => (
     item.kind === 'tombstone'
   ));
+  const terminalResponder = terminalResponders[0];
+  const transferTerminalResponse = terminalResponder?.value.operation
+    === 'getProjectAuthorityTransfer'
+    ? canonicalOperationResponseJson(
+      { responseJson: terminalResponder.value.responseJson },
+      'responseJson',
+      'getProjectAuthorityTransfer',
+    ).decoded
+    : undefined;
+  const terminalRequiresTombstone = terminalResponder !== undefined && (
+    terminalResponder.value.operation === 'retireProject'
+    || transferTerminalResponse?.state === 'completed'
+  );
   if (
     terminalResponders.length > 1
-    || (terminalResponders.length === 1 && (
+    || (terminalRequiresTombstone && (
       tombstones.length !== 1
-      || terminalResponders[0].value.expiresAt !== tombstones[0].value.terminalExpiresAt
+      || terminalResponder.value.expiresAt !== tombstones[0].value.terminalExpiresAt
     ))
+    || (terminalResponder !== undefined && !terminalRequiresTombstone && tombstones.length !== 0)
   ) throw invalidPayload('records');
   const tombstone = tombstones[0];
   const retirementTerminal = terminalResponders.find(item => (

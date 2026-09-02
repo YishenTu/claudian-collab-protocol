@@ -15,7 +15,7 @@ import {
 
 const packageManifest = {
   name: '@claudian-collab/protocol',
-  version: '4.1.1',
+  version: '4.1.2',
   license: 'MIT',
   repository: {
     type: 'git',
@@ -30,7 +30,7 @@ function record(overrides = {}) {
     npmVersion: '11.13.0',
     packageManifest,
     packResult: {
-      filename: 'claudian-collab-protocol-4.1.1.tgz',
+      filename: 'claudian-collab-protocol-4.1.2.tgz',
       files: [
         { path: 'package.json', size: 100 },
         { path: 'README.md', size: 200 },
@@ -55,11 +55,11 @@ test('records exact public metadata, toolchain, inventory, and tarball digests',
       provenance: true,
       registry: 'https://registry.npmjs.org',
       repository: 'git+https://github.com/YishenTu/claudian-collab-protocol.git',
-      version: '4.1.1',
+      version: '4.1.2',
     },
     toolchain: { node: '24.16.0', npm: '11.13.0' },
     tarball: {
-      filename: 'claudian-collab-protocol-4.1.1.tgz',
+      filename: 'claudian-collab-protocol-4.1.2.tgz',
       files: [
         { path: 'package.json', size: 100 },
         { path: 'README.md', size: 200 },
@@ -135,7 +135,7 @@ test('rejects non-public or non-provenance package metadata', () => {
 test('verifies the exact reviewed tarball before a clean consumer can install it', () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'protocol-reviewed-artifact-'));
   try {
-    const tarballPath = path.join(directory, 'claudian-collab-protocol-4.1.1.tgz');
+    const tarballPath = path.join(directory, 'claudian-collab-protocol-4.1.2.tgz');
     const reviewed = record({
       sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
     });

@@ -554,6 +554,62 @@ function continuityRecords(
   ];
 }
 
+function cancelledCloudToLanContinuityRecords(): Record<string, any>[] {
+  const retainedKinds = new Set([
+    'authority-transfer-recovery',
+    'lifecycle-journal',
+    'terminal-principal',
+    'terminal-responder',
+    'terminal-responder-replay',
+    'transfer-receipt-key',
+  ]);
+  return continuityRecords().filter(record => (
+    retainedKinds.has(record.kind)
+    && (record.kind !== 'lifecycle-journal' || record.recordId === 'transfer_1')
+  )).map((record) => {
+    if (record.kind === 'lifecycle-journal') {
+      return {
+        ...record,
+        value: {
+          ...record.value,
+          phase: 'cancelled',
+          resultSha256: null,
+          state: 'cancelled',
+        },
+      };
+    }
+    if (record.kind === 'authority-transfer-recovery') {
+      return {
+        ...record,
+        value: {
+          ...record.value,
+          cancellationRequestSha256: '5'.repeat(64),
+          relinquishmentProof: null,
+          sourceReopenSha256: '6'.repeat(64),
+          targetActivationProof: null,
+          targetActivationRequestSha256: null,
+        },
+      };
+    }
+    if (record.kind === 'terminal-responder') {
+      const response = JSON.parse(record.value.responseJson);
+      return {
+        ...record,
+        value: {
+          ...record.value,
+          responseJson: JSON.stringify({
+            ...response,
+            phase: 'cancelled',
+            relinquishmentProof: null,
+            state: 'cancelled',
+          }),
+        },
+      };
+    }
+    return record;
+  });
+}
+
 function lanToCloudContinuityRecords(): Record<string, any>[] {
   return continuityRecords('lan-to-cloud').map((record) => {
     if (record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1') {
@@ -995,6 +1051,36 @@ describe('Project backup checkpoint format v3', () => {
     });
     expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
       legacyLifecycle.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('round-trips a cancelled Cloud-to-LAN terminal responder with exact target replay', () => {
+    const records = canonicalRecords(cancelledCloudToLanContinuityRecords()).map(record => (
+      record.kind === 'project'
+        ? { ...record, value: { ...record.value, authorityGeneration: 4 } }
+        : record
+    ));
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+    expect(encodeCollabProjectBackupCheckpointCoordinationNdjson(records as any)).toBe(encoded);
+
+    const wrongTarget = records.map(record => (
+      record.kind === 'terminal-responder-replay'
+        ? { ...record, value: { ...record.value, memberId: 'member_2' } }
+        : record
+    ));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      wrongTarget.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const terminalStateMismatch = records.map(record => (
+      record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1'
+        ? { ...record, value: { ...record.value, phase: 'completed', state: 'completed' } }
+        : record
+    ));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      terminalStateMismatch.map(record => JSON.stringify(record)).join('\n') + '\n',
     )).toThrow('collab.error.protocol-payload-invalid');
   });
 

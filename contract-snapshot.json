@@ -2622,11 +2622,11 @@
       },
       {
         "path": "src/CollabProjectBackupCheckpoint.ts",
-        "sha256": "3a650da876d22d5dd3c7d814e64cd8a0f8f022897bd9f94d53f6cc255fccb729"
+        "sha256": "279c4e0d97cf03a234ebd51abbdf7c87eaef573074b579699dc3e43d0737c462"
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
-        "sha256": "51c7d25bc553ef2d6f0351380c58f828ca7437addcb03136e2b58a370eb31872"
+        "sha256": "a26bbe6b5268414fbbb5f5664422a351ffd4b6161a6095f04d845bd43ac1ddbc"
       },
       {
         "path": "src/CollabProjectMembership.ts",
@@ -4087,7 +4087,7 @@
         },
         {
           "path": "src/CollabProjectCheckpoint.ts",
-          "sha256": "51c7d25bc553ef2d6f0351380c58f828ca7437addcb03136e2b58a370eb31872"
+          "sha256": "a26bbe6b5268414fbbb5f5664422a351ffd4b6161a6095f04d845bd43ac1ddbc"
         },
         {
           "path": "src/CollabProjectMembership.ts",
@@ -4120,7 +4120,7 @@
       ]
     }
   },
-  "packageVersion": "4.1.1",
+  "packageVersion": "4.1.2",
   "protocolVersion": 8,
   "schemaVersion": 2
 }

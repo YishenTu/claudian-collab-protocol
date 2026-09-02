@@ -6,19 +6,19 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "4.0.0"
+    "version": "4.1.0"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-4.0.0.tgz",
+    "filename": "claudian-collab-protocol-4.1.0.tgz",
     "files": [
       {
         "path": "dist/CollabAuthorityTransfer.d.ts",
-        "size": 16684
+        "size": 18269
       },
       {
         "path": "dist/CollabAuthorityTransfer.js",
-        "size": 37411
+        "size": 41350
       },
       {
         "path": "dist/CollabCloudBinding.d.ts",
@@ -54,11 +54,11 @@
       },
       {
         "path": "dist/CollabControlOperationCodecs.d.ts",
-        "size": 11663
+        "size": 11887
       },
       {
         "path": "dist/CollabControlOperationCodecs.js",
-        "size": 6775
+        "size": 6860
       },
       {
         "path": "dist/CollabError.d.ts",
@@ -166,7 +166,7 @@
       },
       {
         "path": "dist/esm/CollabAuthorityTransfer.mjs",
-        "size": 35358
+        "size": 39063
       },
       {
         "path": "dist/esm/CollabCloudBinding.mjs",
@@ -186,7 +186,7 @@
       },
       {
         "path": "dist/esm/CollabControlOperationCodecs.mjs",
-        "size": 6302
+        "size": 6387
       },
       {
         "path": "dist/esm/CollabError.mjs",
@@ -242,7 +242,7 @@
       },
       {
         "path": "dist/esm/index.mjs",
-        "size": 4948
+        "size": 5044
       },
       {
         "path": "dist/esm/types.mjs",
@@ -250,11 +250,11 @@
       },
       {
         "path": "dist/index.d.ts",
-        "size": 14343
+        "size": 14568
       },
       {
         "path": "dist/index.js",
-        "size": 26698
+        "size": 27226
       },
       {
         "path": "dist/types.d.ts",
@@ -270,18 +270,18 @@
       },
       {
         "path": "package.json",
-        "size": 2365
+        "size": 2369
       },
       {
         "path": "README.md",
-        "size": 9967
+        "size": 9924
       }
     ],
-    "integrity": "sha512-ca5848qPj0Xcb3+pp1JQSWEHV/F4g6URbl/4GqH9T24idg0+CgtJ5mGRETLPXgDNix8wJHVuEOwXfr4HxZDzhg==",
-    "sha256": "5c9e6c8070acb38914170d32d689b3e5d3daf0c45af01aacd1c62a77d94a93e7",
-    "shasum": "b501e2f0151d8a0f993a35b12bc124b0d66108da",
-    "size": 131372,
-    "unpackedSize": 868720
+    "integrity": "sha512-HUNMQvnw7lZhtvXbfcWuuRVOd0fteQBoIyil4N+gYm+6St03A5nNmyiQnJlV2+9ImEdrQ0ZEU9oXvOlBtFCSng==",
+    "sha256": "8fe1371f3796fd7d739edbbde8b4453c9d94f56f0a956f8e2c48b4abc6e8b0dc",
+    "shasum": "2fbf5d6c79adf3aa2bf8b483eefad84839108fda",
+    "size": 132245,
+    "unpackedSize": 879153
   },
   "toolchain": {
     "node": "24.16.0",

@@ -47,5 +47,10 @@ jobs:
       - name: Verify package and exact release candidate
         run: npm run verify
 
+      - name: Verify compatibility from previous reviewed release
+        run: |
+          previous_commit="$(node scripts/previous-release-base.mjs)"
+          npm run check:compatibility -- --base "$previous_commit"
+
       - name: Publish the verified tarball with provenance
-        run: npm publish .context/release/claudian-collab-protocol-4.0.0.tgz --access public --provenance
+        run: npm publish .context/release/claudian-collab-protocol-4.1.0.tgz --access public --provenance

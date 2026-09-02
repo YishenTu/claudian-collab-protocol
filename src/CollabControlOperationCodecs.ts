@@ -169,6 +169,7 @@ export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
   acceptCloudToLanTransferTarget: codec('acceptCloudToLanTransferTarget'),
   reportCloudToLanTargetStaged: codec('reportCloudToLanTargetStaged'),
   confirmCloudToLanTargetActive: codec('confirmCloudToLanTargetActive'),
+  confirmCloudToLanTargetInvalidated: codec('confirmCloudToLanTargetInvalidated'),
   cancelProjectAuthorityTransfer: codec('cancelProjectAuthorityTransfer'),
   retireProject: codec('retireProject'),
   acknowledgeProjectRetirement: codec('acknowledgeProjectRetirement'),

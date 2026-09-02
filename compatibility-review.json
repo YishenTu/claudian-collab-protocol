@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "b82393607b4743d3a9fba45e3ae886ce6d7f75c5e1ace810357ef199f6f2c838",
-  "candidateSnapshotSha256": "5553284017a8e46ddeedfac2cec814f4d1d1d977837bbbb5b6f1554429e41458",
-  "reason": "Share private checkpoint parsing while preserving public declarations, exports, canonical wire v6, Cloud binding v2, and format-v1 behavior. Approved compatible offline-backup defect correction: admit valid current-format artifacts at the existing inclusive 256 MiB actual UTF-8 limit without fabricated-principal byte inflation; continue rejecting an additional byte. CollabProjectBackupCheckpoint public-seam tests reproduce the original-baseline rejection and verify decoder, encoder, and consistency acceptance at the real limit plus rejection above it. Other principal rules, diagnostic order, canonical bytes, freeze shape, and consistency outcomes are characterized by fixtures and 33,976 bounded baseline/candidate comparisons. The byte-limit correction is intentional, not a claim of complete behavioral equivalence."
+  "baseSnapshotSha256": "c96dd80d5c2efebb73dc96fed572f8b4b1656d1b4355cd1ee063306bbd373525",
+  "candidateSnapshotSha256": "64c13e818fabfe0bc6c56d8ebcfe4493d296e8a9ecc07d158b236fb5ed0c6caa",
+  "reviewKind": "versioned-operation-addition",
+  "addedOperations": [
+    "confirmCloudToLanTargetInvalidated"
+  ],
+  "reason": "Add the canonical target-confirmed Cloud-to-LAN cleanup operation while preserving every existing operation contract; strict codec fixtures and source-structure review characterize the additive change."
 }

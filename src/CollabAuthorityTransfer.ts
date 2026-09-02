@@ -170,6 +170,28 @@ export type CollabAuthorityRelinquishmentProof =
     readonly certificate: string;
   };
 
+export interface CollabCloudToLanTargetCleanupProofSigningPayload {
+  readonly batchRevision: number | null;
+  readonly batchSha256: string | null;
+  readonly checkpointSha256: string | null;
+  readonly cleanupSha256: string;
+  readonly invalidatedAt: CollabIsoTimestamp;
+  readonly operationIntentId: string;
+  readonly projectId: CollabProjectId;
+  readonly receiptKeyId: string;
+  readonly signatureAlgorithm: 'ed25519';
+  readonly sourceAuthority: CollabCheckpointAuthority & { readonly kind: 'cloud' };
+  readonly stageSha256: string | null;
+  readonly targetAuthority: CollabCheckpointAuthority & { readonly kind: 'lan' };
+  readonly targetHostMemberId: CollabMemberId;
+  readonly transferId: string;
+}
+
+export interface CollabCloudToLanTargetCleanupProof extends
+  CollabCloudToLanTargetCleanupProofSigningPayload {
+  readonly signature: string;
+}
+
 export interface CollabAuthorityTransferStatus {
   readonly batchRevision: number | null;
   readonly batchSha256: string | null;
@@ -317,6 +339,12 @@ export interface ConfirmCloudToLanTargetActiveRequest extends CollabAuthorityMut
   readonly transferId: string;
 }
 
+export interface ConfirmCloudToLanTargetInvalidatedRequest
+  extends CollabAuthorityMutationRequest {
+  readonly proof: CollabCloudToLanTargetCleanupProof;
+  readonly transferId: string;
+}
+
 export interface CancelProjectAuthorityTransferRequest extends CollabAuthorityMutationRequest {
   readonly expectedPhase: CollabAuthorityTransferCancellablePhase;
   readonly transferId: string;
@@ -338,6 +366,7 @@ export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze([
   'acceptCloudToLanTransferTarget',
   'reportCloudToLanTargetStaged',
   'confirmCloudToLanTargetActive',
+  'confirmCloudToLanTargetInvalidated',
   'cancelProjectAuthorityTransfer',
 ] as const);
 
@@ -403,6 +432,10 @@ export interface CollabAuthorityTransferOperationMap {
   };
   readonly confirmCloudToLanTargetActive: {
     readonly request: ConfirmCloudToLanTargetActiveRequest;
+    readonly response: CollabAuthorityTransferStatus;
+  };
+  readonly confirmCloudToLanTargetInvalidated: {
+    readonly request: ConfirmCloudToLanTargetInvalidatedRequest;
     readonly response: CollabAuthorityTransferStatus;
   };
   readonly cancelProjectAuthorityTransfer: {
@@ -828,6 +861,94 @@ export function decodeCollabAuthorityRelinquishmentProof(
     targetAuthority: payload.targetAuthority,
     transferId: payload.transferId,
   } as CollabAuthorityRelinquishmentProof;
+}
+
+const TARGET_CLEANUP_PROOF_SIGNING_PAYLOAD_KEYS = [
+  'batchRevision',
+  'batchSha256',
+  'checkpointSha256',
+  'cleanupSha256',
+  'invalidatedAt',
+  'operationIntentId',
+  'projectId',
+  'receiptKeyId',
+  'signatureAlgorithm',
+  'sourceAuthority',
+  'stageSha256',
+  'targetAuthority',
+  'targetHostMemberId',
+  'transferId',
+] as const;
+
+function cloudToLanTargetCleanupProofSigningPayload(
+  source: UnknownRecord,
+): CollabCloudToLanTargetCleanupProofSigningPayload {
+  const sourceAuthority = authority(source.sourceAuthority, 'sourceAuthority');
+  const targetAuthority = authority(source.targetAuthority, 'targetAuthority');
+  const checkpointSha256 = source.checkpointSha256 === null
+    ? null
+    : sha256(source, 'checkpointSha256');
+  const stageSha256 = source.stageSha256 === null
+    ? null
+    : sha256(source, 'stageSha256');
+  const batchRevision = source.batchRevision === null
+    ? null
+    : positiveInteger(source, 'batchRevision');
+  const batchSha256 = source.batchSha256 === null
+    ? null
+    : sha256(source, 'batchSha256');
+  if (
+    sourceAuthority.kind !== 'cloud'
+    || targetAuthority.kind !== 'lan'
+    || targetAuthority.generation !== sourceAuthority.generation + 1
+    || (stageSha256 !== null && checkpointSha256 === null)
+    || (batchRevision === null) !== (batchSha256 === null)
+    || (stageSha256 === null) !== (batchRevision === null)
+  ) throw invalidPayload('targetCleanupProof');
+  return {
+    batchRevision,
+    batchSha256,
+    checkpointSha256,
+    cleanupSha256: sha256(source, 'cleanupSha256'),
+    invalidatedAt: timestamp(source, 'invalidatedAt'),
+    operationIntentId: token(source, 'operationIntentId'),
+    projectId: token(source, 'projectId', isCollabProjectId),
+    receiptKeyId: boundedString(source, 'receiptKeyId', 256),
+    signatureAlgorithm: literal(source, 'signatureAlgorithm', ['ed25519']),
+    sourceAuthority: sourceAuthority as CollabCheckpointAuthority & { readonly kind: 'cloud' },
+    stageSha256,
+    targetAuthority: targetAuthority as CollabCheckpointAuthority & { readonly kind: 'lan' },
+    targetHostMemberId: token(source, 'targetHostMemberId', isCollabMemberId),
+    transferId: token(source, 'transferId'),
+  };
+}
+
+export function encodeCollabCloudToLanTargetCleanupProofSigningInput(
+  payload: CollabCloudToLanTargetCleanupProofSigningPayload,
+): string {
+  const source = exactRecord(
+    payload,
+    'targetCleanupProofSigningPayload',
+    TARGET_CLEANUP_PROOF_SIGNING_PAYLOAD_KEYS,
+  );
+  return JSON.stringify({
+    domain: 'claudian-collab.cloud-to-lan-target-cleanup-proof.v1',
+    payload: cloudToLanTargetCleanupProofSigningPayload(source),
+  });
+}
+
+export function decodeCollabCloudToLanTargetCleanupProof(
+  value: unknown,
+): CollabCloudToLanTargetCleanupProof {
+  const source = exactRecord(value, 'targetCleanupProof', [
+    ...TARGET_CLEANUP_PROOF_SIGNING_PAYLOAD_KEYS,
+    'signature',
+  ]);
+  const payload = cloudToLanTargetCleanupProofSigningPayload(source);
+  return {
+    ...payload,
+    signature: fixedBase64url(source, 'signature', 64),
+  };
 }
 
 const LAN_TO_CLOUD_PHASE_SET: ReadonlySet<string> = new Set(
@@ -1310,6 +1431,26 @@ function decodeConfirmCloudToLanTargetActive(
   };
 }
 
+function decodeConfirmCloudToLanTargetInvalidated(
+  value: unknown,
+): ConfirmCloudToLanTargetInvalidatedRequest {
+  const source = exactRecord(value, 'request', [
+    'idempotencyKey',
+    'projectId',
+    'proof',
+    'transferId',
+  ]);
+  const common = mutationFields(source);
+  const transferId = token(source, 'transferId');
+  const proof = decodeCollabCloudToLanTargetCleanupProof(source.proof);
+  if (
+    proof.operationIntentId !== common.idempotencyKey
+    || proof.projectId !== common.projectId
+    || proof.transferId !== transferId
+  ) throw invalidPayload('proof');
+  return { ...common, proof, transferId };
+}
+
 function decodeCancelProjectAuthorityTransfer(
   value: unknown,
 ): CancelProjectAuthorityTransferRequest {
@@ -1359,6 +1500,8 @@ export function decodeCollabAuthorityTransferOperationRequest<
       case 'acceptCloudToLanTransferTarget': return decodeAcceptCloudToLanTransferTarget(value);
       case 'reportCloudToLanTargetStaged': return decodeReportCloudToLanTargetStaged(value);
       case 'confirmCloudToLanTargetActive': return decodeConfirmCloudToLanTargetActive(value);
+      case 'confirmCloudToLanTargetInvalidated':
+        return decodeConfirmCloudToLanTargetInvalidated(value);
       case 'cancelProjectAuthorityTransfer': return decodeCancelProjectAuthorityTransfer(value);
     }
   })();

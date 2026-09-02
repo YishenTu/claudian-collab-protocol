@@ -200,6 +200,313 @@ test('requires at least a minor release for additive public API', () => {
   })));
 });
 
+test('accepts an exactly reviewed versioned operation addition without waiving existing contracts', () => {
+  const declarations = [{
+    declaration: 'export interface CollabAuthorityTransferOperationMap { readonly existing: Existing; }',
+    exportName: 'CollabAuthorityTransferOperationMap',
+    source: './CollabAuthorityTransfer',
+  }, {
+    declaration: 'export interface CollabAuthorityTransferStatus { readonly phase: string; }',
+    exportName: 'CollabAuthorityTransferStatus',
+    source: './CollabAuthorityTransfer',
+  }];
+  const base = snapshot({
+    binding: {
+      capabilities: ['authority-transfer'],
+      jsonOperations: ['getProjectSnapshot', 'existing'],
+    },
+    declarations,
+    runtime: [{ path: 'src/CollabAuthorityTransfer.ts', sha256: 'runtime-v1' }],
+    runtimeExports: [],
+    wire: { operations: ['existing'] },
+  });
+  const current = snapshot({
+    binding: {
+      capabilities: ['authority-transfer'],
+      jsonOperations: ['getProjectSnapshot', 'existing', 'confirmTargetCleanup'],
+    },
+    bindingVersion: 2,
+    declarations: [{
+      declaration: 'export interface CollabAuthorityTransferOperationMap { readonly existing: Existing; readonly confirmTargetCleanup: ConfirmTargetCleanup; }',
+      exportName: 'CollabAuthorityTransferOperationMap',
+      source: './CollabAuthorityTransfer',
+    }, {
+      declaration: 'export interface CollabAuthorityTransferStatus { readonly phase: string; }',
+      exportName: 'CollabAuthorityTransferStatus',
+      source: './CollabAuthorityTransfer',
+    }, {
+      declaration: 'export interface ConfirmTargetCleanup {}',
+      exportName: 'ConfirmTargetCleanup',
+      source: './CollabAuthorityTransfer',
+    }],
+    packageVersion: '1.1.0',
+    protocolVersion: 5,
+    runtime: [{ path: 'src/CollabAuthorityTransfer.ts', sha256: 'runtime-v2' }],
+    runtimeExports: [],
+    wire: { operations: ['existing', 'confirmTargetCleanup'] },
+  });
+
+  assert.equal(classifyPackageApiChange(base, current), 'major');
+  assert.throws(() => assertVersionedContractChange(base, current), /package major release/u);
+  const review = compatibility.createVersionedOperationAdditionReview(
+    base,
+    current,
+    'Add confirmTargetCleanup without changing existing operation contracts.',
+  );
+  assert.doesNotThrow(() => assertVersionedContractChange(base, current, review));
+
+  const changedExistingInterface = cloneJson(current);
+  changedExistingInterface.contract.publicDeclarations.find(
+    declaration => declaration.exportName === 'CollabAuthorityTransferStatus',
+  ).declaration = 'export interface CollabAuthorityTransferStatus { readonly state: never; }';
+  assert.throws(() => compatibility.createVersionedOperationAdditionReview(
+    base,
+    changedExistingInterface,
+    'This must not waive a changed existing transfer status.',
+  ), /existing public declaration/u);
+
+  const changedOperationMapHeritage = cloneJson(current);
+  changedOperationMapHeritage.contract.publicDeclarations.find(
+    declaration => declaration.exportName === 'CollabAuthorityTransferOperationMap',
+  ).declaration = changedOperationMapHeritage.contract.publicDeclarations.find(
+    declaration => declaration.exportName === 'CollabAuthorityTransferOperationMap',
+  ).declaration.replace(
+    'CollabAuthorityTransferOperationMap {',
+    'CollabAuthorityTransferOperationMap extends CollabAuthorityTransferStatus {',
+  );
+  assert.throws(() => compatibility.createVersionedOperationAdditionReview(
+    base,
+    changedOperationMapHeritage,
+    'This must not waive changed operation-map heritage.',
+  ), /existing public declaration/u);
+
+  const changedExistingDecoder = cloneJson(current);
+  changedExistingDecoder.contract.runtimeBehaviorDigests[0].sha256 = 'changed-existing-decoder';
+  assert.throws(
+    () => assertVersionedContractChange(base, changedExistingDecoder, review),
+    /exact base and candidate snapshots/u,
+  );
+});
+
+test('source review rejects existing decoder drift and unreachable same-module additions', () => {
+  const baseFiles = {
+    'src/CollabAuthorityTransfer.ts': `
+      export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze(['existing'] as const);
+      export interface CollabAuthorityTransferOperationMap {
+        readonly existing: { readonly request: ExistingRequest; readonly response: ExistingResponse };
+      }
+      function decodeExisting(value: unknown) { return value; }
+      export function decodeCollabAuthorityTransferOperationRequest(operation: string, value: unknown) {
+        switch (operation) { case 'existing': return decodeExisting(value); }
+      }
+    `,
+    'src/CollabCloudBinding.ts': `
+      export const COLLAB_CLOUD_BINDING_VERSION = 1 as const;
+      export function collabCloudProjectOperationRoute() { return '/v1/projects'; }
+    `,
+    'src/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 4 as const;',
+    'src/CollabControlOperationCodecs.ts': `
+      const codec = (operation: string) => operation;
+      export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({ existing: codec('existing') });
+    `,
+    'src/index.ts': "export { COLLAB_AUTHORITY_TRANSFER_OPERATIONS, decodeCollabAuthorityTransferOperationRequest } from './CollabAuthorityTransfer';",
+  };
+  const currentFiles = {
+    ...baseFiles,
+    'src/CollabAuthorityTransfer.ts': `
+      export interface ConfirmTargetCleanupRequest { readonly proof: string; }
+      export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze(['existing', 'confirmTargetCleanup'] as const);
+      export interface CollabAuthorityTransferOperationMap {
+        readonly existing: { readonly request: ExistingRequest; readonly response: ExistingResponse };
+        readonly confirmTargetCleanup: { readonly request: ConfirmTargetCleanupRequest; readonly response: ExistingResponse };
+      }
+      function decodeExisting(value: unknown) { return value; }
+      function decodeConfirmTargetCleanup(value: unknown): ConfirmTargetCleanupRequest { return value as ConfirmTargetCleanupRequest; }
+      export function decodeCollabAuthorityTransferOperationRequest(operation: string, value: unknown) {
+        switch (operation) {
+          case 'existing': return decodeExisting(value);
+          case 'confirmTargetCleanup': return decodeConfirmTargetCleanup(value);
+        }
+      }
+    `,
+    'src/CollabCloudBinding.ts': `
+      export const COLLAB_CLOUD_BINDING_VERSION = 2 as const;
+      export function collabCloudProjectOperationRoute() { return '/v2/projects'; }
+    `,
+    'src/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 5 as const;',
+    'src/CollabControlOperationCodecs.ts': `
+      const codec = (operation: string) => operation;
+      export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
+        existing: codec('existing'),
+        confirmTargetCleanup: codec('confirmTargetCleanup'),
+      });
+    `,
+  };
+  const input = {
+    addedOperations: ['confirmTargetCleanup'],
+    baseCloudBindingVersion: 1,
+    baseFiles,
+    baseProtocolVersion: 4,
+    currentCloudBindingVersion: 2,
+    currentFiles,
+    currentProtocolVersion: 5,
+  };
+  assert.doesNotThrow(() => compatibility.assertAuthorityTransferOperationSourceAddition(input));
+
+  const decoderDrift = cloneJson(currentFiles);
+  decoderDrift['src/CollabAuthorityTransfer.ts'] = decoderDrift[
+    'src/CollabAuthorityTransfer.ts'
+  ].replace(
+    'function decodeExisting(value: unknown) { return value; }',
+    'function decodeExisting(_value: unknown) { return null; }',
+  );
+  assert.throws(
+    () => compatibility.assertAuthorityTransferOperationSourceAddition({
+      ...input,
+      currentFiles: decoderDrift,
+    }),
+    /existing source declaration/u,
+  );
+
+  const unrelatedAddition = cloneJson(currentFiles);
+  unrelatedAddition['src/CollabAuthorityTransfer.ts'] += '\nexport function unrelated() { return 1; }\n';
+  assert.throws(
+    () => compatibility.assertAuthorityTransferOperationSourceAddition({
+      ...input,
+      currentFiles: unrelatedAddition,
+    }),
+    /unreachable source declaration/u,
+  );
+
+  const heritageDrift = cloneJson(currentFiles);
+  heritageDrift['src/CollabAuthorityTransfer.ts'] = heritageDrift[
+    'src/CollabAuthorityTransfer.ts'
+  ].replace(
+    'CollabAuthorityTransferOperationMap {',
+    'CollabAuthorityTransferOperationMap extends ConfirmTargetCleanupRequest {',
+  );
+  assert.throws(
+    () => compatibility.assertAuthorityTransferOperationSourceAddition({
+      ...input,
+      currentFiles: heritageDrift,
+    }),
+    /operation map/u,
+  );
+
+  for (const collision of ['request', 'response', 'proof']) {
+    const propertyCollision = cloneJson(currentFiles);
+    propertyCollision['src/CollabAuthorityTransfer.ts'] +=
+      `\nexport interface ${collision} { readonly unrelated: true; }\n`;
+    assert.throws(
+      () => compatibility.assertAuthorityTransferOperationSourceAddition({
+        ...input,
+        currentFiles: propertyCollision,
+      }),
+      /unreachable source declaration/u,
+    );
+  }
+
+  const aliasedExport = cloneJson(currentFiles);
+  aliasedExport['src/index.ts'] +=
+    "\nexport type { ExistingResponse as ConfirmTargetCleanupRequest } from './CollabAuthorityTransfer';\n";
+  assert.throws(
+    () => compatibility.assertAuthorityTransferOperationSourceAddition({
+      ...input,
+      currentFiles: aliasedExport,
+    }),
+    /aliased authority-transfer export/u,
+  );
+
+  const selfAliasedExport = cloneJson(currentFiles);
+  selfAliasedExport['src/index.ts'] +=
+    "\nexport type { ConfirmTargetCleanupRequest as ConfirmTargetCleanupRequest } from './CollabAuthorityTransfer';\n";
+  assert.throws(
+    () => compatibility.assertAuthorityTransferOperationSourceAddition({
+      ...input,
+      currentFiles: selfAliasedExport,
+    }),
+    /aliased authority-transfer export/u,
+  );
+
+  const duplicateMember = cloneJson(currentFiles);
+  duplicateMember['src/CollabAuthorityTransfer.ts'] = duplicateMember[
+    'src/CollabAuthorityTransfer.ts'
+  ].replace(
+    'readonly confirmTargetCleanup: { readonly request: ConfirmTargetCleanupRequest; readonly response: ExistingResponse };',
+    `readonly confirmTargetCleanup: { readonly request: ConfirmTargetCleanupRequest; readonly response: ExistingResponse };
+        readonly confirmTargetCleanup: { readonly request: ConfirmTargetCleanupRequest; readonly response: ExistingResponse };`,
+  );
+  assert.throws(
+    () => compatibility.assertAuthorityTransferOperationSourceAddition({
+      ...input,
+      currentFiles: duplicateMember,
+    }),
+    /operation map/u,
+  );
+
+  const conventionOnlyDecoder = cloneJson(currentFiles);
+  conventionOnlyDecoder['src/CollabAuthorityTransfer.ts'] += `
+    export function decodeConfirmTargetCleanupRequest(): ConfirmTargetCleanupRequest {
+      return { proof: 'unrelated' };
+    }
+  `;
+  conventionOnlyDecoder['src/index.ts'] +=
+    "\nexport { decodeConfirmTargetCleanupRequest } from './CollabAuthorityTransfer';\n";
+  assert.throws(
+    () => compatibility.assertAuthorityTransferOperationSourceAddition({
+      ...input,
+      currentFiles: conventionOnlyDecoder,
+    }),
+    /unreachable source declaration/u,
+  );
+
+  const shadowedSigningEncoder = cloneJson(currentFiles);
+  shadowedSigningEncoder['src/CollabAuthorityTransfer.ts'] = shadowedSigningEncoder[
+    'src/CollabAuthorityTransfer.ts'
+  ].replace(
+    'export interface ConfirmTargetCleanupRequest { readonly proof: string; }',
+    `export interface ConfirmTargetCleanupProofSigningPayload { readonly proof: string; }
+      export interface ConfirmTargetCleanupRequest {
+        readonly proof: ConfirmTargetCleanupProofSigningPayload;
+      }`,
+  ) + `
+    export function encodeConfirmTargetCleanupProofSigningInput<
+      ConfirmTargetCleanupProofSigningPayload
+    >(_payload: ConfirmTargetCleanupProofSigningPayload): string { return 'unrelated'; }
+  `;
+  shadowedSigningEncoder['src/index.ts'] +=
+    "\nexport { encodeConfirmTargetCleanupProofSigningInput } from './CollabAuthorityTransfer';\n";
+  assert.throws(
+    () => compatibility.assertAuthorityTransferOperationSourceAddition({
+      ...input,
+      currentFiles: shadowedSigningEncoder,
+    }),
+    /unreachable source declaration/u,
+  );
+
+  const unrelatedBindingVersionText = {
+    ...input,
+    baseFiles: {
+      ...baseFiles,
+      'src/CollabCloudBinding.ts': `${baseFiles['src/CollabCloudBinding.ts']}
+        export function environment() { return 'env1'; }
+      `,
+    },
+    currentFiles: {
+      ...currentFiles,
+      'src/CollabCloudBinding.ts': `${currentFiles['src/CollabCloudBinding.ts']}
+        export function environment() { return 'env2'; }
+      `,
+    },
+  };
+  assert.throws(
+    () => compatibility.assertAuthorityTransferOperationSourceAddition(
+      unrelatedBindingVersionText,
+    ),
+    /Cloud binding/u,
+  );
+});
+
 test('requires a package major for changed declarations or runtime behavior', () => {
   const changedDeclaration = [{
     declaration: 'export interface A { readonly value: string; }',
@@ -458,7 +765,19 @@ test('the compatibility command binds explicit review to exact generated snapsho
     ...args,
   ], { cwd: fixtureRoot, encoding: 'utf8' }).trim();
   assert.equal(command('--write').status, 0);
+  const missingMode = command();
+  assert.notEqual(missingMode.status, 0);
+  assert.match(missingMode.stderr, /requires --base unless --write/u);
   git('init', '--quiet');
+  git('add', 'package.json', 'scripts', 'src', 'dist');
+  git('commit', '--quiet', '-m', 'test: record base without a contract snapshot');
+  const missingSnapshotBase = git('rev-parse', 'HEAD');
+  const missingSnapshot = command('--base', missingSnapshotBase);
+  assert.notEqual(missingSnapshot.status, 0);
+  assert.match(missingSnapshot.stderr, /existing base snapshot/u);
+  const writeWithBase = command('--write', '--base', missingSnapshotBase);
+  assert.notEqual(writeWithBase.status, 0);
+  assert.match(writeWithBase.stderr, /cannot be combined/u);
   git('add', 'contract-snapshot.json');
   git('commit', '--quiet', '-m', 'test: record base snapshot');
   const base = git('rev-parse', 'HEAD');

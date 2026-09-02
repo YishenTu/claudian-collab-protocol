@@ -27,6 +27,7 @@ const LIFECYCLE_OPERATIONS = [
   'acceptCloudToLanTransferTarget',
   'reportCloudToLanTargetStaged',
   'confirmCloudToLanTargetActive',
+  'confirmCloudToLanTargetInvalidated',
   'cancelProjectAuthorityTransfer',
   'retireProject',
   'acknowledgeProjectRetirement',
@@ -93,6 +94,26 @@ function cloudRelinquishmentProof() {
     sourceAuthority: { generation: 4, kind: 'cloud' },
     sourceHostMemberId: null,
     targetAuthority: { generation: 5, kind: 'lan' },
+    transferId: 'transfer_2',
+  };
+}
+
+function targetCleanupProof() {
+  return {
+    batchRevision: 1,
+    batchSha256: 'b'.repeat(64),
+    checkpointSha256: SHA256,
+    cleanupSha256: 'e'.repeat(64),
+    invalidatedAt: NOW,
+    operationIntentId: 'intent_13',
+    projectId: 'project_1',
+    receiptKeyId: 'receipt-key-2026-08',
+    signature: ED25519_SIGNATURE,
+    signatureAlgorithm: 'ed25519',
+    sourceAuthority: { generation: 4, kind: 'cloud' },
+    stageSha256: 'd'.repeat(64),
+    targetAuthority: { generation: 5, kind: 'lan' },
+    targetHostMemberId: 'member_1',
     transferId: 'transfer_2',
   };
 }
@@ -201,34 +222,40 @@ function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number
       targetActivationProof: 'YWN0aXZhdGlvbi1wcm9vZg',
       transferId: 'transfer_2',
     },
+    confirmCloudToLanTargetInvalidated: {
+      idempotencyKey: 'intent_13',
+      projectId: 'project_1',
+      proof: targetCleanupProof(),
+      transferId: 'transfer_2',
+    },
     cancelProjectAuthorityTransfer: {
       expectedPhase: 'target-staged',
-      idempotencyKey: 'intent_13',
+      idempotencyKey: 'intent_14',
       projectId: 'project_1',
       transferId: 'transfer_2',
     },
     retireProject: {
       expectedAuthorityGeneration: 4,
       expectedMainOid: MAIN,
-      idempotencyKey: 'intent_14',
+      idempotencyKey: 'intent_15',
       projectId: 'project_1',
     },
     acknowledgeProjectRetirement: {
-      idempotencyKey: 'intent_15',
+      idempotencyKey: 'intent_16',
       projectId: 'project_1',
       retirementId: 'retirement_1',
     },
   };
 }
 
-describe('Canonical Collab wire protocol v7 lifecycle integration', () => {
+describe('Canonical Collab wire protocol v8 lifecycle integration', () => {
   it('publishes the exact lifecycle operation inventory through one registry', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(7);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(8);
     const operations = Object.keys(COLLAB_CONTROL_OPERATION_CODECS);
     const lifecycleStart = operations.indexOf(LIFECYCLE_OPERATIONS[0]);
     expect(operations.slice(lifecycleStart, lifecycleStart + LIFECYCLE_OPERATIONS.length))
       .toEqual(LIFECYCLE_OPERATIONS);
-    expect(operations).toHaveLength(51);
+    expect(operations).toHaveLength(52);
   });
 
   it('strictly decodes every lifecycle request without accepting authority extensions', () => {
@@ -362,13 +389,13 @@ describe('Canonical Collab wire protocol v7 lifecycle integration', () => {
   it('fails closed on the former wire version', () => {
     const decoded = decodeCollabProtocolEnvelope({
       data: {},
-      protocolVersion: 6,
+      protocolVersion: 7,
       requestId: 'request_1',
     });
     expect(decoded.status).toBe('unsupported-version');
     expect(decoded).toMatchObject({
-      error: { safeContext: { supportedVersion: 7 } },
-      receivedVersion: 6,
+      error: { safeContext: { supportedVersion: 8 } },
+      receivedVersion: 7,
       status: 'unsupported-version',
     });
   });

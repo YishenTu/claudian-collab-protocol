@@ -31,6 +31,7 @@ const EXPECTED_OPERATIONS = [
   'acceptCloudToLanTransferTarget',
   'reportCloudToLanTargetStaged',
   'confirmCloudToLanTargetActive',
+  'confirmCloudToLanTargetInvalidated',
   'cancelProjectAuthorityTransfer',
   'retireProject',
   'acknowledgeProjectRetirement',

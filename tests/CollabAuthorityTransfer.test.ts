@@ -6,16 +6,19 @@ import {
   COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES,
   COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES,
   type CollabAuthorityRelinquishmentProofSigningPayload,
+  type CollabCloudToLanTargetCleanupProofSigningPayload,
   type CollabTransferredMembershipRedemptionReceiptSigningPayload,
   decodeCollabAuthorityRelinquishmentProof,
   decodeCollabAuthorityTransferOperationRequest,
   decodeCollabAuthorityTransferProposal,
   decodeCollabAuthorityTransferStatus,
+  decodeCollabCloudToLanTargetCleanupProof,
   decodeCollabTransferredMembershipClaim,
   decodeCollabTransferredMembershipClaimBatch,
   decodeCollabTransferredMembershipClaimCustodyReceipt,
   decodeCollabTransferredMembershipRedemptionReceipt,
   encodeCollabAuthorityRelinquishmentProofSigningInput,
+  encodeCollabCloudToLanTargetCleanupProofSigningInput,
   encodeCollabTransferredMembershipClaimBatchDigestInput,
   encodeCollabTransferredMembershipRedemptionReceiptSigningInput,
 } from '../src/CollabAuthorityTransfer';
@@ -117,6 +120,27 @@ function cloudRelinquishmentProof(overrides: Record<string, unknown> = {}) {
     transferId: 'transfer_2',
     ...overrides,
   });
+}
+
+function targetCleanupProof(overrides: Record<string, unknown> = {}) {
+  return {
+    batchRevision: 2,
+    batchSha256: BATCH_SHA256,
+    checkpointSha256: SHA256,
+    cleanupSha256: 'f'.repeat(64),
+    invalidatedAt: NOW,
+    operationIntentId: 'target_cleanup_intent_1',
+    projectId: 'project_1',
+    receiptKeyId: 'receipt-key-2026-08',
+    signature: ED25519_SIGNATURE,
+    signatureAlgorithm: 'ed25519',
+    sourceAuthority: { generation: 4, kind: 'cloud' },
+    stageSha256: 'd'.repeat(64),
+    targetAuthority: { generation: 5, kind: 'lan' },
+    targetHostMemberId: 'member_2',
+    transferId: 'transfer_2',
+    ...overrides,
+  };
 }
 
 describe('Project authority transfer contract', () => {
@@ -401,6 +425,74 @@ describe('Project authority transfer contract', () => {
           projectId: 'project_1',
           transferId: 'transfer_1',
         },
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it('binds target-confirmed Cloud-to-LAN cleanup to exact staged authority facts', () => {
+    const proof = targetCleanupProof();
+    expect(decodeCollabCloudToLanTargetCleanupProof(proof)).toEqual(proof);
+    const { signature: _signature, ...unsigned } = proof;
+    const payload = unsigned as CollabCloudToLanTargetCleanupProofSigningPayload;
+    const signingInput = encodeCollabCloudToLanTargetCleanupProofSigningInput(payload);
+    expect(signingInput).toBe(JSON.stringify({
+      domain: 'claudian-collab.cloud-to-lan-target-cleanup-proof.v1',
+      payload,
+    }));
+    expect(createHash('sha256').update(signingInput).digest('hex'))
+      .toBe('448262b0047bcc8f5eb835011716c9bdf3c4332232ea0c3aabe80ef97c77010d');
+
+    const request = {
+      idempotencyKey: proof.operationIntentId,
+      projectId: proof.projectId,
+      proof,
+      transferId: proof.transferId,
+    };
+    expect(decodeCollabAuthorityTransferOperationRequest(
+      'confirmCloudToLanTargetInvalidated',
+      request,
+    )).toEqual(request);
+  });
+
+  it.each([
+    targetCleanupProof({ sourceAuthority: { generation: 4, kind: 'lan' } }),
+    targetCleanupProof({ targetAuthority: { generation: 6, kind: 'lan' } }),
+    targetCleanupProof({ batchRevision: null, batchSha256: null }),
+    targetCleanupProof({ stageSha256: null, batchRevision: 2, batchSha256: BATCH_SHA256 }),
+    targetCleanupProof({ checkpointSha256: null, stageSha256: 'd'.repeat(64) }),
+    targetCleanupProof({ batchRevision: null, batchSha256: BATCH_SHA256 }),
+    targetCleanupProof({ signature: 'a' }),
+    targetCleanupProof({ role: 'manager' }),
+  ])('rejects ambiguous or authority-rich target cleanup proof %#', (proof) => {
+    expect(() => decodeCollabCloudToLanTargetCleanupProof(proof))
+      .toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('rejects target cleanup confirmation whose envelope drifts from its proof', () => {
+    const proof = targetCleanupProof();
+    for (const request of [
+      {
+        idempotencyKey: 'another_intent',
+        projectId: proof.projectId,
+        proof,
+        transferId: proof.transferId,
+      },
+      {
+        idempotencyKey: proof.operationIntentId,
+        projectId: 'project_2',
+        proof,
+        transferId: proof.transferId,
+      },
+      {
+        idempotencyKey: proof.operationIntentId,
+        projectId: proof.projectId,
+        proof,
+        transferId: 'transfer_3',
+      },
+    ]) {
+      expect(() => decodeCollabAuthorityTransferOperationRequest(
+        'confirmCloudToLanTargetInvalidated',
+        request,
       )).toThrow('collab.error.protocol-payload-invalid');
     }
   });

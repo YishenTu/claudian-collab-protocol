@@ -14,6 +14,8 @@ test('release publishing uses GitHub trusted publishing without a repository tok
   const tarballName = `claudian-collab-protocol-${packageManifest.version}.tgz`;
 
   assert.match(workflow, /^\s*id-token: write$/mu);
+  assert.match(workflow, /node scripts\/previous-release-base\.mjs/u);
+  assert.match(workflow, /npm run check:compatibility -- --base "\$previous_commit"/u);
   assert.match(workflow, /npm publish .* --access public --provenance/u);
   assert.equal(workflow.includes(`npm publish .context/release/${tarballName}`), true);
   assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN|secrets\./u);

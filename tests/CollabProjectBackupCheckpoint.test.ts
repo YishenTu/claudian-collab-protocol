@@ -2042,6 +2042,122 @@ describe('Project backup checkpoint format v3', () => {
     }
   });
 
+  it('retains one pinned Cloud source verifier before Cloud-to-LAN relinquishment', () => {
+    const sourceVerifier = {
+      kind: 'transfer-receipt-key',
+      recordId: 'transfer_1:receipt_key_cloud_source',
+      revision: 1,
+      value: {
+        createdAt: LATER,
+        projectId: 'project_1',
+        receiptKeyId: 'receipt_key_cloud_source',
+        receiptPublicKey: Buffer.alloc(32, 7).toString('base64url'),
+        receiptPublicKeyEncoding: 'base64url-raw',
+        signatureAlgorithm: 'ed25519',
+        transferId: 'transfer_1',
+      },
+    };
+    const removedKinds = new Set([
+      'protected-claim-envelope',
+      'terminal-principal',
+      'terminal-responder',
+      'terminal-responder-replay',
+      'tombstone',
+      'transfer-claim-batch-receipt',
+    ]);
+    const preFence = continuityRecords().filter(record => !removedKinds.has(record.kind)).map(
+      (record) => {
+        if (record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1') {
+          return {
+            ...record,
+            value: {
+              ...record.value,
+              batchRevision: null,
+              batchSha256: null,
+              phase: 'checkpoint-captured',
+              resultSha256: null,
+              state: 'active',
+            },
+          };
+        }
+        if (record.kind === 'authority-transfer-recovery') {
+          return {
+            ...record,
+            value: {
+              ...record.value,
+              relinquishmentProof: null,
+              stageSha256: null,
+              targetActivationProof: null,
+              targetActivationRequestSha256: null,
+            },
+          };
+        }
+        return record;
+      },
+    );
+    const activeSource = baseRecords().map(record => record.kind === 'project'
+      ? { ...record, value: { ...record.value, authorityGeneration: 4 } }
+      : record);
+    const records = canonicalRecords([...preFence, sourceVerifier], activeSource);
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+
+    const cancelIntent = records.map((record) => {
+      if (record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1') {
+        return { ...record, value: { ...record.value, phase: 'cancel-intent' } };
+      }
+      if (record.kind === 'authority-transfer-recovery') {
+        return {
+          ...record,
+          value: { ...record.value, cancellationRequestSha256: '5'.repeat(64) },
+        };
+      }
+      return record;
+    });
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      cancelIntent.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(cancelIntent);
+    const targetInvalidated = cancelIntent.map((record) => {
+      if (record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1') {
+        return { ...record, value: { ...record.value, phase: 'target-invalidated' } };
+      }
+      if (record.kind === 'authority-transfer-recovery') {
+        return {
+          ...record,
+          value: { ...record.value, sourceReopenSha256: '6'.repeat(64) },
+        };
+      }
+      return record;
+    });
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      targetInvalidated.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(targetInvalidated);
+    for (const earlyCancellation of [cancelIntent, targetInvalidated].map(source => source.map(
+      record => record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1'
+        ? { ...record, value: { ...record.value, checkpointSha256: null } }
+        : record,
+    ))) {
+      const withoutSourceVerifier = earlyCancellation.filter(
+        record => record.recordId !== sourceVerifier.recordId,
+      );
+      expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        withoutSourceVerifier.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toEqual(withoutSourceVerifier);
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        earlyCancellation.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+    const staleAfterCleanup = targetInvalidated.map(record => (
+      record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1'
+        ? { ...record, value: { ...record.value, phase: 'target-cleaned' } }
+        : record
+    ));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      staleAfterCleanup.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
   it('binds transfer scheduling and live claim retention to recovery expiry', () => {
     const scheduledDrift = canonicalRecords(continuityRecords().map(record => (
       record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1'

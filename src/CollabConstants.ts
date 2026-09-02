@@ -1,4 +1,4 @@
-export const COLLAB_PROTOCOL_VERSION = 7 as const;
+export const COLLAB_PROTOCOL_VERSION = 8 as const;
 
 export const COLLAB_MAIN_REF = 'refs/heads/main' as const;
 export const COLLAB_MEMBER_REF_PREFIX = 'refs/heads/members/' as const;

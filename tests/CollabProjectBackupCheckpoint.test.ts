@@ -55,7 +55,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     operationId: 'backup_1',
     profile: 'backup',
     projectId: 'project_1',
-    protocolVersion: 7,
+    protocolVersion: 8,
     refs: [
       { name: 'refs/heads/main', oid: MAIN },
       { name: 'refs/heads/members/member_1', oid: MEMBER },

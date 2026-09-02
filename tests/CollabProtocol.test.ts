@@ -2,11 +2,11 @@ import { COLLAB_PROTOCOL_VERSION } from '../src/CollabConstants';
 import { decodeCollabProtocolEnvelope } from '../src/CollabProtocol';
 
 describe('CollabProtocol', () => {
-  it('admits wire 7 and rejects the previous wire 6 before exposing its payload', () => {
-    const envelope = { data: {}, protocolVersion: 7, requestId: 'request_1' };
+  it('admits wire 8 and rejects the previous wire 7 before exposing its payload', () => {
+    const envelope = { data: {}, protocolVersion: 8, requestId: 'request_1' };
     expect(decodeCollabProtocolEnvelope(envelope)).toEqual({ status: 'ok', value: envelope });
-    expect(decodeCollabProtocolEnvelope({ ...envelope, protocolVersion: 6 }))
-      .toMatchObject({ status: 'unsupported-version', receivedVersion: 6 });
+    expect(decodeCollabProtocolEnvelope({ ...envelope, protocolVersion: 7 }))
+      .toMatchObject({ status: 'unsupported-version', receivedVersion: 7 });
   });
 
   it('decodes the exact current protocol envelope', () => {

@@ -6,11 +6,11 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "4.1.2"
+    "version": "4.1.3"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-4.1.2.tgz",
+    "filename": "claudian-collab-protocol-4.1.3.tgz",
     "files": [
       {
         "path": "dist/CollabAuthorityTransfer.d.ts",
@@ -90,7 +90,7 @@
       },
       {
         "path": "dist/CollabProjectBackupCheckpoint.js",
-        "size": 103541
+        "size": 104435
       },
       {
         "path": "dist/CollabProjectCheckpoint.d.ts",
@@ -202,7 +202,7 @@
       },
       {
         "path": "dist/esm/CollabProjectBackupCheckpoint.mjs",
-        "size": 101450
+        "size": 102318
       },
       {
         "path": "dist/esm/CollabProjectCheckpoint.mjs",
@@ -277,11 +277,11 @@
         "size": 9924
       }
     ],
-    "integrity": "sha512-J8M9xkuVQoR+AZKMi5SHaURuYX21H7M4ckNPqseTKPNr3Hduf5uGHi839LL0C/bxav5xAphpSHh3HAEOIOGHFQ==",
-    "sha256": "ff1345e8969fd72480be6ee5340c89ed9307f7babd8bf9cf9003884f21207677",
-    "shasum": "a34a99d88b86788cf970aa5ee8b21af3412cbf10",
-    "size": 132767,
-    "unpackedSize": 882301
+    "integrity": "sha512-WU1Z8GXd5B6wLmZxHnl3MqI6DCkNF+5QTDzIT/pOGy0xoyQwHc2UP6V9MzlZPZ66k+85ppZcmUjb9kfYQHw0mg==",
+    "sha256": "0d1f6259e352b0e3bd7421dbb7f4a8196df9dd195cedf478f27d20c64e2b030b",
+    "shasum": "5aa0a3828663d1410c98baedef038d1706cdc6f2",
+    "size": 132931,
+    "unpackedSize": 884063
   },
   "toolchain": {
     "node": "24.16.0",

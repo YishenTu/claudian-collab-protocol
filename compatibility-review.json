@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "97af9b9ae5d155eae11b77947fb2ff21901dfb14a8d486e207e11f3b56965085",
-  "candidateSnapshotSha256": "0b309a111bedbd0c20f4f1258559f76a55d66f39ec2000172d2e653ebc83bf80",
-  "reason": "Cloud-to-LAN cancellation already has a public terminal cancelled status and backup v3 already stores terminal responders plus exact replay authorization. This correction admits that existing terminal state without a retirement tombstone and binds its replay to the exact target while preserving completed-transfer activation binding. Public declarations, runtime exports, wire v8, Cloud binding v4, backup record schemas, operation codecs, and signing inputs are unchanged; the backup seam test round-trips only a consistent cancelled lifecycle, compact recovery evidence, terminal response, and target replay."
+  "baseSnapshotSha256": "0b309a111bedbd0c20f4f1258559f76a55d66f39ec2000172d2e653ebc83bf80",
+  "candidateSnapshotSha256": "83cc69efe7fe3d72fbba4c9e498de790b16152a0445efb8c7e4655bcb6384a4c",
+  "reason": "Compatible implementation correction only: the public TypeScript declarations, runtime export inventory, canonical wire v8 facts, Cloud binding v4 facts, and backup-v3 record and manifest shapes are unchanged. The backup-v3 public decoder seam is characterized by tests/CollabProjectBackupCheckpoint.test.ts cases 'retains one pinned Cloud source verifier before Cloud-to-LAN relinquishment' and 'retains one additional Cloud source proof verifier after Cloud-to-LAN relinquishment'. The correction admits exactly one already-pinned Cloud source verifier from checkpoint capture through target-invalidated cancellation, rejects it before checkpoint capture and after target-cleaned cleanup, and preserves existing proof-key resolution without adding or changing a public field, operation, version, or export."
 }

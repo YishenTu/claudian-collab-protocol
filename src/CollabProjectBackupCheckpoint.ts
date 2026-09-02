@@ -2304,19 +2304,38 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
   }
   for (const key of keys.values()) {
     const recovery = recoveries.get(key.value.transferId);
+    const lifecycle = lifecycles.get(key.value.transferId);
     const evidence = recovery?.value.sourceEvidence ?? recovery?.value.targetEvidence;
     const isEvidenceKey = evidence !== null
       && evidence !== undefined
       && evidence.receiptKeyId === key.value.receiptKeyId
       && evidence.receiptPublicKey === key.value.receiptPublicKey;
-    const isCloudSourceProofVerifier = recovery?.value.sourceAuthority.kind === 'cloud'
-      && recovery.value.relinquishmentProof !== null
-      && keysByTransfer.get(key.value.transferId)?.length === 2;
+    const effectivePhase = lifecycle?.value.state === 'recovery-required'
+      ? lifecycle.value.recoveryFromPhase
+      : lifecycle?.value.phase;
+    const cancellationIndex = effectivePhase === null || effectivePhase === undefined
+      ? undefined
+      : CANCELLATION_PHASE_INDEX.get(effectivePhase);
+    const normalPhaseIndex = lifecycle?.value.direction === 'cloud-to-lan'
+      ? COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES.indexOf(
+        effectivePhase as typeof COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES[number],
+      )
+      : -1;
+    const isCloudSourceVerifier = recovery?.value.sourceAuthority.kind === 'cloud'
+      && lifecycle?.value.direction === 'cloud-to-lan'
+      && keysByTransfer.get(key.value.transferId)?.length === 2
+      && (
+        recovery.value.relinquishmentProof !== null
+        || (cancellationIndex === undefined && normalPhaseIndex >= 2)
+        || (cancellationIndex !== undefined
+          && cancellationIndex <= 1
+          && lifecycle.value.checkpointSha256 !== null)
+      );
     if (
       recovery === undefined
       || evidence === null
       || evidence === undefined
-      || (!isEvidenceKey && !isCloudSourceProofVerifier)
+      || (!isEvidenceKey && !isCloudSourceVerifier)
     ) throw invalidPayload('records');
   }
   for (const claim of claims.values()) {

@@ -53,4 +53,4 @@ jobs:
           npm run check:compatibility -- --base "$previous_commit"
 
       - name: Publish the verified tarball with provenance
-        run: npm publish .context/release/claudian-collab-protocol-4.1.0.tgz --access public --provenance
+        run: npm publish .context/release/claudian-collab-protocol-4.1.1.tgz --access public --provenance

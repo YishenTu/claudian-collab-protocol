@@ -2622,7 +2622,7 @@
       },
       {
         "path": "src/CollabProjectBackupCheckpoint.ts",
-        "sha256": "6d781599afab1d3ed6eb6b6374c5e2c2d5d8007a751650d999072d3b02af5d32"
+        "sha256": "3a650da876d22d5dd3c7d814e64cd8a0f8f022897bd9f94d53f6cc255fccb729"
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
@@ -4120,7 +4120,7 @@
       ]
     }
   },
-  "packageVersion": "4.1.0",
+  "packageVersion": "4.1.1",
   "protocolVersion": 8,
   "schemaVersion": 2
 }

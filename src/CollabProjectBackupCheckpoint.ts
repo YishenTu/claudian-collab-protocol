@@ -1964,11 +1964,19 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       item.kind === 'authority-transfer-recovery'
     ))
     .map(item => [item.value.transferId, item]));
-  const keys = new Map(records
-    .filter((item): item is CollabProjectBackupTransferReceiptKeyRecord => (
+  const keyRecords = records.filter(
+    (item): item is CollabProjectBackupTransferReceiptKeyRecord => (
       item.kind === 'transfer-receipt-key'
-    ))
+    ),
+  );
+  const keys = new Map(keyRecords
     .map(item => [`${item.value.transferId}:${item.value.receiptKeyId}`, item]));
+  const keysByTransfer = new Map<string, CollabProjectBackupTransferReceiptKeyRecord[]>();
+  for (const key of keyRecords) {
+    const existing = keysByTransfer.get(key.value.transferId) ?? [];
+    existing.push(key);
+    keysByTransfer.set(key.value.transferId, existing);
+  }
   const claimRecords = records
     .filter((item): item is CollabProjectBackupTransferredMembershipClaimRecord => (
       item.kind === 'transferred-membership-claim'
@@ -2297,12 +2305,18 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
   for (const key of keys.values()) {
     const recovery = recoveries.get(key.value.transferId);
     const evidence = recovery?.value.sourceEvidence ?? recovery?.value.targetEvidence;
+    const isEvidenceKey = evidence !== null
+      && evidence !== undefined
+      && evidence.receiptKeyId === key.value.receiptKeyId
+      && evidence.receiptPublicKey === key.value.receiptPublicKey;
+    const isCloudSourceProofVerifier = recovery?.value.sourceAuthority.kind === 'cloud'
+      && recovery.value.relinquishmentProof !== null
+      && keysByTransfer.get(key.value.transferId)?.length === 2;
     if (
       recovery === undefined
       || evidence === null
       || evidence === undefined
-      || evidence.receiptKeyId !== key.value.receiptKeyId
-      || evidence.receiptPublicKey !== key.value.receiptPublicKey
+      || (!isEvidenceKey && !isCloudSourceProofVerifier)
     ) throw invalidPayload('records');
   }
   for (const claim of claims.values()) {

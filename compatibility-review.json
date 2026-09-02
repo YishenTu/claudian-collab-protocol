@@ -1,10 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "c96dd80d5c2efebb73dc96fed572f8b4b1656d1b4355cd1ee063306bbd373525",
-  "candidateSnapshotSha256": "64c13e818fabfe0bc6c56d8ebcfe4493d296e8a9ecc07d158b236fb5ed0c6caa",
-  "reviewKind": "versioned-operation-addition",
-  "addedOperations": [
-    "confirmCloudToLanTargetInvalidated"
-  ],
-  "reason": "Add the canonical target-confirmed Cloud-to-LAN cleanup operation while preserving every existing operation contract; strict codec fixtures and source-structure review characterize the additive change."
+  "baseSnapshotSha256": "64c13e818fabfe0bc6c56d8ebcfe4493d296e8a9ecc07d158b236fb5ed0c6caa",
+  "candidateSnapshotSha256": "97af9b9ae5d155eae11b77947fb2ff21901dfb14a8d486e207e11f3b56965085",
+  "reason": "Backup v3 structurally permits the second Cloud source public verifier required to validate an already-canonical Cloud-to-LAN relinquishment proof after signing-key rotation and clean restore. Public declarations, wire v8, Cloud binding v4, record schemas, and signing inputs are unchanged; codec tests bound the allowance to exactly two keys only after Cloud relinquishment, while the Cloud restore owner performs the cryptographic match."
 }

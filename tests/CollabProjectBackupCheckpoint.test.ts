@@ -1913,6 +1913,49 @@ describe('Project backup checkpoint format v3', () => {
     }
   });
 
+  it('retains one additional Cloud source proof verifier after Cloud-to-LAN relinquishment', () => {
+    const sourceProofVerifier = {
+      kind: 'transfer-receipt-key',
+      recordId: 'transfer_1:receipt_key_cloud_source',
+      revision: 1,
+      value: {
+        createdAt: LATER,
+        projectId: 'project_1',
+        receiptKeyId: 'receipt_key_cloud_source',
+        receiptPublicKey: Buffer.alloc(32, 7).toString('base64url'),
+        receiptPublicKeyEncoding: 'base64url-raw',
+        signatureAlgorithm: 'ed25519',
+        transferId: 'transfer_1',
+      },
+    };
+    const records = canonicalRecords([
+      ...continuityRecords(),
+      sourceProofVerifier,
+    ]);
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded))
+      .toEqual(records);
+
+    const thirdVerifier = {
+      ...sourceProofVerifier,
+      recordId: 'transfer_1:receipt_key_unreferenced',
+      value: {
+        ...sourceProofVerifier.value,
+        receiptKeyId: 'receipt_key_unreferenced',
+        receiptPublicKey: Buffer.alloc(32, 9).toString('base64url'),
+      },
+    };
+    for (const invalidRecords of [
+      canonicalRecords([...records, thirdVerifier]),
+      canonicalRecords([...lanToCloudContinuityRecords(), sourceProofVerifier]),
+    ]) {
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        invalidRecords.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
   it('binds transfer scheduling and live claim retention to recovery expiry', () => {
     const scheduledDrift = canonicalRecords(continuityRecords().map(record => (
       record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1'

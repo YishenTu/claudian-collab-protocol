@@ -2198,9 +2198,10 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     const recoveryEvidenceInvalid = direction === null
       || (direction === 'lan-to-cloud' && recovery.value.sourceEvidence === null)
       || (targetEvidenceRequired && recovery.value.targetEvidence === null)
-      || (!isCancellation && (
-        stageRequired !== (recovery.value.stageSha256 !== null)
-      ))
+      || (isCancellation
+        ? (lifecycle.value.batchRevision !== null)
+          !== (recovery.value.stageSha256 !== null)
+        : stageRequired !== (recovery.value.stageSha256 !== null))
       || (direction === 'lan-to-cloud'
         && recovery.value.stageSha256 !== null
         && recovery.value.stageSha256 !== lifecycle.value.checkpointSha256)
@@ -2229,32 +2230,52 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     if (projectAuthorityGeneration !== expectedProjectAuthorityGeneration) {
       throw invalidPayload('records');
     }
+    const hostMemberId = direction === 'lan-to-cloud'
+      ? recovery.value.sourceHostMemberId
+      : recovery.value.targetHostMemberId;
+    const transferMemberIds = [...memberRecords.values()]
+      .filter(item => (
+        item.value.status === 'active'
+        && item.value.memberId !== hostMemberId
+        && Date.parse(item.value.createdAt) <= Date.parse(recovery.value.createdAt)
+      ))
+      .map(item => item.value.memberId);
     if (!isCancellation) {
-      const hostMemberId = direction === 'lan-to-cloud'
-        ? recovery.value.sourceHostMemberId
-        : recovery.value.targetHostMemberId;
-      const eligibleMemberIds = [...memberRecords.values()]
-        .filter(item => item.value.status === 'active' && item.value.memberId !== hostMemberId)
-        .map(item => item.value.memberId);
-      const memberCustodyRequired = normalPhaseIndex >= 3;
       const batchReceiptRequired = direction === 'cloud-to-lan'
         ? normalPhaseIndex >= 3
         : normalPhaseIndex >= 4;
       if ((batchReceipt !== undefined) !== batchReceiptRequired) {
         throw invalidPayload('records');
       }
-      for (const memberId of eligibleMemberIds) {
-        const identity = `${recovery.value.transferId}:${memberId}`;
-        const claimPresent = claims.has(identity);
-        const envelopePresent = protectedEnvelopes.has(identity);
-        const redemptionPresent = redemptionReceipts.has(identity);
-        const exactMemberCustody = direction === 'lan-to-cloud'
+    }
+    const memberCustody = transferMemberIds.map((memberId) => {
+      const identity = `${recovery.value.transferId}:${memberId}`;
+      const claimPresent = claims.has(identity);
+      const envelopePresent = protectedEnvelopes.has(identity);
+      const redemptionPresent = redemptionReceipts.has(identity);
+      return {
+        absent: !claimPresent && !envelopePresent && !redemptionPresent,
+        exact: direction === 'lan-to-cloud'
           ? claimPresent && !envelopePresent
-          : !claimPresent && envelopePresent !== redemptionPresent;
-        if (memberCustodyRequired !== exactMemberCustody) {
-          throw invalidPayload('records');
-        }
+          : !claimPresent && envelopePresent !== redemptionPresent,
+      };
+    });
+    const cleanupInProgress = isCancellation
+      && cancellationIndex === 1
+      && lifecycle.value.batchRevision !== null;
+    if (cleanupInProgress) {
+      const allAbsent = memberCustody.every(item => item.absent);
+      const allExact = memberCustody.every(item => item.exact);
+      if (!allAbsent && !allExact) {
+        throw invalidPayload('records');
       }
+    } else {
+      const memberCustodyRequired = isCancellation
+        ? !cleanupCompleted && lifecycle.value.batchRevision !== null
+        : normalPhaseIndex >= 3;
+      if (memberCustody.some(item => (
+        memberCustodyRequired ? !item.exact : !item.absent
+      ))) throw invalidPayload('records');
     }
     if (recovery.value.targetEvidence !== null && (
       recovery.value.targetHostMemberId === null
@@ -2273,6 +2294,7 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
         ? 'cloud-to-lan'
         : 'lan-to-cloud')
       || lifecycle.value.expectedAuthorityGeneration !== recovery.value.sourceAuthority.generation
+      || lifecycle.value.createdAt !== recovery.value.createdAt
       || lifecycle.value.scheduledAt !== recovery.value.expiresAt
       || (recovery.value.sourceHostMemberId !== null
         && !members.has(recovery.value.sourceHostMemberId))
@@ -2341,6 +2363,7 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
   for (const claim of claims.values()) {
     const lifecycle = lifecycles.get(claim.value.transferId);
     const recovery = recoveries.get(claim.value.transferId);
+    const member = memberRecords.get(claim.value.memberId);
     const redemptionReceipt = redemptionReceipts.get(
       `${claim.value.transferId}:${claim.value.memberId}`,
     );
@@ -2354,8 +2377,9 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
         && item.value.redemptionReceiptId === redemptionReceipt.value.receipt.receiptId
       ));
     if (
-      memberRecords.get(claim.value.memberId)?.value.status !== 'active'
+      member?.value.status !== 'active'
       || recovery === undefined
+      || Date.parse(member.value.createdAt) > Date.parse(recovery.value.createdAt)
       || recovery.value.sourceAuthority.kind !== 'lan'
       || claim.value.memberId === recovery.value.sourceHostMemberId
       || lifecycle?.value.batchRevision !== claim.value.batchRevision
@@ -2579,11 +2603,13 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       const identity = `${item.value.transferId}:${item.value.memberId}`;
       const recovery = recoveries.get(item.value.transferId);
       const lifecycle = lifecycles.get(item.value.transferId);
+      const member = memberRecords.get(item.value.memberId);
       if (
         item.recordId !== identity
         || recovery === undefined
         || lifecycle === undefined
-        || memberRecords.get(item.value.memberId)?.value.status !== 'active'
+        || member?.value.status !== 'active'
+        || Date.parse(member.value.createdAt) > Date.parse(recovery.value.createdAt)
         || item.value.memberId === recovery.value.targetHostMemberId
         || item.value.associatedData.authorityGeneration
           !== recovery.value.sourceAuthority.generation

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "0b309a111bedbd0c20f4f1258559f76a55d66f39ec2000172d2e653ebc83bf80",
-  "candidateSnapshotSha256": "83cc69efe7fe3d72fbba4c9e498de790b16152a0445efb8c7e4655bcb6384a4c",
-  "reason": "Compatible implementation correction only: the public TypeScript declarations, runtime export inventory, canonical wire v8 facts, Cloud binding v4 facts, and backup-v3 record and manifest shapes are unchanged. The backup-v3 public decoder seam is characterized by tests/CollabProjectBackupCheckpoint.test.ts cases 'retains one pinned Cloud source verifier before Cloud-to-LAN relinquishment' and 'retains one additional Cloud source proof verifier after Cloud-to-LAN relinquishment'. The correction admits exactly one already-pinned Cloud source verifier from checkpoint capture through target-invalidated cancellation, rejects it before checkpoint capture and after target-cleaned cleanup, and preserves existing proof-key resolution without adding or changing a public field, operation, version, or export."
+  "baseSnapshotSha256": "83cc69efe7fe3d72fbba4c9e498de790b16152a0445efb8c7e4655bcb6384a4c",
+  "candidateSnapshotSha256": "a0c7936220ba82cec9ce2694313ddf636815e270f9e6433926050d009b71f9ed",
+  "reason": "Compatible backup-v3 decoder correction only: exclude members and custody created after a retained authority transfer from its historical batch, bind recovery creation to its lifecycle record, compare canonical timestamps chronologically, and preserve exact imported-member custody in both directions across crash-consistent cancellation cleanup. Public declarations, runtime exports, canonical wire v8, Cloud binding v4, record shapes, and manifest shapes are unchanged."
 }

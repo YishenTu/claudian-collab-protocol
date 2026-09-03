@@ -1357,6 +1357,7 @@ describe('Project backup checkpoint format v3', () => {
     ]);
     const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
     expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+
   });
 
   it('rejects membership records whose fixed lifetimes drift', () => {
@@ -1711,6 +1712,328 @@ describe('Project backup checkpoint format v3', () => {
     expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
       wrongCustodian.map(record => JSON.stringify(record)).join('\n') + '\n',
     )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('separates post-transfer Cloud members from the imported claim batch', () => {
+    const joinedMember = {
+      kind: 'member',
+      recordId: 'member_4',
+      revision: 1,
+      value: {
+        activatedAt: ACKNOWLEDGED,
+        createdAt: ACKNOWLEDGED,
+        displayName: 'Dana',
+        memberId: 'member_4',
+        personalRef: 'refs/heads/members/member_4',
+        projectId: 'project_1',
+        role: 'member',
+        status: 'active',
+        revokedAt: null,
+        updatedAt: ACKNOWLEDGED,
+      },
+    };
+    const joinedBinding = {
+      kind: 'principal-binding',
+      recordId: 'member_4',
+      revision: 1,
+      value: {
+        boundAt: ACKNOWLEDGED,
+        memberId: 'member_4',
+        principalId: 'principal_4',
+        projectId: 'project_1',
+      },
+    };
+    const records = canonicalRecords([
+      ...lanToCloudContinuityRecords(),
+      joinedMember,
+      joinedBinding,
+    ]);
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+
+    const importedClaim = lanToCloudContinuityRecords().find(record => (
+      record.kind === 'transferred-membership-claim'
+    ));
+    expect(importedClaim).toBeDefined();
+    const postTransferCustody = canonicalRecords([
+      ...lanToCloudContinuityRecords(),
+      joinedMember,
+      joinedBinding,
+      {
+        ...importedClaim,
+        recordId: 'transfer_1:member_4',
+        value: {
+          ...importedClaim?.value,
+          claimSha256: '9'.repeat(64),
+          createdAt: ACKNOWLEDGED,
+          memberId: 'member_4',
+          operationIntentId: null,
+          redemptionReceiptId: null,
+          state: 'unclaimed',
+          targetPrincipalId: null,
+          updatedAt: ACKNOWLEDGED,
+        },
+      },
+    ]);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      postTransferCustody.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const ambiguouslyImported = canonicalRecords([
+      ...lanToCloudContinuityRecords(),
+      {
+        ...joinedMember,
+        value: { ...joinedMember.value, createdAt: NOW },
+      },
+      joinedBinding,
+    ]);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      ambiguouslyImported.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const expandedYearJoined = canonicalRecords([
+      ...lanToCloudContinuityRecords(),
+      {
+        ...joinedMember,
+        value: {
+          ...joinedMember.value,
+          activatedAt: '+010000-01-01T00:00:00.000Z',
+          createdAt: '+010000-01-01T00:00:00.000Z',
+          updatedAt: '+010000-01-01T00:00:00.000Z',
+        },
+      },
+      {
+        ...joinedBinding,
+        value: { ...joinedBinding.value, boundAt: '+010000-01-01T00:00:00.000Z' },
+      },
+    ]);
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      expandedYearJoined.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(expandedYearJoined);
+
+    const backdatedRecovery = canonicalRecords(lanToCloudContinuityRecords()
+      .filter(record => (
+        record.kind !== 'transferred-membership-claim'
+        && record.kind !== 'transfer-redemption-receipt'
+      ))
+      .map(record => (
+        record.kind === 'authority-transfer-recovery'
+          ? {
+              ...record,
+              value: { ...record.value, createdAt: '2026-08-27T00:00:00.000Z' },
+            }
+          : record
+      )));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      backdatedRecovery.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('keeps exact imported-member custody through cancellation cleanup', () => {
+    const cancellationRecords = (
+      phase: 'cancel-intent' | 'target-invalidated' | 'target-cleaned' | 'source-reopened' | 'cancelled',
+      afterCustody: boolean,
+    ) => canonicalRecords((afterCustody
+      ? activeImportedClaimContinuityRecords()
+      : lanToCloudContinuityRecords().filter(record => !(
+          record.kind === 'transferred-membership-claim'
+          || record.kind === 'transfer-redemption-receipt'
+          || record.kind === 'transfer-claim-batch-receipt'
+        ))
+    ).filter(record => !(
+      (phase === 'target-cleaned' || phase === 'source-reopened' || phase === 'cancelled')
+      && record.kind === 'transferred-membership-claim'
+    )).map((record) => {
+      if (record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1') {
+        return {
+          ...record,
+          value: {
+            ...record.value,
+            batchRevision: afterCustody ? record.value.batchRevision : null,
+            batchSha256: afterCustody ? record.value.batchSha256 : null,
+            checkpointSha256: record.value.checkpointSha256,
+            phase,
+            resultSha256: null,
+            state: phase === 'cancelled' ? 'cancelled' : 'active',
+          },
+        };
+      }
+      if (record.kind === 'authority-transfer-recovery') {
+        return {
+          ...record,
+          value: {
+            ...record.value,
+            cancellationRequestSha256: '5'.repeat(64),
+            inactivePublication: null,
+            relinquishmentProof: null,
+            sourceReopenSha256: phase === 'source-reopened' || phase === 'cancelled'
+              ? '6'.repeat(64)
+              : null,
+            stageSha256: afterCustody ? record.value.stageSha256 : null,
+          },
+        };
+      }
+      return record;
+    })).map(record => (
+      record.kind === 'project'
+        ? { ...record, value: { ...record.value, authorityGeneration: 4 } }
+        : record
+    ));
+
+    const beforeCustody = cancellationRecords('cancel-intent', false);
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      beforeCustody.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(beforeCustody);
+
+    const afterCustody = cancellationRecords('cancel-intent', true);
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      afterCustody.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(afterCustody);
+    const missingCustody = afterCustody.filter(record => (
+      record.kind !== 'transferred-membership-claim'
+    ));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      missingCustody.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+    const missingCustodyWithDriftedStage = missingCustody.map(record => (
+      record.kind === 'authority-transfer-recovery'
+        ? { ...record, value: { ...record.value, stageSha256: null } }
+        : record
+    ));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      missingCustodyWithDriftedStage.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const targetInvalidated = cancellationRecords('target-invalidated', true);
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      targetInvalidated.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(targetInvalidated);
+    const targetInvalidatedAfterCleanup = targetInvalidated.filter(record => (
+      record.kind !== 'transferred-membership-claim'
+    ));
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      targetInvalidatedAfterCleanup.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(targetInvalidatedAfterCleanup);
+    const importedMember = targetInvalidated.find(record => (
+      record.kind === 'member' && record.recordId === 'member_2'
+    ));
+    const importedBinding = targetInvalidated.find(record => (
+      record.kind === 'principal-binding' && record.recordId === 'member_2'
+    ));
+    const importedClaim = targetInvalidated.find(record => (
+      record.kind === 'transferred-membership-claim'
+    ));
+    expect(importedMember).toBeDefined();
+    expect(importedBinding).toBeDefined();
+    expect(importedClaim).toBeDefined();
+    const twoImportedMembers = canonicalRecords([
+      ...targetInvalidated,
+      {
+        ...importedMember,
+        recordId: 'member_4',
+        value: {
+          ...importedMember?.value,
+          displayName: 'Dana',
+          memberId: 'member_4',
+          personalRef: 'refs/heads/members/member_4',
+        },
+      },
+      {
+        ...importedBinding,
+        recordId: 'member_4',
+        value: {
+          ...importedBinding?.value,
+          memberId: 'member_4',
+          principalId: 'principal_4',
+        },
+      },
+      {
+        ...importedClaim,
+        recordId: 'transfer_1:member_4',
+        value: {
+          ...importedClaim?.value,
+          claimSha256: '9'.repeat(64),
+          memberId: 'member_4',
+        },
+      },
+    ], []);
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      twoImportedMembers.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(twoImportedMembers);
+    const partiallyCleaned = twoImportedMembers.filter(record => (
+      record.recordId !== 'transfer_1:member_4'
+    ));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      partiallyCleaned.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+
+    const cloudAfterCustody = canonicalRecords(continuityRecords().filter(record => !(
+      record.kind === 'terminal-responder'
+      || record.kind === 'terminal-principal'
+      || record.kind === 'terminal-responder-replay'
+      || record.kind === 'tombstone'
+    )).map((record) => {
+      if (record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1') {
+        return {
+          ...record,
+          value: {
+            ...record.value,
+            phase: 'cancel-intent',
+            resultSha256: null,
+            state: 'active',
+          },
+        };
+      }
+      if (record.kind === 'authority-transfer-recovery') {
+        return {
+          ...record,
+          value: {
+            ...record.value,
+            cancellationRequestSha256: '5'.repeat(64),
+            relinquishmentProof: null,
+            sourceReopenSha256: null,
+            targetActivationProof: null,
+            targetActivationRequestSha256: null,
+          },
+        };
+      }
+      return record;
+    })).map(record => (
+      record.kind === 'project'
+        ? { ...record, value: { ...record.value, authorityGeneration: 4 } }
+        : record
+    ));
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      cloudAfterCustody.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(cloudAfterCustody);
+    const cloudMissingCustody = cloudAfterCustody.filter(record => (
+      record.kind !== 'protected-claim-envelope'
+    ));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      cloudMissingCustody.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+    const cloudTargetInvalidatedAfterCleanup = cloudMissingCustody.map(record => {
+      if (record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1') {
+        return { ...record, value: { ...record.value, phase: 'target-invalidated' } };
+      }
+      if (record.kind === 'authority-transfer-recovery') {
+        return {
+          ...record,
+          value: { ...record.value, sourceReopenSha256: '6'.repeat(64) },
+        };
+      }
+      return record;
+    });
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      cloudTargetInvalidatedAfterCleanup.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(cloudTargetInvalidatedAfterCleanup);
+
+    for (const phase of ['target-cleaned', 'source-reopened', 'cancelled'] as const) {
+      const cleaned = cancellationRecords(phase, true);
+      expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        cleaned.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toEqual(cleaned);
+    }
   });
 
   it('rejects unsafe or structurally invalid inactive publications', () => {
@@ -2412,6 +2735,8 @@ describe('Project backup checkpoint format v3', () => {
           ...record,
           value: {
             ...record.value,
+            batchRevision: null,
+            batchSha256: null,
             phase: 'cancel-intent',
             resultSha256: null,
             state: 'active',
@@ -2426,6 +2751,7 @@ describe('Project backup checkpoint format v3', () => {
             cancellationRequestSha256: '5'.repeat(64),
             relinquishmentProof: null,
             sourceReopenSha256: null,
+            stageSha256: null,
             targetActivationProof: null,
             targetActivationRequestSha256: null,
           },

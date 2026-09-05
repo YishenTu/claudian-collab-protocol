@@ -694,11 +694,12 @@ function sourceSyntax(source, fileName) {
   return stableJson(syntaxSignature(parsed, parsed));
 }
 
-function assertCloudBindingVersionMigration(
+export function assertCloudBindingVersionMigration(
   baseSource,
   currentSource,
   baseVersion,
   currentVersion,
+  reviewedDeclarations = new Set(),
 ) {
   const fileName = 'src/CollabCloudBinding.ts';
   const groupedTopLevel = (sourceText) => {
@@ -747,6 +748,10 @@ function assertCloudBindingVersionMigration(
     if (!afterStatements || beforeStatements.length !== afterStatements.length) {
       throw new Error('Cloud binding changed beyond the reviewed version-prefix increase');
     }
+    if (reviewedDeclarations.has(name)
+      && name !== 'COLLAB_CLOUD_BINDING_VERSION'
+      && name !== 'matchCollabCloudRoute'
+      && !routePrefixOwners.has(name)) continue;
     if (name === 'COLLAB_CLOUD_BINDING_VERSION') {
       const [before] = beforeStatements;
       const [after] = afterStatements;
@@ -1119,6 +1124,123 @@ export function createVersionedOperationAdditionReview(base, current, reason) {
   return review;
 }
 
+function optionalDeclarationAddition(beforeText, afterText) {
+  const beforeSource = sourceFile(beforeText, 'before.d.ts');
+  const afterSource = sourceFile(afterText, 'after.d.ts');
+  if (beforeSource.statements.length !== 1 || afterSource.statements.length !== 1) return false;
+  const [before] = beforeSource.statements;
+  const [after] = afterSource.statements;
+  const text = (node, source) => stableJson(syntaxSignature(node, source));
+  if (ts.isInterfaceDeclaration(before) && ts.isInterfaceDeclaration(after)) {
+    const beforeShape = declarationShape(beforeText);
+    const afterShape = declarationShape(afterText);
+    if (!beforeShape || !afterShape || beforeShape.header !== afterShape.header) return false;
+    const previous = new Map(beforeShape.entries);
+    const next = new Map(afterShape.entries);
+    return next.size > previous.size
+      && [...previous].every(([name, value]) => next.get(name) === value)
+      && after.members.every(member => previous.has(propertyNameText(member.name)) || member.questionToken !== undefined);
+  }
+  if (ts.isFunctionDeclaration(before) && ts.isFunctionDeclaration(after)) {
+    const header = (node, source) => stableJson({
+      name: node.name?.text,
+      modifiers: node.modifiers?.map(item => text(item, source)) ?? [],
+      typeParameters: node.typeParameters?.map(item => text(item, source)) ?? [],
+      result: node.type ? text(node.type, source) : null,
+    });
+    return header(before, beforeSource) === header(after, afterSource)
+      && after.parameters.length > before.parameters.length
+      && before.parameters.every((parameter, index) => text(parameter, beforeSource) === text(after.parameters[index], afterSource))
+      && after.parameters.slice(before.parameters.length).every(parameter => parameter.questionToken !== undefined && parameter.dotDotDotToken === undefined);
+  }
+  return false;
+}
+
+function assertOptionalContractAdditionReview(base, current, review) {
+  exactFields(review, new Set([...IMPLEMENTATION_REVIEW_FIELDS, 'reviewKind', 'implementationDeclarations']), 'optional contract addition review');
+  if (review.schemaVersion !== 1 || review.reviewKind !== 'optional-contract-addition'
+    || typeof review.reason !== 'string' || review.reason.trim().length === 0 || review.reason.length > 4096) {
+    throw new Error('Invalid optional contract addition review');
+  }
+  if (review.baseSnapshotSha256 !== snapshotDigest(base) || review.candidateSnapshotSha256 !== snapshotDigest(current)) {
+    throw new Error('Optional contract review does not match the exact base and candidate snapshots');
+  }
+  const semantics = contract => withoutKeys(contract, ['declarations', 'runtimeBehaviorDigests']);
+  if (current.protocolVersion <= base.protocolVersion || current.cloudBindingVersion <= base.cloudBindingVersion
+    || stableJson(semantics(base.contract.wire)) !== stableJson(semantics(current.contract.wire))
+    || stableJson(semantics(base.contract.cloudBinding)) !== stableJson(semantics(current.contract.cloudBinding))
+    || stableJson(base.contract.publicRuntimeExports) !== stableJson(current.contract.publicRuntimeExports)) {
+    throw new Error('Optional contract review changed inventories or omitted a version increase');
+  }
+  const previous = keyedEntries(base.contract.publicDeclarations, 'exportName', 'public declaration');
+  const next = keyedEntries(current.contract.publicDeclarations, 'exportName', 'public declaration');
+  if (previous.size !== next.size) throw new Error('Optional contract review changed export inventory');
+  const additions = new Set();
+  for (const declaration of base.contract.publicDeclarations) {
+    const candidate = current.contract.publicDeclarations.find(item => item.exportName === declaration.exportName);
+    if (!candidate || candidate.source !== declaration.source) throw new Error('Optional contract review changed export inventory');
+    if (stableJson(candidate) === stableJson(declaration)) continue;
+    if (isAllowedChangedOperationDeclaration(declaration, candidate, [], { base, current })
+      && ['COLLAB_PROTOCOL_VERSION', 'COLLAB_CLOUD_BINDING_VERSION'].includes(declaration.exportName)) continue;
+    if (declaration.source !== './CollabCloudBinding'
+      || !optionalDeclarationAddition(declaration.declaration, candidate.declaration)) {
+      throw new Error(`Not an optional public addition: ${declaration.exportName}`);
+    }
+    additions.add(declaration.exportName);
+  }
+  if (additions.size === 0) throw new Error('Optional contract review requires an optional public addition');
+  const graph = topLevelReferenceGraph(base.contract.publicDeclarations
+    .filter(declaration => declaration.source === './CollabCloudBinding')
+    .map(declaration => declaration.declaration).join('\n'));
+  const reachesAddition = name => {
+    const pending = [name];
+    const visited = new Set();
+    while (pending.length > 0) {
+      const currentName = pending.pop();
+      if (additions.has(currentName)) return true;
+      if (visited.has(currentName)) continue;
+      visited.add(currentName);
+      pending.push(...(graph.get(currentName) ?? []));
+    }
+    return false;
+  };
+  const implementations = stringEntries(review.implementationDeclarations, 'implementation declaration');
+  for (const name of implementations.keys()) {
+    const declaration = base.contract.publicDeclarations.find(item => item.exportName === name);
+    if (declaration?.source !== './CollabCloudBinding'
+      || !ts.isFunctionDeclaration(sourceFile(declaration.declaration, 'contract.d.ts').statements[0])) {
+      throw new Error('Optional contract implementation review must name an existing public function');
+    }
+    if (!reachesAddition(name)) {
+      throw new Error('Optional contract implementation review must name a related codec');
+    }
+  }
+  const beforeDigests = keyedEntries(base.contract.runtimeBehaviorDigests, 'path', 'runtime behavior digest');
+  const afterDigests = keyedEntries(current.contract.runtimeBehaviorDigests, 'path', 'runtime behavior digest');
+  if (beforeDigests.size !== afterDigests.size) throw new Error('Optional contract review changed runtime modules');
+  for (const [pathname, value] of beforeDigests) {
+    if (!afterDigests.has(pathname) || (afterDigests.get(pathname) !== value
+      && !['src/CollabConstants.ts', 'src/CollabCloudBinding.ts'].includes(pathname))) {
+      throw new Error('Optional contract review changed unrelated runtime modules');
+    }
+  }
+}
+
+export function createOptionalContractAdditionReview(base, current, reason, implementationDeclarations) {
+  validateCurrentSnapshot(base);
+  validateCurrentSnapshot(current);
+  const review = {
+    schemaVersion: 1,
+    baseSnapshotSha256: snapshotDigest(base),
+    candidateSnapshotSha256: snapshotDigest(current),
+    reviewKind: 'optional-contract-addition',
+    implementationDeclarations,
+    reason,
+  };
+  assertOptionalContractAdditionReview(base, current, review);
+  return review;
+}
+
 function assertImplementationOnlyReview(base, current, review) {
   exactFields(review, IMPLEMENTATION_REVIEW_FIELDS, 'implementation-only review');
   if (
@@ -1152,8 +1274,11 @@ export function createImplementationOnlyReview(base, current, reason) {
 export function assertVersionedContractChange(base, current, review) {
   validateCurrentSnapshot(base);
   validateCurrentSnapshot(current);
+  const optionalContractAddition = review?.reviewKind === 'optional-contract-addition';
   const versionedOperationAddition = review?.reviewKind === 'versioned-operation-addition';
-  if (versionedOperationAddition) {
+  if (optionalContractAddition) {
+    assertOptionalContractAdditionReview(base, current, review);
+  } else if (versionedOperationAddition) {
     assertVersionedOperationAdditionReview(base, current, review);
   } else if (review !== undefined) {
     assertImplementationOnlyReview(base, current, review);
@@ -1169,7 +1294,7 @@ export function assertVersionedContractChange(base, current, review) {
   if (current.cloudBindingVersion < base.cloudBindingVersion) {
     failures.push('Cloud binding version cannot decrease');
   }
-  const classification = versionedOperationAddition
+  const classification = versionedOperationAddition || optionalContractAddition
     ? 'minor'
     : review === undefined ? classifyPackageApiChange(base, current) : 'none';
   if (!packageReleaseSatisfies(base.packageVersion, current.packageVersion, classification)) {
@@ -1177,7 +1302,7 @@ export function assertVersionedContractChange(base, current, review) {
       ? 'public API change requires a package major release'
       : 'additive public API requires a package minor or major release');
   }
-  const comparedContract = review !== undefined && !versionedOperationAddition
+  const comparedContract = review !== undefined && !versionedOperationAddition && !optionalContractAddition
     ? withoutImplementationDigests
     : value => value;
   if (
@@ -1479,6 +1604,25 @@ function authorityTransferSourceReviewInput(baseSha, base, current) {
 }
 
 function assertReviewedSourceChange(baseSha, base, current, review) {
+  if (review?.reviewKind === 'optional-contract-addition') {
+    const readBefore = pathname => execFileSync('git', ['show', `${baseSha}:${pathname}`], { cwd: repositoryRoot, encoding: 'utf8' });
+    const constantsPath = 'src/CollabConstants.ts';
+    const currentConstants = normalizedVersionSource(readFileSync(path.join(repositoryRoot, constantsPath), 'utf8'),
+      'COLLAB_PROTOCOL_VERSION', current.protocolVersion, base.protocolVersion);
+    if (sourceSyntax(readBefore(constantsPath), constantsPath) !== sourceSyntax(currentConstants, constantsPath)) {
+      throw new Error('Optional contract review changed unrelated constants');
+    }
+    const changed = current.contract.publicDeclarations.filter(candidate => {
+      const previous = base.contract.publicDeclarations.find(item => item.exportName === candidate.exportName);
+      return previous && previous.declaration !== candidate.declaration && candidate.source === './CollabCloudBinding'
+        && candidate.exportName !== 'COLLAB_CLOUD_BINDING_VERSION';
+    }).map(item => item.exportName);
+    assertCloudBindingVersionMigration(readBefore('src/CollabCloudBinding.ts'),
+      readFileSync(path.join(repositoryRoot, 'src/CollabCloudBinding.ts'), 'utf8'),
+      base.cloudBindingVersion, current.cloudBindingVersion,
+      new Set([...changed, ...review.implementationDeclarations]));
+    return;
+  }
   if (review?.reviewKind !== 'versioned-operation-addition') return;
   assertAuthorityTransferOperationSourceAddition(
     authorityTransferSourceReviewInput(baseSha, base, current),
@@ -1495,12 +1639,13 @@ function run() {
   if (!write && !baseSha) throw new Error('Compatibility check requires --base unless --write');
   const implementationReviewIndex = args.indexOf('--record-implementation-only-review');
   const operationReviewIndex = args.indexOf('--record-versioned-operation-addition-review');
-  if (implementationReviewIndex >= 0 && operationReviewIndex >= 0) {
+  const optionalReviewIndex = args.indexOf('--record-optional-contract-addition-review');
+  if ([implementationReviewIndex, operationReviewIndex, optionalReviewIndex].filter(index => index >= 0).length > 1) {
     throw new Error('Only one compatibility review kind may be recorded');
   }
   const reviewIndex = implementationReviewIndex >= 0
     ? implementationReviewIndex
-    : operationReviewIndex;
+    : operationReviewIndex >= 0 ? operationReviewIndex : optionalReviewIndex;
   const reviewReason = reviewIndex >= 0 ? args[reviewIndex + 1] : null;
   if (reviewIndex >= 0 && (!baseSha || !reviewReason || reviewReason.startsWith('--') || write)) {
     throw new Error('--record-implementation-only-review requires a reason, --base, and a current written snapshot');
@@ -1525,9 +1670,13 @@ function run() {
             authorityTransferSourceReviewInput(baseSha, base, committed),
           );
         }
-        const review = operationReviewIndex >= 0
+        const review = optionalReviewIndex >= 0
+          ? createOptionalContractAdditionReview(base, committed, reviewReason,
+            (args[args.indexOf('--implementation-declarations') + 1] ?? '').split(',').filter(Boolean))
+          : operationReviewIndex >= 0
           ? createVersionedOperationAdditionReview(base, committed, reviewReason)
           : createImplementationOnlyReview(base, committed, reviewReason);
+        assertReviewedSourceChange(baseSha, base, committed, review);
         assertVersionedContractChange(base, committed, review);
         writeFileSync(reviewPath, `${JSON.stringify(review, null, 2)}\n`);
         process.stdout.write(`Recorded ${reviewRelativePath}\n`);

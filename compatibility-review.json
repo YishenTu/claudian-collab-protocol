@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "83cc69efe7fe3d72fbba4c9e498de790b16152a0445efb8c7e4655bcb6384a4c",
-  "candidateSnapshotSha256": "a0c7936220ba82cec9ce2694313ddf636815e270f9e6433926050d009b71f9ed",
-  "reason": "Compatible backup-v3 decoder correction only: exclude members and custody created after a retained authority transfer from its historical batch, bind recovery creation to its lifecycle record, compare canonical timestamps chronologically, and preserve exact imported-member custody in both directions across crash-consistent cancellation cleanup. Public declarations, runtime exports, canonical wire v8, Cloud binding v4, record shapes, and manifest shapes are unchanged."
+  "baseSnapshotSha256": "a0c7936220ba82cec9ce2694313ddf636815e270f9e6433926050d009b71f9ed",
+  "candidateSnapshotSha256": "7a04404b97d56b7de98e886cd07f5766e6e6246cddad35130d892f99a5941153",
+  "reviewKind": "optional-contract-addition",
+  "implementationDeclarations": [
+    "collabCloudErrorEnvelope",
+    "decodeCollabCloudErrorEnvelope"
+  ],
+  "reason": "CloudBindingV5 fixtures preserve omitted outcome envelopes and existing two-argument encoding; optional rejected outcome round-trips with strict malformed and inherited-property rejection. Existing fields, errors and operation semantics are unchanged. Wire 9 and binding 5 require exact-version negotiation and route-prefix migration."
 }

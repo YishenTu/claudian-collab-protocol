@@ -1,5 +1,5 @@
 {
-  "cloudBindingVersion": 4,
+  "cloudBindingVersion": 5,
   "contract": {
     "cloudBinding": {
       "capabilities": [
@@ -49,7 +49,7 @@
           "source": "./CollabCloudBinding"
         },
         {
-          "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 4;",
+          "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 5;",
           "exportName": "COLLAB_CLOUD_BINDING_VERSION",
           "source": "./CollabCloudBinding"
         },
@@ -124,12 +124,12 @@
           "source": "./CollabCloudBinding"
         },
         {
-          "declaration": "export declare function collabCloudErrorEnvelope(requestId: string, error: CollabError): CollabCloudErrorEnvelope;",
+          "declaration": "export declare function collabCloudErrorEnvelope(requestId: string, error: CollabError, mutationOutcome?: CollabCloudErrorEnvelope['mutationOutcome']): CollabCloudErrorEnvelope;",
           "exportName": "collabCloudErrorEnvelope",
           "source": "./CollabCloudBinding"
         },
         {
-          "declaration": "export interface CollabCloudErrorEnvelope {\n    readonly error: CollabCloudWireError;\n    readonly protocolVersion: typeof COLLAB_PROTOCOL_VERSION;\n    readonly requestId: string;\n}",
+          "declaration": "export interface CollabCloudErrorEnvelope {\n    readonly error: CollabCloudWireError;\n    /**\n     * Exact request-correlated proof of no retained success or nonterminal journal,\n     * and durable authority state preventing this request from applying later.\n     * Omission leaves the mutation outcome unknown, regardless of the error code.\n     */\n    readonly mutationOutcome?: 'rejected';\n    readonly protocolVersion: typeof COLLAB_PROTOCOL_VERSION;\n    readonly requestId: string;\n}",
           "exportName": "CollabCloudErrorEnvelope",
           "source": "./CollabCloudBinding"
         },
@@ -541,7 +541,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/CollabCloudBinding.ts",
-          "sha256": "03c1e3c3966f7bed2a0d31dba8ceee89dfe4fe1a687c7083744a97d98ceb6e4d"
+          "sha256": "704e2d14b9c32e131a6057712969ea95c6fedec5dfc5a13670d6ff11bed67e58"
         },
         {
           "path": "src/CollabCloudProjectEvent.ts",
@@ -669,7 +669,7 @@
         "source": "./CollabCloudBinding"
       },
       {
-        "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 4;",
+        "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 5;",
         "exportName": "COLLAB_CLOUD_BINDING_VERSION",
         "source": "./CollabCloudBinding"
       },
@@ -799,7 +799,7 @@
         "source": "./CollabProjectCheckpoint"
       },
       {
-        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 8;",
+        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 9;",
         "exportName": "COLLAB_PROTOCOL_VERSION",
         "source": "./CollabConstants"
       },
@@ -1064,12 +1064,12 @@
         "source": "./CollabCloudBinding"
       },
       {
-        "declaration": "export declare function collabCloudErrorEnvelope(requestId: string, error: CollabError): CollabCloudErrorEnvelope;",
+        "declaration": "export declare function collabCloudErrorEnvelope(requestId: string, error: CollabError, mutationOutcome?: CollabCloudErrorEnvelope['mutationOutcome']): CollabCloudErrorEnvelope;",
         "exportName": "collabCloudErrorEnvelope",
         "source": "./CollabCloudBinding"
       },
       {
-        "declaration": "export interface CollabCloudErrorEnvelope {\n    readonly error: CollabCloudWireError;\n    readonly protocolVersion: typeof COLLAB_PROTOCOL_VERSION;\n    readonly requestId: string;\n}",
+        "declaration": "export interface CollabCloudErrorEnvelope {\n    readonly error: CollabCloudWireError;\n    /**\n     * Exact request-correlated proof of no retained success or nonterminal journal,\n     * and durable authority state preventing this request from applying later.\n     * Omission leaves the mutation outcome unknown, regardless of the error code.\n     */\n    readonly mutationOutcome?: 'rejected';\n    readonly protocolVersion: typeof COLLAB_PROTOCOL_VERSION;\n    readonly requestId: string;\n}",
         "exportName": "CollabCloudErrorEnvelope",
         "source": "./CollabCloudBinding"
       },
@@ -2590,7 +2590,7 @@
       },
       {
         "path": "src/CollabCloudBinding.ts",
-        "sha256": "03c1e3c3966f7bed2a0d31dba8ceee89dfe4fe1a687c7083744a97d98ceb6e4d"
+        "sha256": "704e2d14b9c32e131a6057712969ea95c6fedec5dfc5a13670d6ff11bed67e58"
       },
       {
         "path": "src/CollabCloudProjectEvent.ts",
@@ -2602,7 +2602,7 @@
       },
       {
         "path": "src/CollabConstants.ts",
-        "sha256": "36fe5d88604575d74afd72a045ff9fd3c469bf1949d9ad65eec2412dbb6fe197"
+        "sha256": "a3a75231583df1da5806cd1b4f5b1790f1c2be5b3b4e86b7009479278fae54fa"
       },
       {
         "path": "src/CollabControlOperationCodecs.ts",
@@ -2847,7 +2847,7 @@
           "source": "./CollabProjectCheckpoint"
         },
         {
-          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 8;",
+          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 9;",
           "exportName": "COLLAB_PROTOCOL_VERSION",
           "source": "./CollabConstants"
         },
@@ -4075,7 +4075,7 @@
         },
         {
           "path": "src/CollabConstants.ts",
-          "sha256": "36fe5d88604575d74afd72a045ff9fd3c469bf1949d9ad65eec2412dbb6fe197"
+          "sha256": "a3a75231583df1da5806cd1b4f5b1790f1c2be5b3b4e86b7009479278fae54fa"
         },
         {
           "path": "src/CollabControlOperationCodecs.ts",
@@ -4120,7 +4120,7 @@
       ]
     }
   },
-  "packageVersion": "4.1.4",
-  "protocolVersion": 8,
+  "packageVersion": "4.2.0",
+  "protocolVersion": 9,
   "schemaVersion": 2
 }

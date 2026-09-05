@@ -6,11 +6,11 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "4.1.4"
+    "version": "4.2.0"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-4.1.4.tgz",
+    "filename": "claudian-collab-protocol-4.2.0.tgz",
     "files": [
       {
         "path": "dist/CollabAuthorityTransfer.d.ts",
@@ -22,11 +22,11 @@
       },
       {
         "path": "dist/CollabCloudBinding.d.ts",
-        "size": 8762
+        "size": 9132
       },
       {
         "path": "dist/CollabCloudBinding.js",
-        "size": 26246
+        "size": 26863
       },
       {
         "path": "dist/CollabCloudProjectEvent.d.ts",
@@ -170,7 +170,7 @@
       },
       {
         "path": "dist/esm/CollabCloudBinding.mjs",
-        "size": 24118
+        "size": 24735
       },
       {
         "path": "dist/esm/CollabCloudProjectEvent.mjs",
@@ -274,14 +274,14 @@
       },
       {
         "path": "README.md",
-        "size": 9924
+        "size": 10654
       }
     ],
-    "integrity": "sha512-bf9fBnScpuWEbRism3ng6FUP35TRnCJfAQOgooQxQr1aOGZU2MTYzq6ISDoLkDUmQynQJBxgH8p8svgRo7HV9g==",
-    "sha256": "55cc0d13bcee88668dc8b5c2fc746747759ccbac09ade58e73d276db766511f9",
-    "shasum": "8fc7c7e2eaa959cfb16d3befd38fea9db31eb715",
-    "size": 133307,
-    "unpackedSize": 886459
+    "integrity": "sha512-9RDTJpbYNqoxgn3SyybJ3Y/n/Ujulww7IfSBjN4RY0qPz7ca7M7SlmsFY7OhUwkenaEubiUGoYu9A2jFewMeNQ==",
+    "sha256": "aa637e751b773e0724b804f4c6dd0b8ce3863c0b985f860d6c5086413d92ff5c",
+    "shasum": "467db22fbf35d0265b249bad5f5295e2781a0f9a",
+    "size": 133994,
+    "unpackedSize": 888793
   },
   "toolchain": {
     "node": "24.16.0",

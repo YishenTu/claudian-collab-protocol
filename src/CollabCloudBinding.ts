@@ -21,7 +21,7 @@ import {
 } from './CollabProjectCheckpoint';
 import type { CollabIsoTimestamp, CollabProjectId } from './types';
 
-export const COLLAB_CLOUD_BINDING_VERSION = 4 as const;
+export const COLLAB_CLOUD_BINDING_VERSION = 5 as const;
 export const COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION = 2 as const;
 
 export const COLLAB_CLOUD_CAPABILITIES = Object.freeze([
@@ -193,6 +193,12 @@ export interface CollabCloudWireError {
 
 export interface CollabCloudErrorEnvelope {
   readonly error: CollabCloudWireError;
+  /**
+   * Exact request-correlated proof of no retained success or nonterminal journal,
+   * and durable authority state preventing this request from applying later.
+   * Omission leaves the mutation outcome unknown, regardless of the error code.
+   */
+  readonly mutationOutcome?: 'rejected';
   readonly protocolVersion: typeof COLLAB_PROTOCOL_VERSION;
   readonly requestId: string;
 }
@@ -332,7 +338,7 @@ export function collabCloudProjectOperationRoute(
 ): CollabCloudRoute {
   assertProjectId(projectId);
   if (!isCloudJsonOperation(operation)) invalidRoute();
-  return route('POST', `/v4/projects/${projectId}/operations/${operation}`, {
+  return route('POST', `/v5/projects/${projectId}/operations/${operation}`, {
     kind: 'project-operation',
     operation,
     projectId,
@@ -345,7 +351,7 @@ export function collabCloudProjectEventsRoute(
 ): CollabCloudRoute {
   assertProjectId(projectId);
   if (!Number.isSafeInteger(afterSequence) || afterSequence < 0) invalidRoute();
-  return route('GET', `/v4/projects/${projectId}/events?afterSequence=${afterSequence}`, {
+  return route('GET', `/v5/projects/${projectId}/events?afterSequence=${afterSequence}`, {
     afterSequence,
     kind: 'project-events',
     projectId,
@@ -371,12 +377,12 @@ export function collabCloudGitRoute(
     if (service !== 'git-upload-pack' && service !== 'git-receive-pack') invalidRoute();
     return route(
       'GET',
-      `/v4/projects/${projectId}/repository.git/info/refs?service=${service}`,
+      `/v5/projects/${projectId}/repository.git/info/refs?service=${service}`,
       { kind: 'git-info-refs', projectId, service },
     );
   }
   if (service !== undefined) invalidRoute();
-  return route('POST', `/v4/projects/${projectId}/repository.git/${routeKind}`, {
+  return route('POST', `/v5/projects/${projectId}/repository.git/${routeKind}`, {
     kind: routeKind,
     projectId,
   });
@@ -396,7 +402,7 @@ export function collabCloudAuthorityTransferArtifactRoute(
   ) invalidRoute();
   return route(
     direction === 'upload' ? 'PUT' : 'GET',
-    `/v4/projects/${projectId}/authority-transfers/${transferId}/checkpoint/${artifact}`,
+    `/v5/projects/${projectId}/authority-transfers/${transferId}/checkpoint/${artifact}`,
     {
       artifact,
       direction,
@@ -417,7 +423,7 @@ export function collabCloudProjectCheckpointExportArtifactRoute(
   if (!COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(artifact)) invalidRoute();
   return route(
     'GET',
-    `/v4/projects/${projectId}/checkpoint-exports/${exportId}/checkpoint/${artifact}`,
+    `/v5/projects/${projectId}/checkpoint-exports/${exportId}/checkpoint/${artifact}`,
     {
       artifact,
       exportId,
@@ -437,7 +443,7 @@ export function collabCloudProjectCheckpointExportRoute(
   if (operation !== 'begin' && operation !== 'status') invalidRoute();
   return route(
     operation === 'begin' ? 'POST' : 'GET',
-    `/v4/projects/${projectId}/checkpoint-exports/${exportId}`,
+    `/v5/projects/${projectId}/checkpoint-exports/${exportId}`,
     { exportId, kind: 'project-checkpoint-export', operation, projectId },
   );
 }
@@ -492,7 +498,7 @@ export function collabDevelopmentBootstrapRoute(
   operation: DevelopmentBootstrapOperation,
   attemptId?: string,
 ): CollabCloudRoute {
-  const base = '/v4/development/bootstrap/attempts';
+  const base = '/v5/development/bootstrap/attempts';
   if (operation === 'beginDevelopmentBootstrap') {
     if (attemptId !== undefined) invalidRoute();
     return route('POST', base, { kind: 'development-bootstrap', operation });
@@ -552,7 +558,7 @@ export function matchCollabCloudRoute(
   ) return { kind: 'capabilities' };
 
   if (
-    segments[0] === 'v4'
+    segments[0] === 'v5'
     && segments[1] === 'projects'
     && isCollabProjectId(segments[2])
   ) {
@@ -649,7 +655,7 @@ export function matchCollabCloudRoute(
   }
 
   if (
-    segments[0] !== 'v4'
+    segments[0] !== 'v5'
     || segments[1] !== 'development'
     || segments[2] !== 'bootstrap'
     || segments[3] !== 'attempts'
@@ -823,21 +829,31 @@ export function decodeCollabCloudSuccessEnvelope<T = unknown>(
 export function collabCloudErrorEnvelope(
   requestId: string,
   error: CollabError,
+  mutationOutcome?: CollabCloudErrorEnvelope['mutationOutcome'],
 ): CollabCloudErrorEnvelope {
   if (!isCollabOpaqueId(requestId)) throw invalidPayload('requestId');
+  if (mutationOutcome !== undefined && mutationOutcome !== 'rejected') {
+    throw invalidPayload('mutationOutcome');
+  }
   return Object.freeze({
     error: Object.freeze({
       code: error.code,
       recoveryActions: Object.freeze([...error.recoveryActions]),
       safeContext: error.safeContext,
     }),
+    ...(mutationOutcome === undefined ? {} : { mutationOutcome }),
     protocolVersion: COLLAB_PROTOCOL_VERSION,
     requestId,
   });
 }
 
 export function decodeCollabCloudErrorEnvelope(value: unknown): CollabCloudErrorEnvelope {
-  const source = exactRecord(value, 'envelope', ['error', 'protocolVersion', 'requestId']);
+  const source = record(value, 'envelope');
+  const hasOutcome = Object.hasOwn(source, 'mutationOutcome');
+  if (!hasExactKeys(source, hasOutcome
+    ? ['error', 'mutationOutcome', 'protocolVersion', 'requestId']
+    : ['error', 'protocolVersion', 'requestId'])) throw invalidPayload('envelope');
+  if (hasOutcome && source.mutationOutcome !== 'rejected') throw invalidPayload('mutationOutcome');
   const wireError = exactRecord(source.error, 'error', [
     'code',
     'recoveryActions',
@@ -867,6 +883,7 @@ export function decodeCollabCloudErrorEnvelope(value: unknown): CollabCloudError
       ]),
       safeContext,
     }),
+    ...(hasOutcome ? { mutationOutcome: 'rejected' as const } : {}),
     protocolVersion: COLLAB_PROTOCOL_VERSION,
     requestId: source.requestId,
   });

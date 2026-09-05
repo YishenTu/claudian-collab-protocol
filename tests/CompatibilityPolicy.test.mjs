@@ -803,3 +803,153 @@ test('the compatibility command binds explicit review to exact generated snapsho
   assert.notEqual(stale.status, 0);
   assert.match(stale.stderr, /exact base and candidate snapshots/u);
 });
+
+
+test('optional contract additions require exact review and preserve every existing declaration', () => {
+  const declarations = [{ exportName: 'Envelope', source: './CollabCloudBinding',
+    declaration: 'export interface Envelope { readonly requestId: string; }' },
+  { exportName: 'encode', source: './CollabCloudBinding',
+    declaration: 'export declare function encode(value: string): Envelope;' }];
+  const base = snapshot({ declarations, runtimeExports: ['encode'],
+    runtime: [{ path: 'src/CollabCloudBinding.ts', sha256: 'before' }] });
+  const current = snapshot({ declarations: [
+    { ...declarations[0], declaration: 'export interface Envelope { readonly requestId: string; readonly outcome?: "rejected"; }' },
+    { ...declarations[1], declaration: 'export declare function encode(value: string, outcome?: "rejected"): Envelope;' },
+  ], runtimeExports: ['encode'], packageVersion: '1.1.0', protocolVersion: 5, bindingVersion: 2,
+  runtime: [{ path: 'src/CollabCloudBinding.ts', sha256: 'after' }] });
+  const reason = 'Public codec fixtures retain old envelopes and validate the optional outcome.';
+  const review = compatibility.createOptionalContractAdditionReview(base, current, reason, ['encode']);
+  assert.doesNotThrow(() => assertVersionedContractChange(base, current, review));
+  assert.throws(() => assertVersionedContractChange(base, current), /major release/u);
+  assert.throws(() => assertVersionedContractChange(base, { ...current, packageVersion: '1.1.1' }, review), /exact base and candidate/u);
+  assert.throws(() => assertVersionedContractChange(base, current, { ...review, extra: true }), /unknown/u);
+  for (const declaration of [
+    'export interface Envelope { readonly requestId: string; readonly outcome: "rejected"; }',
+    'export interface Envelope { readonly requestId: number; readonly outcome?: "rejected"; }',
+    'export interface Envelope { readonly outcome?: "rejected"; }',
+  ]) {
+    const drift = cloneJson(current);
+    drift.contract.publicDeclarations[0].declaration = declaration;
+    assert.throws(() => compatibility.createOptionalContractAdditionReview(base, drift, reason, ['encode']), /optional public addition/u);
+  }
+  const changedParameter = cloneJson(current);
+  changedParameter.contract.publicDeclarations[1].declaration = 'export declare function encode(value: number, outcome?: "rejected"): Envelope;';
+  assert.throws(() => compatibility.createOptionalContractAdditionReview(base, changedParameter, reason, ['encode']), /optional public addition/u);
+  const requiredParameter = cloneJson(current);
+  requiredParameter.contract.publicDeclarations[1].declaration = 'export declare function encode(value: string, outcome: "rejected"): Envelope;';
+  assert.throws(() => compatibility.createOptionalContractAdditionReview(base, requiredParameter, reason, ['encode']), /optional public addition/u);
+  for (const edit of [
+    candidate => { candidate.contract.wire.limits = { maxBytes: 1 }; },
+    candidate => { candidate.contract.cloudBinding.capabilities = ['new']; },
+    candidate => { candidate.contract.publicRuntimeExports.push('unrelated'); },
+    candidate => { candidate.contract.runtimeBehaviorDigests.push({ path: 'src/unrelated.ts', sha256: 'new' }); },
+    candidate => { candidate.cloudBindingVersion = 1; },
+    candidate => { candidate.protocolVersion = 4; },
+  ]) {
+    const drift = cloneJson(current); edit(drift);
+    assert.throws(() => compatibility.createOptionalContractAdditionReview(base, drift, reason, ['encode']), /Optional contract/u);
+  }
+  assert.throws(() => compatibility.createOptionalContractAdditionReview(base, current, reason, ['missing']), /public function/u);
+  const route = { exportName: 'collabCloudProjectEventsRoute', source: './CollabCloudBinding',
+    declaration: 'export declare function collabCloudProjectEventsRoute(): string;' };
+  const withRoute = value => {
+    const copy = cloneJson(value);
+    copy.contract.publicDeclarations.push(route);
+    copy.contract.publicRuntimeExports.push(route.exportName);
+    return copy;
+  };
+  assert.throws(() => compatibility.createOptionalContractAdditionReview(
+    withRoute(base), withRoute(current), reason, ['encode', route.exportName],
+  ), /related codec/u);
+
+});
+
+
+test('optional Cloud implementation review rejects unrelated source drift and route changes', () => {
+  const before = `export const COLLAB_CLOUD_BINDING_VERSION = 1 as const;
+    export interface Envelope { readonly requestId: string; }
+    export function encode(value: string): Envelope { return { requestId: value }; }
+    export function decode(value: unknown): Envelope { return value as Envelope; }
+    export function collabCloudProjectOperationRoute() { return '/v1/projects'; }
+    export function unrelated() { return true; }`;
+  const after = before.replace('VERSION = 1', 'VERSION = 2').replace('/v1/', '/v2/')
+    .replace('requestId: string;', 'requestId: string; readonly outcome?: "rejected";')
+    .replace('encode(value: string)', 'encode(value: string, outcome?: "rejected")')
+    .replace('return value as Envelope;', 'return Object.freeze(value) as Envelope;');
+  const reviewed = new Set(['Envelope', 'encode', 'decode']);
+  const check = candidate => compatibility.assertCloudBindingVersionMigration(before, candidate, 1, 2, reviewed);
+  assert.doesNotThrow(() => check(after));
+  assert.throws(() => compatibility.assertCloudBindingVersionMigration(
+    before, after.replace('/v2/projects', '/v2/changed'), 1, 2,
+    new Set([...reviewed, 'collabCloudProjectOperationRoute']),
+  ), /reviewed version-prefix/u);
+  for (const candidate of [
+    after.replace('return true;', 'return false;'),
+    after.replace('/v2/projects', '/v2/changed'),
+    after.replace('function decode', 'function replaced'),
+    after + ' export const newHelper = true;',
+  ]) assert.throws(() => check(candidate), /reviewed version-prefix/u);
+});
+
+test('optional review command cannot waive an unrelated route implementation', t => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'collab-optional-command-'));
+  t.after(() => rmSync(root, { force: true, recursive: true }));
+  for (const directory of ['scripts', 'src', 'dist']) mkdirSync(path.join(root, directory));
+  copyFileSync(path.join(repositoryRoot, 'scripts/check-compatibility.mjs'), path.join(root, 'scripts/check-compatibility.mjs'));
+  symlinkSync(path.join(repositoryRoot, 'node_modules'), path.join(root, 'node_modules'), 'dir');
+  const binding = `export const COLLAB_CLOUD_BINDING_VERSION = 1 as const;
+export interface Envelope { readonly requestId: string; }
+export function encode(value: string): Envelope { return { requestId: value }; }
+export function collabCloudProjectEventsRoute(): string { return '/v1/projects'; }`;
+  const declarations = `export declare const COLLAB_CLOUD_BINDING_VERSION: 1;
+export interface Envelope { readonly requestId: string; }
+export declare function encode(value: string): Envelope;
+export declare function collabCloudProjectEventsRoute(): string;`;
+  const runtime = `module.exports = {
+COLLAB_CLOUD_BINDING_VERSION: 1, COLLAB_PROTOCOL_VERSION: 4,
+COLLAB_PROJECT_CHECKPOINT_ARTIFACTS: [], COLLAB_CLOUD_CAPABILITIES: [],
+COLLAB_CLOUD_EVENT_KINDS: [], COLLAB_CLOUD_JSON_OPERATIONS: ['getProjectSnapshot'],
+COLLAB_CLOUD_BINDING_LIMITS: {}, COLLAB_LIMITS: { maxJsonPayloadUtf8Bytes: 1 },
+COLLAB_ERROR_CODES: [], COLLAB_MAIN_REF: 'refs/heads/main',
+COLLAB_MEMBER_REF_PREFIX: 'refs/heads/members/', COLLAB_CONTROL_OPERATION_CODECS: {},
+encode: value => ({ requestId: value }), collabCloudProjectEventsRoute: () => '/v1/projects' };`;
+  const put = (file, value) => writeFileSync(path.join(root, file), value);
+  put('package.json', JSON.stringify({ version: '1.0.0' }));
+  put('src/CollabCloudBinding.ts', binding);
+  put('src/CollabConstants.ts', 'export const COLLAB_PROTOCOL_VERSION = 4 as const;');
+  put('src/index.ts', "export { COLLAB_CLOUD_BINDING_VERSION, type Envelope, encode, collabCloudProjectEventsRoute } from './CollabCloudBinding';");
+  put('dist/index.d.ts', "export { COLLAB_CLOUD_BINDING_VERSION, type Envelope, encode, collabCloudProjectEventsRoute } from './CollabCloudBinding';");
+  put('dist/CollabCloudBinding.d.ts', declarations);
+  put('dist/index.js', runtime);
+  const command = (...args) => {
+    const result = spawnSync(process.execPath, ['scripts/check-compatibility.mjs', ...args], { cwd: root, encoding: 'utf8' });
+    if (args[0] === '--write') assert.equal(result.status, 0, result.stderr);
+    return result;
+  };
+  const git = (...args) => execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
+    '-c', 'user.name=Protocol test', '-c', 'user.email=protocol-test@example.invalid', ...args], { cwd: root, encoding: 'utf8' }).trim();
+  assert.equal(command('--write').status, 0);
+  git('init', '--quiet');
+  git('add', 'package.json', 'src', 'dist', 'contract-snapshot.json');
+  git('commit', '--quiet', '-m', 'test: record optional contract base');
+  const base = git('rev-parse', 'HEAD');
+  put('package.json', JSON.stringify({ version: '1.1.0' }));
+  put('src/CollabConstants.ts', 'export const COLLAB_PROTOCOL_VERSION = 5 as const;');
+  put('src/CollabCloudBinding.ts', binding.replace('VERSION = 1', 'VERSION = 2')
+    .replace('requestId: string;', 'requestId: string; readonly outcome?: "rejected";')
+    .replace('/v1/projects', '/v2/projects'));
+  put('dist/CollabCloudBinding.d.ts', declarations.replace('VERSION: 1', 'VERSION: 2')
+    .replace('requestId: string;', 'requestId: string; readonly outcome?: "rejected";'));
+  put('dist/index.js', runtime.replace('VERSION: 1', 'VERSION: 2').replace('VERSION: 4', 'VERSION: 5'));
+  assert.equal(command('--write').status, 0);
+  const record = names => command('--base', base, '--record-optional-contract-addition-review',
+    'The optional field preserves existing envelope inputs.', '--implementation-declarations', names);
+  const accepted = record('encode');
+  assert.equal(accepted.status, 0, accepted.stderr);
+  put('src/CollabCloudBinding.ts', readFileSync(path.join(root, 'src/CollabCloudBinding.ts'), 'utf8')
+    .replace('/v2/projects', '/v2/BROKEN'));
+  assert.equal(command('--write').status, 0);
+  const rejected = record('encode,collabCloudProjectEventsRoute');
+  assert.notEqual(rejected.status, 0);
+  assert.match(rejected.stderr, /related codec/u);
+});

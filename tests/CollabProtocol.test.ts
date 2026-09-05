@@ -3,7 +3,7 @@ import { decodeCollabProtocolEnvelope } from '../src/CollabProtocol';
 
 describe('CollabProtocol', () => {
   it('admits wire 8 and rejects the previous wire 7 before exposing its payload', () => {
-    const envelope = { data: {}, protocolVersion: 8, requestId: 'request_1' };
+    const envelope = { data: {}, protocolVersion: 9, requestId: 'request_1' };
     expect(decodeCollabProtocolEnvelope(envelope)).toEqual({ status: 'ok', value: envelope });
     expect(decodeCollabProtocolEnvelope({ ...envelope, protocolVersion: 7 }))
       .toMatchObject({ status: 'unsupported-version', receivedVersion: 7 });

@@ -35,19 +35,19 @@ function limits() {
 
 function capabilities(overrides: Record<string, unknown> = {}) {
   return {
-    bindingVersions: [4],
+    bindingVersions: [5],
     capabilities: [...COLLAB_CLOUD_CAPABILITIES],
     limits: limits(),
-    protocolVersions: [8],
+    protocolVersions: [9],
     schemaVersion: 2,
     ...overrides,
   };
 }
 
-describe('Cloud binding v4 lifecycle integration', () => {
-  it('publishes wire v8, binding v4, lifecycle capabilities, and hard stream limits', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(8);
-    expect(COLLAB_CLOUD_BINDING_VERSION).toBe(4);
+describe('Cloud binding v5 lifecycle integration', () => {
+  it('publishes wire v9, binding v5, lifecycle capabilities, and hard stream limits', () => {
+    expect(COLLAB_PROTOCOL_VERSION).toBe(9);
+    expect(COLLAB_CLOUD_BINDING_VERSION).toBe(5);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
     expect(COLLAB_CLOUD_CAPABILITIES).toEqual([
       'accept',
@@ -103,14 +103,14 @@ describe('Cloud binding v4 lifecycle integration', () => {
         transferId: 'transfer_1',
       },
       method: 'PUT',
-      target: '/v4/projects/project_1/authority-transfers/transfer_1/checkpoint/repository.bundle',
+      target: '/v5/projects/project_1/authority-transfers/transfer_1/checkpoint/repository.bundle',
     });
     expect(download.method).toBe('GET');
     expect(matchCollabCloudRoute(upload.method, upload.target)).toEqual(upload.match);
     expect(matchCollabCloudRoute(download.method, download.target)).toEqual(download.match);
     expect(matchCollabCloudRoute(
       'PUT',
-      '/v4/projects/project_1/authority-transfers/transfer_1/checkpoint/future.bin',
+      '/v5/projects/project_1/authority-transfers/transfer_1/checkpoint/future.bin',
     )).toBeNull();
   });
 
@@ -123,7 +123,7 @@ describe('Cloud binding v4 lifecycle integration', () => {
     );
     expect(begin.method).toBe('POST');
     expect(statusRoute.method).toBe('GET');
-    expect(begin.target).toBe('/v4/projects/project_1/checkpoint-exports/export_1');
+    expect(begin.target).toBe('/v5/projects/project_1/checkpoint-exports/export_1');
     expect(matchCollabCloudRoute(begin.method, begin.target)).toEqual(begin.match);
     expect(matchCollabCloudRoute(statusRoute.method, statusRoute.target))
       .toEqual(statusRoute.match);
@@ -159,7 +159,7 @@ describe('Cloud binding v4 lifecycle integration', () => {
         artifact,
       );
       expect(route.target).toBe(
-        `/v4/projects/project_1/checkpoint-exports/export_1/checkpoint/${artifact}`,
+        `/v5/projects/project_1/checkpoint-exports/export_1/checkpoint/${artifact}`,
       );
       expect(route.method).toBe('GET');
       expect(matchCollabCloudRoute(route.method, route.target)).toEqual(route.match);
@@ -167,34 +167,34 @@ describe('Cloud binding v4 lifecycle integration', () => {
     }
   });
 
-  it('moves ordinary operation routes to v4 and rejects the former binding path', () => {
+  it('moves ordinary operation routes to v5 and rejects the former binding path', () => {
     const route = collabCloudProjectOperationRoute('project_1', 'retireProject');
-    expect(route.target).toBe('/v4/projects/project_1/operations/retireProject');
+    expect(route.target).toBe('/v5/projects/project_1/operations/retireProject');
     expect(matchCollabCloudRoute(route.method, route.target)).toEqual(route.match);
     expect(matchCollabCloudRoute(
       'POST',
-      '/v3/projects/project_1/operations/getProjectSnapshot',
+      '/v4/projects/project_1/operations/getProjectSnapshot',
     )).toBeNull();
   });
 
   it('rejects noncanonical origin, dot-segment, and encoded route aliases', () => {
     for (const [method, target] of [
-      ['GET', '//evil.invalid/v4/projects/project_1/checkpoint-exports/export_1'],
-      ['GET', '/v4/projects/project_1/x/../checkpoint-exports/export_1'],
+      ['GET', '//evil.invalid/v5/projects/project_1/checkpoint-exports/export_1'],
+      ['GET', '/v5/projects/project_1/x/../checkpoint-exports/export_1'],
       [
         'GET',
-        '/v4/projects/project_1/x/%2e%2e/checkpoint-exports/export_1/checkpoint/checkpoint.json',
+        '/v5/projects/project_1/x/%2e%2e/checkpoint-exports/export_1/checkpoint/checkpoint.json',
       ],
       [
         'PUT',
-        '/v4/projects/project_1/x/../authority-transfers/transfer_1/checkpoint/repository.bundle',
+        '/v5/projects/project_1/x/../authority-transfers/transfer_1/checkpoint/repository.bundle',
       ],
     ]) {
       expect(matchCollabCloudRoute(method, target)).toBeNull();
     }
   });
 
-  it('round-trips the exact v4 capability document and fails closed on older versions', () => {
+  it('round-trips the exact v5 capability document and fails closed on older versions', () => {
     expect(decodeCollabCloudCapabilityDocument(capabilities())).toEqual(capabilities());
     expect(collabCloudCapabilityDocument([...COLLAB_CLOUD_CAPABILITIES], limits()))
       .toEqual(capabilities());

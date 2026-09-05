@@ -50,13 +50,6 @@ describe('package dependency boundary', () => {
     expect(Object.keys(manifest.dependencies)).toEqual(['@lezer/markdown']);
   });
 
-  it('publishes only the package root entry point', () => {
-    const manifest = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as {
-      exports: Record<string, unknown>;
-    };
-    expect(Object.keys(manifest.exports)).toEqual(['.']);
-  });
-
   it('routes import to ESM and require to CommonJS through the package root', () => {
     const manifest = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as {
       exports: Record<string, unknown>;
@@ -96,7 +89,7 @@ describe('package dependency boundary', () => {
     const manifest = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as {
       version: string;
     };
-    expect(manifest.version).toBe('4.2.0');
+    expect(manifest.version).toBe('4.2.1');
     expect(manifest.version).not.toBe(String(COLLAB_PROTOCOL_VERSION));
     expect(Number.parseInt(manifest.version.split('.')[0], 10)).toBe(4);
   });

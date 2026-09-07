@@ -393,11 +393,15 @@ function preservesOperationTuple(baseDeclaration, currentDeclaration, additions)
 function isAllowedChangedOperationDeclaration(base, current, additions, snapshots) {
   if (base.source !== current.source || base.exportName !== current.exportName) return false;
   if (
-    base.exportName === 'CollabAuthorityTransferOperationMap'
+    base.exportName === 'CollabControlOperationMap'
+    || base.exportName === 'CollabAuthorityTransferOperationMap'
     || base.exportName === 'COLLAB_CONTROL_OPERATION_CODECS'
   ) return preservesOperationMembers(base.declaration, current.declaration, additions);
   if (base.exportName === 'COLLAB_AUTHORITY_TRANSFER_OPERATIONS') {
     return preservesOperationTuple(base.declaration, current.declaration, additions);
+  }
+  if (base.exportName === 'CollabRequestTicketOperation') {
+    return preservesOperationUnion(base.declaration, current.declaration, additions);
   }
   const versionDeclaration = (name, version) => `export declare const ${name}: ${version};`;
   if (base.exportName === 'COLLAB_PROTOCOL_VERSION') {
@@ -415,11 +419,11 @@ function sourceFile(source, fileName) {
   return ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 }
 
-function syntaxSignature(node, source, { omitCases = false } = {}) {
-  if (omitCases && ts.isCaseClause(node)) return [];
+function syntaxSignature(node, source, { omittedNodes = new Set() } = {}) {
+  if (omittedNodes.has(node)) return [];
   const children = node.getChildren(source);
   if (children.length === 0) return [[node.kind, node.getText(source)]];
-  return children.flatMap(child => syntaxSignature(child, source, { omitCases }));
+  return children.flatMap(child => syntaxSignature(child, source, { omittedNodes }));
 }
 
 function parsedTopLevel(sourceText, fileName) {
@@ -440,7 +444,7 @@ function parsedTopLevel(sourceText, fileName) {
   return { named, source, unnamed };
 }
 
-function topLevelReferenceGraph(sourceText) {
+function topLevelReferenceGraph(sourceText, { includeImports = false } = {}) {
   const fileName = 'authority-transfer-source.ts';
   const options = {
     noLib: true,
@@ -457,6 +461,15 @@ function topLevelReferenceGraph(sourceText) {
   const symbols = new Map();
   const statements = new Map();
   for (const statement of source.statements) {
+    if (includeImports && ts.isImportDeclaration(statement)) {
+      const bindings = statement.importClause?.namedBindings;
+      if (bindings && ts.isNamedImports(bindings)) {
+        for (const element of bindings.elements) {
+          const symbol = checker.getSymbolAtLocation(element.name);
+          if (symbol) symbols.set(symbol, element.name.text);
+        }
+      }
+    }
     const names = declaredNames(statement);
     if (names.length !== 1) continue;
     let nameNode;
@@ -491,6 +504,24 @@ function topLevelReferenceGraph(sourceText) {
     graph.set(owner, references);
   }
   return graph;
+}
+
+function assertExistingReferenceBindings(baseParsed, currentParsed, newBindings) {
+  // Restore existing declarations while retaining candidate module bindings. This lets
+  // the checker detect capture without counting references introduced by new cases.
+  const retainedSource = currentParsed.source.statements.map(statement => {
+    const [name] = declaredNames(statement);
+    const original = baseParsed.named.get(name);
+    return original ? original.statement.getText(original.source) : statement.getText(currentParsed.source);
+  }).join('\n');
+  const retainedReferences = topLevelReferenceGraph(retainedSource, { includeImports: true });
+  for (const name of baseParsed.named.keys()) {
+    for (const reference of retainedReferences.get(name) ?? []) {
+      if (newBindings.has(reference)) {
+        throw new Error(`Operation addition changed an existing reference binding: ${name} -> ${reference}`);
+      }
+    }
+  }
 }
 
 function propertyNameText(name) {
@@ -581,13 +612,9 @@ function operationDecoderName(operation) {
   return `decode${operation[0].toUpperCase()}${operation.slice(1)}`;
 }
 
-function assertDispatchAddition(baseRecord, currentRecord, additions) {
+function assertDispatchAddition(baseRecord, currentRecord, additions, inputName = 'value', suffix = '') {
   const baseCases = caseClauses(baseRecord.statement);
   const currentCases = caseClauses(currentRecord.statement);
-  if (
-    stableJson(syntaxSignature(baseRecord.statement, baseRecord.source, { omitCases: true }))
-      !== stableJson(syntaxSignature(currentRecord.statement, currentRecord.source, { omitCases: true }))
-  ) throw new Error('Authority-transfer dispatch changed outside operation cases');
   for (const [operation, clause] of baseCases) {
     const current = currentCases.get(operation);
     if (
@@ -600,6 +627,35 @@ function assertDispatchAddition(baseRecord, currentRecord, additions) {
   if (stableJson(addedCases) !== stableJson(additions)) {
     throw new Error('Authority-transfer dispatch cases do not match reviewed operations');
   }
+  const addedNodes = new Set(additions.map(operation => currentCases.get(operation)));
+  if (stableJson(syntaxSignature(baseRecord.statement, baseRecord.source))
+    !== stableJson(syntaxSignature(currentRecord.statement, currentRecord.source, { omittedNodes: addedNodes }))) {
+    throw new Error('Operation dispatch changed existing clause sequence or surrounding source');
+  }
+  const operationSwitches = record => {
+    const result = [];
+    function visit(node) {
+      if (ts.isSwitchStatement(node)) {
+        result.push(node);
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(record.statement);
+    return result;
+  };
+  const baseSwitches = operationSwitches(baseRecord);
+  const currentSwitches = operationSwitches(currentRecord);
+  if (baseSwitches.length !== 1 || currentSwitches.length !== 1) {
+    throw new Error('Operation dispatch requires one existing operation switch');
+  }
+  const [currentSwitch] = currentSwitches;
+  if (!ts.isIdentifier(currentSwitch.expression) || currentSwitch.expression.text !== 'operation') {
+    throw new Error('Operation dispatch must switch on the canonical operation parameter');
+  }
+  if (currentSwitch.caseBlock.clauses.slice(0, additions.length).some(clause => !addedNodes.has(clause))
+    || [...addedNodes].some(clause => clause.parent !== currentSwitch.caseBlock)) {
+    throw new Error('Operation dispatch additions must be a leading prefix of the existing operation switch');
+  }
   for (const operation of additions) {
     const clause = currentCases.get(operation);
     const statement = clause?.statements[0];
@@ -609,10 +665,10 @@ function assertDispatchAddition(baseRecord, currentRecord, additions) {
       || !expression
       || !ts.isCallExpression(expression)
       || !ts.isIdentifier(expression.expression)
-      || expression.expression.text !== operationDecoderName(operation)
+      || expression.expression.text !== `${operationDecoderName(operation)}${suffix}`
       || expression.arguments.length !== 1
       || !ts.isIdentifier(expression.arguments[0])
-      || expression.arguments[0].text !== 'value'
+      || expression.arguments[0].text !== inputName
     ) throw new Error(`Authority-transfer dispatch added a non-canonical decoder case: ${operation}`);
   }
 }
@@ -796,7 +852,7 @@ export function assertCloudBindingVersionMigration(
   }
 }
 
-function assertIndexAddition(baseSource, currentSource, allowedNames) {
+function assertIndexAddition(baseSource, currentSource, allowedNames, modules = new Set(['./CollabAuthorityTransfer'])) {
   const exportsByKey = (sourceText) => {
     const source = sourceFile(sourceText, 'src/index.ts');
     const result = new Map();
@@ -806,14 +862,15 @@ function assertIndexAddition(baseSource, currentSource, allowedNames) {
         ts.isExportDeclaration(statement)
         && statement.moduleSpecifier
         && ts.isStringLiteral(statement.moduleSpecifier)
-        && statement.moduleSpecifier.text === './CollabAuthorityTransfer'
+        && modules.has(statement.moduleSpecifier.text)
         && statement.exportClause
         && ts.isNamedExports(statement.exportClause)
       ) {
-        const key = statement.isTypeOnly ? 'types' : 'values';
+        const key = `${statement.moduleSpecifier.text}:${statement.isTypeOnly ? 'types' : 'values'}`;
         const entries = result.get(key) ?? [];
         entries.push(...statement.exportClause.elements.map(element => ({
           aliased: element.propertyName !== undefined,
+          typeOnly: element.isTypeOnly,
           exported: element.name.text,
           local: element.propertyName?.text ?? element.name.text,
         })));
@@ -829,7 +886,7 @@ function assertIndexAddition(baseSource, currentSource, allowedNames) {
   if (stableJson(base.other) !== stableJson(current.other)) {
     throw new Error('Protocol index changed outside authority-transfer exports');
   }
-  for (const key of ['types', 'values']) {
+  for (const key of [...modules].flatMap(module => [`${module}:types`, `${module}:values`])) {
     const before = base.result.get(key) ?? [];
     const after = current.result.get(key) ?? [];
     const beforeByExport = new Map(before.map(entry => [entry.exported, entry]));
@@ -853,6 +910,186 @@ function assertIndexAddition(baseSource, currentSource, allowedNames) {
       }
     }
   }
+}
+
+function preservesOperationUnion(baseText, currentText, additions) {
+  const shape = text => {
+    const source = sourceFile(text, 'operation-union.ts');
+    const [statement] = source.statements;
+    if (source.statements.length !== 1 || !ts.isTypeAliasDeclaration(statement)) return null;
+    const types = ts.isUnionTypeNode(statement.type) ? statement.type.types : [statement.type];
+    if (types.some(type => !ts.isLiteralTypeNode(type) || !ts.isStringLiteral(type.literal))) return null;
+    return {
+      header: syntaxSignature(statement, source, { omittedNodes: new Set([statement.type]) }),
+      values: types.map(type => type.literal.text),
+    };
+  };
+  const before = shape(baseText);
+  const after = shape(currentText);
+  return before !== null && after !== null
+    && stableJson(before.header) === stableJson(after.header)
+    && new Set(before.values).size === before.values.length
+    && new Set(after.values).size === after.values.length
+    && stableJson(after.values.filter(value => before.values.includes(value))) === stableJson(before.values)
+    && stableJson(after.values.filter(value => !before.values.includes(value)).sort()) === stableJson(additions);
+}
+
+function assertRequestTicketImports(baseSource, currentSource, pathname) {
+  const shape = text => {
+    const parsed = parsedTopLevel(text, pathname);
+    const imports = new Map();
+    const other = [];
+    for (const statement of parsed.source.statements) {
+      if (!ts.isImportDeclaration(statement)) {
+        if (declaredNames(statement).length === 0) other.push(syntaxSignature(statement, parsed.source));
+        continue;
+      }
+      const clause = statement.importClause;
+      const bindings = clause?.namedBindings;
+      if (!ts.isStringLiteral(statement.moduleSpecifier) || !clause || clause.name
+        || !bindings || !ts.isNamedImports(bindings) || statement.attributes) {
+        other.push(syntaxSignature(statement, parsed.source));
+        continue;
+      }
+      const key = `${statement.moduleSpecifier.text}:${clause.isTypeOnly}`;
+      if (imports.has(key)) throw new Error('Request/Ticket review rejects duplicate import clauses');
+      const entries = new Map();
+      for (const element of bindings.elements) {
+        if (entries.has(element.name.text)) throw new Error('Request/Ticket review rejects duplicate import bindings');
+        entries.set(element.name.text, {
+          aliased: element.propertyName !== undefined,
+          signature: syntaxSignature(element, parsed.source),
+        });
+      }
+      imports.set(key, entries);
+    }
+    return { imports, other, parsed };
+  };
+  const before = shape(baseSource);
+  const after = shape(currentSource);
+  if (stableJson(before.other) !== stableJson(after.other)
+    || stableJson([...before.imports.keys()].sort()) !== stableJson([...after.imports.keys()].sort())) {
+    throw new Error('Request/Ticket review changed unrelated module access or unnamed statements');
+  }
+  const added = new Set();
+  for (const [key, entries] of before.imports) {
+    const candidates = after.imports.get(key);
+    for (const [name, entry] of entries) {
+      if (stableJson(candidates.get(name)) !== stableJson(entry)) {
+        throw new Error(`Request/Ticket review changed existing import identity: ${name}`);
+      }
+    }
+    for (const [name, entry] of candidates) {
+      if (entries.has(name)) continue;
+      if (entry.aliased || added.has(name)) throw new Error('Request/Ticket review added aliased or duplicate imports');
+      added.add(name);
+    }
+  }
+  before.parsed.unnamed = [];
+  after.parsed.unnamed = [];
+  return { before: before.parsed, after: after.parsed, addedImports: added };
+}
+
+function assertSafeReasonAddition(before, after, additions) {
+  const shape = record => {
+    if (!record || !ts.isVariableStatement(record.statement)
+      || record.statement.declarationList.declarations.length !== 1) return null;
+    const initializer = record.statement.declarationList.declarations[0].initializer;
+    if (!initializer) return null;
+    const object = unwrapExpression(initializer);
+    if (!ts.isObjectLiteralExpression(object)) return null;
+    const properties = new Map();
+    for (const property of object.properties) {
+      if (!ts.isPropertyAssignment(property) || !ts.isStringLiteral(property.initializer)) return null;
+      const name = propertyNameText(property.name);
+      if (name === null || properties.has(name)) return null;
+      properties.set(name, syntaxSignature(property, record.source));
+    }
+    return { properties, header: syntaxSignature(record.statement, record.source, { omittedNodes: new Set([object]) }) };
+  };
+  const base = shape(before);
+  const current = shape(after);
+  if (!base || !current || stableJson(base.header) !== stableJson(current.header)
+    || [...base.properties].some(([name, entry]) => stableJson(current.properties.get(name)) !== stableJson(entry))
+    || stableJson([...current.properties.keys()].filter(name => !base.properties.has(name)).sort()) !== stableJson(additions)) {
+    throw new Error('Request/Ticket safe reasons are not strictly additive');
+  }
+}
+
+export function assertRequestTicketOperationSourceAddition(input) {
+  const moduleChanges = new Map([
+    ['src/CollabProtocol.ts', new Set(['CollabControlOperationMap'])],
+    ['src/CollabRequestTicketRequestCodecs.ts', new Set(['CollabRequestTicketOperation', 'decodeRequestTicketRequest', 'INVALID_REASONS'])],
+    ['src/CollabRequestTicketResponseCodecs.ts', new Set()],
+    ['src/CollabControlOperationCodecs.ts', new Set(['decodeResponse', 'COLLAB_CONTROL_OPERATION_CODECS'])],
+  ]);
+  const requiredPaths = [...moduleChanges.keys(), 'src/CollabConstants.ts', 'src/CollabCloudBinding.ts', 'src/index.ts'];
+  if (!Array.isArray(input?.addedOperations) || input.addedOperations.length === 0
+    || requiredPaths.some(pathname => typeof input.baseFiles?.[pathname] !== 'string'
+      || typeof input.currentFiles?.[pathname] !== 'string')) {
+    throw new Error('Invalid Request/Ticket operation source review input');
+  }
+  const additions = [...input.addedOperations].sort();
+  const modules = new Map();
+  const exportNames = new Set();
+  for (const [pathname, allowed] of moduleChanges) {
+    const module = assertRequestTicketImports(input.baseFiles[pathname], input.currentFiles[pathname], pathname);
+    assertOnlyNamedChange(module.before, module.after, allowed, 'Request/Ticket contract');
+    const newNames = new Set([...module.after.named.keys()].filter(name => !module.before.named.has(name)));
+    assertExistingReferenceBindings(module.before, module.after, new Set([...newNames, ...module.addedImports]));
+    const graph = topLevelReferenceGraph(input.currentFiles[pathname], { includeImports: true });
+    const roots = [...allowed];
+    if (pathname.endsWith('ResponseCodecs.ts')) roots.push(...additions.map(operation => `${operationDecoderName(operation)}Response`));
+    const reachable = new Set();
+    const pending = [...roots];
+    while (pending.length > 0) {
+      const name = pending.pop();
+      if (reachable.has(name)) continue;
+      reachable.add(name);
+      for (const dependency of graph.get(name) ?? []) {
+        if (newNames.has(dependency) || module.addedImports.has(dependency)) pending.push(dependency);
+      }
+    }
+    for (const name of [...newNames, ...module.addedImports]) {
+      if (!reachable.has(name)) throw new Error(`Request/Ticket added unreachable declaration or import: ${name}`);
+    }
+    if (pathname.endsWith('ControlOperationCodecs.ts') && newNames.size !== 0) {
+      throw new Error('Request/Ticket control codecs added unrelated declarations');
+    }
+    for (const name of newNames) exportNames.add(name);
+    modules.set(pathname, module);
+  }
+  const protocol = modules.get('src/CollabProtocol.ts');
+  const baseMap = protocol.before.named.get('CollabControlOperationMap');
+  const currentMap = protocol.after.named.get('CollabControlOperationMap');
+  if (!baseMap || !currentMap || !preservesOperationMembers(baseMap.statement.getText(baseMap.source),
+    currentMap.statement.getText(currentMap.source), additions)) {
+    throw new Error('Request/Ticket operation map is not strictly additive');
+  }
+  const requests = modules.get('src/CollabRequestTicketRequestCodecs.ts');
+  const baseUnion = requests.before.named.get('CollabRequestTicketOperation');
+  const currentUnion = requests.after.named.get('CollabRequestTicketOperation');
+  if (!baseUnion || !currentUnion || !preservesOperationUnion(baseUnion.statement.getText(baseUnion.source),
+    currentUnion.statement.getText(currentUnion.source), additions)) {
+    throw new Error('Request/Ticket operation union is not strictly additive');
+  }
+  assertDispatchAddition(requests.before.named.get('decodeRequestTicketRequest'),
+    requests.after.named.get('decodeRequestTicketRequest'), additions, 'input');
+  assertSafeReasonAddition(requests.before.named.get('INVALID_REASONS'), requests.after.named.get('INVALID_REASONS'), additions);
+  const codecs = modules.get('src/CollabControlOperationCodecs.ts');
+  assertDispatchAddition(codecs.before.named.get('decodeResponse'), codecs.after.named.get('decodeResponse'), additions, 'input', 'Response');
+  assertControlCodecAddition(codecs.before.named.get('COLLAB_CONTROL_OPERATION_CODECS'),
+    codecs.after.named.get('COLLAB_CONTROL_OPERATION_CODECS'), additions);
+  const constantsPath = 'src/CollabConstants.ts';
+  if (sourceSyntax(normalizedVersionSource(input.currentFiles[constantsPath], 'COLLAB_PROTOCOL_VERSION',
+    input.currentProtocolVersion, input.baseProtocolVersion), constantsPath)
+    !== sourceSyntax(input.baseFiles[constantsPath], constantsPath)) {
+    throw new Error('Protocol constants changed beyond the reviewed version increase');
+  }
+  assertCloudBindingVersionMigration(input.baseFiles['src/CollabCloudBinding.ts'], input.currentFiles['src/CollabCloudBinding.ts'],
+    input.baseCloudBindingVersion, input.currentCloudBindingVersion);
+  assertIndexAddition(input.baseFiles['src/index.ts'], input.currentFiles['src/index.ts'], exportNames,
+    new Set(['./CollabProtocol', './CollabRequestTicketRequestCodecs', './CollabRequestTicketResponseCodecs']));
 }
 
 export function assertAuthorityTransferOperationSourceAddition(input) {
@@ -903,6 +1140,7 @@ export function assertAuthorityTransferOperationSourceAddition(input) {
   const newNames = new Set(
     [...currentAuthority.named.keys()].filter(name => !baseAuthority.named.has(name)),
   );
+  assertExistingReferenceBindings(baseAuthority, currentAuthority, newNames);
   const roots = new Set();
   operationMapAddedMembers(currentMap.statement, additions);
   const referenceGraph = topLevelReferenceGraph(input.currentFiles[authorityPath]);
@@ -1549,15 +1787,41 @@ export function readBaseSnapshot(baseSha, { cwd = repositoryRoot } = {}) {
   }
 }
 
-const AUTHORITY_TRANSFER_ADDITION_SOURCE_PATHS = Object.freeze([
-  'src/CollabAuthorityTransfer.ts',
-  'src/CollabCloudBinding.ts',
-  'src/CollabConstants.ts',
-  'src/CollabControlOperationCodecs.ts',
-  'src/index.ts',
-]);
+export function assertVersionedOperationSourceAddition(input) {
+  const additions = input?.addedOperations;
+  if (!Array.isArray(additions) || additions.length === 0) throw new Error('Invalid versioned operation source review input');
+  const families = [
+    { pathname: 'src/CollabAuthorityTransfer.ts', name: 'CollabAuthorityTransferOperationMap',
+      paths: ['src/CollabAuthorityTransfer.ts'], check: assertAuthorityTransferOperationSourceAddition },
+    { pathname: 'src/CollabProtocol.ts', name: 'CollabControlOperationMap',
+      paths: ['src/CollabProtocol.ts', 'src/CollabRequestTicketRequestCodecs.ts', 'src/CollabRequestTicketResponseCodecs.ts'],
+      check: assertRequestTicketOperationSourceAddition },
+  ].filter(family => {
+    const before = input.baseFiles?.[family.pathname];
+    const after = input.currentFiles?.[family.pathname];
+    if (typeof before !== 'string' || typeof after !== 'string') return false;
+    const baseMap = parsedTopLevel(before, family.pathname).named.get(family.name);
+    const currentMap = parsedTopLevel(after, family.pathname).named.get(family.name);
+    return baseMap !== undefined && currentMap !== undefined
+      && preservesOperationMembers(baseMap.statement.getText(baseMap.source),
+        currentMap.statement.getText(currentMap.source), [...additions].sort());
+  });
+  if (families.length !== 1) throw new Error('Versioned addition must belong to exactly one supported operation family');
+  const [family] = families;
+  const allowed = new Set([...family.paths, 'src/CollabCloudBinding.ts', 'src/CollabConstants.ts',
+    'src/CollabControlOperationCodecs.ts', 'src/index.ts']);
+  if (stableJson(Object.keys(input.baseFiles).sort()) !== stableJson(Object.keys(input.currentFiles).sort())) {
+    throw new Error('Versioned operation review cannot add or remove source modules');
+  }
+  for (const pathname of Object.keys(input.baseFiles)) {
+    if (input.baseFiles[pathname] !== input.currentFiles[pathname] && !allowed.has(pathname)) {
+      throw new Error(`Versioned operation review changed unrelated source: ${pathname}`);
+    }
+  }
+  family.check(input);
+}
 
-function authorityTransferSourceReviewInput(baseSha, base, current) {
+function operationSourceReviewInput(baseSha, base, current) {
   const basePaths = execFileSync(
     'git',
     ['ls-tree', '-r', '--name-only', baseSha, 'src'],
@@ -1572,7 +1836,6 @@ function authorityTransferSourceReviewInput(baseSha, base, current) {
   if (stableJson(basePaths) !== stableJson(currentPaths)) {
     throw new Error('Versioned authority-transfer operation review cannot add or remove source modules');
   }
-  const allowed = new Set(AUTHORITY_TRANSFER_ADDITION_SOURCE_PATHS);
   const baseFiles = {};
   const currentFiles = {};
   for (const pathname of basePaths) {
@@ -1581,13 +1844,8 @@ function authorityTransferSourceReviewInput(baseSha, base, current) {
       encoding: 'utf8',
     });
     const currentSource = readFileSync(path.join(repositoryRoot, pathname), 'utf8');
-    if (baseSource !== currentSource && !allowed.has(pathname)) {
-      throw new Error(`Versioned authority-transfer operation review changed unrelated source: ${pathname}`);
-    }
-    if (allowed.has(pathname)) {
-      baseFiles[pathname] = baseSource;
-      currentFiles[pathname] = currentSource;
-    }
+    baseFiles[pathname] = baseSource;
+    currentFiles[pathname] = currentSource;
   }
   return {
     addedOperations: operationAdditions(
@@ -1624,8 +1882,8 @@ function assertReviewedSourceChange(baseSha, base, current, review) {
     return;
   }
   if (review?.reviewKind !== 'versioned-operation-addition') return;
-  assertAuthorityTransferOperationSourceAddition(
-    authorityTransferSourceReviewInput(baseSha, base, current),
+  assertVersionedOperationSourceAddition(
+    operationSourceReviewInput(baseSha, base, current),
   );
 }
 
@@ -1666,8 +1924,8 @@ function run() {
     if (!base) throw new Error('Compatibility comparison requires an existing base snapshot');
     if (reviewReason !== null) {
         if (operationReviewIndex >= 0) {
-          assertAuthorityTransferOperationSourceAddition(
-            authorityTransferSourceReviewInput(baseSha, base, committed),
+          assertVersionedOperationSourceAddition(
+            operationSourceReviewInput(baseSha, base, committed),
           );
         }
         const review = optionalReviewIndex >= 0

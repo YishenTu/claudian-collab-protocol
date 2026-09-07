@@ -389,6 +389,8 @@ export type {
   ListTicketAcceptedRelationsRequest,
   ListTicketCommentsRequest,
   ListTicketsRequest,
+  ResolveTicketNumberRequest,
+  ResolveTicketNumberResponse,
   TicketMutationResponse,
   UpdateMyRequestMetadataRequest,
   UpdateMyRequestMetadataResponse,
@@ -406,7 +408,9 @@ export type {
   CollabTicketReferenceToken,
 } from './CollabTicketReferenceParser';
 
+export { decodeResolveTicketNumber } from './CollabRequestTicketRequestCodecs';
 export type { CollabRequestTicketOperation } from './CollabRequestTicketRequestCodecs';
+export { decodeResolveTicketNumberResponse } from './CollabRequestTicketResponseCodecs';
 
 export {
   isCollabGitOid,

@@ -10,6 +10,7 @@ import type {
   CreateTicketRequest,
   EnsureMyRequestRequest,
   ListTicketsRequest,
+  ResolveTicketNumberRequest,
   UpdateMyRequestMetadataRequest,
   UpdateTicketContentRequest,
 } from './CollabProtocol';
@@ -35,6 +36,7 @@ export type CollabRequestTicketOperation =
   | 'listTicketComments'
   | 'listTickets'
   | 'reopenTicket'
+  | 'resolveTicketNumber'
   | 'updateMyRequestMetadata'
   | 'updateTicketContent';
 
@@ -104,12 +106,22 @@ function resolvingTickets(value: unknown): readonly CollabResolvingTicketExpecta
   return result;
 }
 
+export function decodeResolveTicketNumber(input: unknown): ResolveTicketNumberRequest | null {
+  return isRecord(input)
+    && hasExactKeys(input, ['projectId', 'ticketNumber'])
+    && isCollabProjectId(input.projectId)
+    && isRevision(input.ticketNumber, 1)
+    ? { projectId: input.projectId, ticketNumber: input.ticketNumber }
+    : null;
+}
+
 function decodeRequestTicketRequest(
   operation: CollabRequestTicketOperation,
   input: unknown,
 ): OperationRequest<CollabRequestTicketOperation> | null {
   if (!isRecord(input)) return null;
   switch (operation) {
+    case 'resolveTicketNumber': return decodeResolveTicketNumber(input);
     case 'getRequest':
       return isCollabProjectId(input.projectId) && isCollabOpaqueId(input.requestId)
         ? { projectId: input.projectId, requestId: input.requestId }
@@ -309,6 +321,7 @@ const INVALID_REASONS = {
   listTicketComments: 'ticket-comment-page-query-invalid',
   listTickets: 'ticket-list-query-invalid',
   reopenTicket: 'ticket-mutation-payload-invalid',
+  resolveTicketNumber: 'ticket-number-query-invalid',
   updateMyRequestMetadata: 'request-metadata-payload-invalid',
   updateTicketContent: 'ticket-content-payload-invalid',
 } as const satisfies Record<CollabRequestTicketOperation, string>;

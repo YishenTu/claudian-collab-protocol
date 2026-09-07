@@ -324,8 +324,8 @@ test('source review rejects existing decoder drift and unreachable same-module a
       function decodeConfirmTargetCleanup(value: unknown): ConfirmTargetCleanupRequest { return value as ConfirmTargetCleanupRequest; }
       export function decodeCollabAuthorityTransferOperationRequest(operation: string, value: unknown) {
         switch (operation) {
-          case 'existing': return decodeExisting(value);
           case 'confirmTargetCleanup': return decodeConfirmTargetCleanup(value);
+          case 'existing': return decodeExisting(value);
         }
       }
     `,

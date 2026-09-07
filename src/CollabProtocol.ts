@@ -105,6 +105,15 @@ export interface GetTicketRequest {
   ticketId: CollabTicketId;
 }
 
+export interface ResolveTicketNumberRequest {
+  projectId: CollabProjectId;
+  ticketNumber: number;
+}
+
+export interface ResolveTicketNumberResponse {
+  ticketId: CollabTicketId | null;
+}
+
 export interface CreateTicketRequest extends CollabMutationContext {
   title: string;
   body: string;
@@ -186,6 +195,10 @@ export interface CollabControlOperationMap
   createComment: CollabControlOperationDefinition<CreateCommentRequest, CreateCommentResponse>;
   listTickets: CollabControlOperationDefinition<ListTicketsRequest, CollabTicketPage>;
   getTicket: CollabControlOperationDefinition<GetTicketRequest, CollabTicketDetail>;
+  resolveTicketNumber: CollabControlOperationDefinition<
+    ResolveTicketNumberRequest,
+    ResolveTicketNumberResponse
+  >;
   listTicketComments: CollabControlOperationDefinition<
     ListTicketCommentsRequest,
     CollabTicketCommentPage

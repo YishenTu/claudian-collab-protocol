@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "7a04404b97d56b7de98e886cd07f5766e6e6246cddad35130d892f99a5941153",
-  "candidateSnapshotSha256": "a4b9d0fe56bef6eac957dd6e1824596f7b681d140add2417bfeb29278092ceae",
-  "reason": "Public parser fixtures correct supplementary Unicode letter and number adjacency while preserving emoji and Markdown boundaries. Backup identity indexes preserve exact secret, replay, terminal Member and redeemed-override conflicts; accepted 64k membership, 32k terminal history and 8k redeemed-override capacity fixtures remove repeated history scans. Closing-directive literal fixtures and 11520 public-entry-point comparisons preserve reference grammar and offsets. Both checkpoint encoders retain decoder admission and exact canonical newline-terminated bytes. Public declarations, exports, wire v9 and Cloud binding v5 are unchanged."
+  "baseSnapshotSha256": "a4b9d0fe56bef6eac957dd6e1824596f7b681d140add2417bfeb29278092ceae",
+  "candidateSnapshotSha256": "2bcccfd0fd8f26182ae7e8ce4a472a81d7a37017d990dea535dbbb5429b7301e",
+  "reviewKind": "versioned-operation-addition",
+  "addedOperations": [
+    "resolveTicketNumber"
+  ],
+  "reason": "ResolveTicketNumber public fixtures enforce an exact Project identifier and a positive safe Ticket number request, and an opaque Ticket ID or null response. Existing operation fixtures retain their meanings under wire10 and Cloud binding6. Source-proof and CLI regeneration regressions preserve existing declarations, import identities, global bindings, reasons and the entire existing dispatch sequence; new canonical return cases are only a leading prefix. Unrelated changes, binding capture, fallthrough insertion, reordered cases, default relocation, nested switches and stale reviews are rejected."
 }

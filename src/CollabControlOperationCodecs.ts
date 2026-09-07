@@ -27,6 +27,7 @@ import {
   decodeCreateTicketResponse,
   decodeEnsureMyRequestResponse,
   decodeRequestDetailResponse,
+  decodeResolveTicketNumberResponse,
   decodeTicketAcceptedRelationPageResponse,
   decodeTicketCommentPageResponse,
   decodeTicketCommentResponse,
@@ -105,6 +106,7 @@ function decodeResponse(operation: CollabControlOperation, input: unknown): unkn
     );
   }
   switch (operation) {
+    case 'resolveTicketNumber': return decodeResolveTicketNumberResponse(input);
     case 'getRequest': return decodeRequestDetailResponse(input);
     case 'listRequestComments': return decodeCommentPageResponse(input);
     case 'ensureMyRequest': return decodeEnsureMyRequestResponse(input);
@@ -143,6 +145,7 @@ export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
   createComment: codec('createComment'),
   listTickets: codec('listTickets'),
   getTicket: codec('getTicket'),
+  resolveTicketNumber: codec('resolveTicketNumber'),
   listTicketComments: codec('listTicketComments'),
   listTicketAcceptedRelations: codec('listTicketAcceptedRelations'),
   createTicket: codec('createTicket'),

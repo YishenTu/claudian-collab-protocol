@@ -94,10 +94,10 @@ const path = require('node:path');
 const protocol = require('@claudian-collab/protocol');
 const packageVersion = ${JSON.stringify(installedManifest.version)};
 
-assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 9);
-assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 5);
+assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 10);
+assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 6);
 assert.notEqual(packageVersion, String(protocol.COLLAB_PROTOCOL_VERSION));
-assert.equal(packageVersion, '4.2.1');
+assert.equal(packageVersion, '4.3.0');
 assert.equal(
   require.resolve('@claudian-collab/protocol'),
   path.join(__dirname, 'node_modules', '@claudian-collab', 'protocol', 'dist', 'index.js'),
@@ -115,6 +115,12 @@ const valid = codec.decodeRequest({
 });
 assert.equal(valid.status, 'ok');
 assert.equal(codec.decodeRequest({ projectId: 42 }).status, 'invalid');
+const numberLookup = protocol.collabControlOperationCodec('resolveTicketNumber');
+assert.deepEqual(numberLookup.decodeRequest({ projectId: 'project_1', ticketNumber: 17 }), {
+  status: 'ok', value: { projectId: 'project_1', ticketNumber: 17 },
+});
+assert.deepEqual(numberLookup.decodeResponse({ ticketId: null }), { ticketId: null });
+assert.equal(numberLookup.decodeRequest({ projectId: 'project_1', ticketNumber: 0 }).status, 'invalid');
 // Additive-tolerant request decoders accept unknown fields (accepted
 // compatibility behavior for these operations).
 assert.equal(
@@ -182,7 +188,7 @@ const esmOutput = run(process.execPath, [
   "import { COLLAB_CLOUD_BINDING_VERSION, COLLAB_PROTOCOL_VERSION, collabMemberRef, parseCollabTicketReferences } from '@claudian-collab/protocol';"
     + " const resolved = import.meta.resolve('@claudian-collab/protocol');"
     + " const references = parseCollabTicketReferences('Resolves #3');"
-    + " if (!resolved.endsWith('/dist/esm/index.mjs') || COLLAB_PROTOCOL_VERSION !== 9 || COLLAB_CLOUD_BINDING_VERSION !== 5 || collabMemberRef('member_1') !== 'refs/heads/members/member_1' || references.status !== 'ok' || references.references[0]?.ticketNumber !== 3) process.exit(1);"
+    + " if (!resolved.endsWith('/dist/esm/index.mjs') || COLLAB_PROTOCOL_VERSION !== 10 || COLLAB_CLOUD_BINDING_VERSION !== 6 || collabMemberRef('member_1') !== 'refs/heads/members/member_1' || references.status !== 'ok' || references.references[0]?.ticketNumber !== 3) process.exit(1);"
     + " console.log('esm import OK');",
 ], { cwd: consumerRoot });
 console.log(esmOutput);

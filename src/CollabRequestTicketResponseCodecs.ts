@@ -6,6 +6,7 @@ import {
   type CreateTicketCommentResponse,
   type CreateTicketResponse,
   type EnsureMyRequestResponse,
+  type ResolveTicketNumberResponse,
   type TicketMutationResponse,
   type UpdateMyRequestMetadataResponse,
 } from './CollabProtocol';
@@ -472,6 +473,16 @@ export function decodeTicketPageResponse(value: unknown): CollabTicketPage {
   return {
     ...(nextCursor ? { nextCursor } : {}),
     tickets: data.tickets.map(ticketSummary),
+  };
+}
+
+export function decodeResolveTicketNumberResponse(value: unknown): ResolveTicketNumberResponse {
+  const data = record(envelopeData(value), 'data');
+  if (!Object.hasOwn(data, 'ticketId') || Object.keys(data).length !== 1) {
+    throw decodeError('ticketNumberResolution');
+  }
+  return {
+    ticketId: data.ticketId === null ? null : string(data, 'ticketId', 128, isCollabOpaqueId),
   };
 }
 

@@ -7,7 +7,7 @@ import {
 
 describe('CollabConstants', () => {
   it('freezes the wire protocol version', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(9);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(10);
   });
 
   it('defines the protected and personal ref semantics', () => {

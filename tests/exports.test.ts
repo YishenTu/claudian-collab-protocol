@@ -7,6 +7,7 @@ const EXPECTED_OPERATIONS = [
   'createComment',
   'listTickets',
   'getTicket',
+  'resolveTicketNumber',
   'listTicketComments',
   'listTicketAcceptedRelations',
   'createTicket',

@@ -26,7 +26,7 @@ const PROJECT_ID = 'project_1';
 
 function capabilityDocument(overrides: Record<string, unknown> = {}) {
   return {
-    bindingVersions: [5],
+    bindingVersions: [6],
     capabilities: [...COLLAB_CLOUD_CAPABILITIES],
     limits: {
       maxCheckpointCoordinationBytes: 256 * 1024 * 1024,
@@ -41,15 +41,15 @@ function capabilityDocument(overrides: Record<string, unknown> = {}) {
       maxJsonPayloadUtf8Bytes: 512 * 1024,
       maxRepositoryBytes: 1024 * 1024 * 1024,
     },
-    protocolVersions: [9],
+    protocolVersions: [10],
     schemaVersion: 2,
     ...overrides,
   };
 }
 
-describe('Cloud binding v5', () => {
-  it('admits only binding 4 with wire 8', () => {
-    const current = capabilityDocument({ bindingVersions: [5], protocolVersions: [9] });
+describe('Cloud binding v6', () => {
+  it('admits only binding 6 with wire 10', () => {
+    const current = capabilityDocument({ bindingVersions: [6], protocolVersions: [10] });
     expect(decodeCollabCloudCapabilityDocument(current)).toEqual(current);
     expect(() => decodeCollabCloudCapabilityDocument({ ...current, bindingVersions: [3] }))
       .toThrow('collab.error.protocol-version-unsupported');
@@ -70,10 +70,10 @@ describe('Cloud binding v5', () => {
   });
 
   it('keeps package, canonical wire, Cloud binding, and LAN binding independent', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(9);
-    expect(COLLAB_CLOUD_BINDING_VERSION).toBe(5);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(10);
+    expect(COLLAB_CLOUD_BINDING_VERSION).toBe(6);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
-    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(52);
+    expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(53);
     expect(COLLAB_CLOUD_JSON_OPERATIONS).toEqual([
       'getProjectSnapshot',
       ...Object.keys(COLLAB_CONTROL_OPERATION_CODECS),
@@ -98,17 +98,17 @@ describe('Cloud binding v5', () => {
 
     expect(routes.map(route => `${route.method} ${route.target}`)).toEqual([
       'GET /collab/capabilities',
-      'POST /v5/projects/project_1/operations/getProjectSnapshot',
-      'GET /v5/projects/project_1/events?afterSequence=42',
-      'GET /v5/projects/project_1/repository.git/info/refs?service=git-upload-pack',
-      'POST /v5/projects/project_1/repository.git/git-upload-pack',
-      'POST /v5/projects/project_1/repository.git/git-receive-pack',
-      'POST /v5/development/bootstrap/attempts',
-      'POST /v5/development/bootstrap/attempts/attempt_1/reports',
-      'GET /v5/development/bootstrap/attempts/attempt_1',
-      'POST /v5/development/bootstrap/attempts/attempt_1/activate',
-      'POST /v5/development/bootstrap/attempts/attempt_1/cancel',
-      'PUT /v5/development/bootstrap/attempts/attempt_1/git-bundle',
+      'POST /v6/projects/project_1/operations/getProjectSnapshot',
+      'GET /v6/projects/project_1/events?afterSequence=42',
+      'GET /v6/projects/project_1/repository.git/info/refs?service=git-upload-pack',
+      'POST /v6/projects/project_1/repository.git/git-upload-pack',
+      'POST /v6/projects/project_1/repository.git/git-receive-pack',
+      'POST /v6/development/bootstrap/attempts',
+      'POST /v6/development/bootstrap/attempts/attempt_1/reports',
+      'GET /v6/development/bootstrap/attempts/attempt_1',
+      'POST /v6/development/bootstrap/attempts/attempt_1/activate',
+      'POST /v6/development/bootstrap/attempts/attempt_1/cancel',
+      'PUT /v6/development/bootstrap/attempts/attempt_1/git-bundle',
     ]);
     for (const route of routes) {
       expect(matchCollabCloudRoute(route.method, route.target)).toEqual(route.match);
@@ -118,23 +118,23 @@ describe('Cloud binding v5', () => {
   it('rejects unknown operations, non-canonical targets, and malformed identifiers', () => {
     expect(matchCollabCloudRoute(
       'POST',
-      '/v5/projects/project_1/operations/futureOperation',
+      '/v6/projects/project_1/operations/futureOperation',
     )).toBeNull();
     expect(matchCollabCloudRoute(
       'GET',
-      '/v5/projects/project_1/events?afterSequence=1&afterSequence=2',
+      '/v6/projects/project_1/events?afterSequence=1&afterSequence=2',
     )).toBeNull();
     expect(matchCollabCloudRoute(
       'GET',
-      '/v5/projects/project_1/repository.git/info/refs?service=git-archive',
+      '/v6/projects/project_1/repository.git/info/refs?service=git-archive',
     )).toBeNull();
     expect(matchCollabCloudRoute(
       'POST',
-      '/v5//projects/project_1/operations/getProjectSnapshot',
+      '/v6//projects/project_1/operations/getProjectSnapshot',
     )).toBeNull();
     expect(matchCollabCloudRoute(
       'POST',
-      '/v5/projects/project_1/operations/getProjectSnapshot/',
+      '/v6/projects/project_1/operations/getProjectSnapshot/',
     )).toBeNull();
     expect(matchCollabCloudRoute('GET', '/collab/capabilities?')).toBeNull();
     expect(() => collabCloudProjectOperationRoute('../escape', 'getProjectSnapshot'))
@@ -164,9 +164,9 @@ describe('Cloud binding v5', () => {
     capabilityDocument({ futureField: true }),
     capabilityDocument({ schemaVersion: 3 }),
     capabilityDocument({ bindingVersions: [1] }),
-    capabilityDocument({ bindingVersions: [4, 5] }),
+    capabilityDocument({ bindingVersions: [5, 6] }),
     capabilityDocument({ protocolVersions: [7] }),
-    capabilityDocument({ protocolVersions: [8, 9] }),
+    capabilityDocument({ protocolVersions: [9, 10] }),
     capabilityDocument({ capabilities: ['tickets', 'accept'] }),
     capabilityDocument({ capabilities: ['accept', 'accept'] }),
     capabilityDocument({ limits: { maxJsonPayloadUtf8Bytes: 512 * 1024 } }),

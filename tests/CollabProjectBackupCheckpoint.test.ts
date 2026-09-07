@@ -1117,75 +1117,106 @@ describe('Project backup checkpoint format v3', () => {
     )).toThrow('collab.error.protocol-payload-invalid');
   });
 
-  it('rejects a compacted tombstone that coexists with its exact response or offer', () => {
-    const transitionValue = {
-      createdAt: NOW,
-      idempotencyKey: 'decline_key',
-      memberId: 'member_2',
-      operation: 'declineManagerResponsibility' as const,
-      projectId: 'project_1',
-      requestFingerprint: SHA256,
-      responseJson: JSON.stringify({
-        offer: {
-          acknowledgedAt: null,
-          expiresAt: MEMBERSHIP_DAY_EXPIRES,
-          managerSetGenerationAtOffer: 1,
-          offeredAt: NOW,
-          offerId: 'offer_1',
-          purpose: 'manager-promotion',
-          revision: 2,
-          sourceManagerMemberId: 'member_1',
-          state: 'declined',
-          targetMemberId: 'member_2',
-          targetMembershipRevisionAtOffer: 1,
-          terminalAt: NOW,
-        },
-      }),
-    };
-    const exactResponse = {
-      kind: 'idempotency-result',
-      recordId: collabProjectBackupIdempotencyRecordId(transitionValue),
-      revision: 1,
-      value: transitionValue,
-    };
-    const transitionTombstone = {
-      kind: 'membership-idempotency-tombstone',
-      recordId: 'declineManagerResponsibility:member_2:decline_key',
-      revision: 1,
-      value: {
-        actorMemberId: 'member_2',
-        compactedAt: NOW,
+  it.each([SHA256, BATCH_SHA256])(
+    'rejects compacted tombstone conflicts even when its fingerprint differs: %s',
+    requestFingerprint => {
+      const transitionValue = {
+        createdAt: NOW,
         idempotencyKey: 'decline_key',
-        operation: 'declineManagerResponsibility',
+        memberId: 'member_2',
+        operation: 'declineManagerResponsibility' as const,
         projectId: 'project_1',
         requestFingerprint: SHA256,
-      },
-    };
-    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
-      canonicalRecords([exactResponse, transitionTombstone])
-        .map(record => JSON.stringify(record)).join('\n') + '\n',
-    )).toThrow('collab.error.protocol-payload-invalid');
+        responseJson: JSON.stringify({
+          offer: {
+            acknowledgedAt: null,
+            expiresAt: MEMBERSHIP_DAY_EXPIRES,
+            managerSetGenerationAtOffer: 1,
+            offeredAt: NOW,
+            offerId: 'offer_1',
+            purpose: 'manager-promotion',
+            revision: 2,
+            sourceManagerMemberId: 'member_1',
+            state: 'declined',
+            targetMemberId: 'member_2',
+            targetMembershipRevisionAtOffer: 1,
+            terminalAt: NOW,
+          },
+        }),
+      };
+      const exactResponse = {
+        kind: 'idempotency-result',
+        recordId: collabProjectBackupIdempotencyRecordId(transitionValue),
+        revision: 1,
+        value: transitionValue,
+      };
+      const transitionTombstone = {
+        kind: 'membership-idempotency-tombstone',
+        recordId: 'declineManagerResponsibility:member_2:decline_key',
+        revision: 1,
+        value: {
+          actorMemberId: 'member_2',
+          compactedAt: NOW,
+          idempotencyKey: 'decline_key',
+          operation: 'declineManagerResponsibility',
+          projectId: 'project_1',
+          requestFingerprint,
+        },
+      };
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        canonicalRecords([exactResponse, transitionTombstone])
+          .map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
 
+      const liveOffer = membershipV3Records().find(record => (
+        record.kind === 'manager-responsibility-offer'
+      )) as Record<string, any>;
+      const createTombstone = {
+        kind: 'membership-idempotency-tombstone',
+        recordId: 'createManagerResponsibilityOffer:member_1:offer_key',
+        revision: 1,
+        value: {
+          actorMemberId: 'member_1',
+          compactedAt: NOW,
+          idempotencyKey: 'offer_key',
+          operation: 'createManagerResponsibilityOffer',
+          projectId: 'project_1',
+          requestFingerprint,
+        },
+      };
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        canonicalRecords([liveOffer, createTombstone])
+          .map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    },
+  );
+
+  it.each([
+    ['createManagerResponsibilityOffer', 'member_2', 'offer_key'],
+    ['createManagerResponsibilityOffer', 'member_1', 'other_key'],
+    ['promoteManager', 'member_1', 'offer_key'],
+  ])('keeps distinct compacted identities separate: %s/%s/%s', (
+    operation, actorMemberId, idempotencyKey,
+  ) => {
     const liveOffer = membershipV3Records().find(record => (
       record.kind === 'manager-responsibility-offer'
     )) as Record<string, any>;
-    const createTombstone = {
+    const records = canonicalRecords([liveOffer, {
       kind: 'membership-idempotency-tombstone',
-      recordId: 'createManagerResponsibilityOffer:member_1:offer_key',
+      recordId: `${operation}:${actorMemberId}:${idempotencyKey}`,
       revision: 1,
       value: {
-        actorMemberId: 'member_1',
+        actorMemberId,
         compactedAt: NOW,
-        idempotencyKey: 'offer_key',
-        operation: 'createManagerResponsibilityOffer',
+        idempotencyKey,
+        operation,
         projectId: 'project_1',
         requestFingerprint: SHA256,
       },
-    };
-    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
-      canonicalRecords([liveOffer, createTombstone])
-        .map(record => JSON.stringify(record)).join('\n') + '\n',
-    )).toThrow('collab.error.protocol-payload-invalid');
+    }]);
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      records.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(records);
   });
 
   it('decodes and canonically encodes an exact backup v3 manifest', () => {
@@ -1358,6 +1389,43 @@ describe('Project backup checkpoint format v3', () => {
     const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
     expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
 
+  });
+
+  it.each([
+    ['claim digest', 'transfer_1:member_2:1', { claimSha256: 'f'.repeat(64) }],
+    ['receipt identity', 'transfer_1:member_2:1', { redemptionReceiptId: 'different_receipt' }],
+    ['Member identity', 'transfer_1:member_1:1', { memberId: 'member_1' }],
+    ['transfer identity', 'different_transfer:member_2:1', { transferId: 'different_transfer' }],
+    ['unredeemed state', 'transfer_1:member_2:1', {
+      redemptionReceiptId: null,
+      state: 'active',
+      targetPrincipalId: null,
+    }],
+  ])('rejects redeemed override continuity with a different %s', (
+    _label, recordId, changedFields,
+  ) => {
+    const records = canonicalRecords([
+      ...activeImportedClaimContinuityRecords(),
+      ...membershipV3Records().map(record => (
+        record.kind === 'transferred-membership-claim-override'
+          ? {
+              ...record,
+              recordId,
+              value: {
+                ...record.value,
+                redemptionReceiptId: 'override_redemption_1',
+                state: 'redeemed',
+                targetPrincipalId: 'principal_2',
+                ...(changedFields as Record<string, unknown>),
+              },
+            }
+          : record
+      )),
+      overrideRedemptionReceipt(),
+    ]);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      records.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
   });
 
   it('rejects membership records whose fixed lifetimes drift', () => {
@@ -2076,6 +2144,49 @@ describe('Project backup checkpoint format v3', () => {
     }
   });
 
+  it('keeps terminal eligibility and acknowledgement identities exact across Members', () => {
+    const source = acknowledgedCloudToLanContinuityRecords().map(record => {
+      if (record.kind === 'terminal-responder') {
+        return {
+          ...record,
+          value: {
+            ...record.value,
+            acknowledgements: [{
+              acknowledgedAt: ACKNOWLEDGED,
+              memberId: 'member_1',
+              principalId: 'principal_1',
+            }, ...record.value.acknowledgements],
+          },
+        };
+      }
+      if (record.kind === 'terminal-principal' && record.value.memberId === 'member_1') {
+        return { ...record, value: { ...record.value, acknowledgedAt: ACKNOWLEDGED } };
+      }
+      return record;
+    });
+    const records = canonicalRecords(source);
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      records.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(records);
+
+    const ineligible = canonicalRecords([...source, {
+      kind: 'terminal-principal',
+      recordId: 'transfer_1:member_3',
+      revision: 1,
+      value: {
+        acknowledgedAt: null,
+        memberId: 'member_3',
+        operationId: 'transfer_1',
+        operationKind: 'authority-transfer',
+        principalId: 'principal_3',
+        projectId: 'project_1',
+      },
+    }]);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      ineligible.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
   it('models direction-owned claim custody before and after acknowledgement', () => {
     for (const source of [
       continuityRecords(),
@@ -2625,6 +2736,20 @@ describe('Project backup checkpoint format v3', () => {
         records.map(record => JSON.stringify(record)).join('\n') + '\n',
       )).toThrow('collab.error.protocol-payload-invalid');
     }
+  });
+
+  it('the backup encoder preserves admitted bytes and rejects noncanonical record order', () => {
+    const records = canonicalRecords(continuityRecords());
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    const decoded = decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded);
+    expect(encodeCollabProjectBackupCheckpointCoordinationNdjson(decoded)).toBe(encoded);
+    const [first, ...remaining] = decoded;
+    expect(() => encodeCollabProjectBackupCheckpointCoordinationNdjson([{
+      recordId: first.recordId,
+      kind: first.kind,
+      revision: first.revision,
+      value: first.value,
+    } as typeof first, ...remaining])).toThrow('collab.error.protocol-payload-invalid');
   });
 
   it('requires canonical key order after semantic decoding', () => {

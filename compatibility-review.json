@@ -1,11 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "a0c7936220ba82cec9ce2694313ddf636815e270f9e6433926050d009b71f9ed",
-  "candidateSnapshotSha256": "7a04404b97d56b7de98e886cd07f5766e6e6246cddad35130d892f99a5941153",
-  "reviewKind": "optional-contract-addition",
-  "implementationDeclarations": [
-    "collabCloudErrorEnvelope",
-    "decodeCollabCloudErrorEnvelope"
-  ],
-  "reason": "CloudBindingV5 fixtures preserve omitted outcome envelopes and existing two-argument encoding; optional rejected outcome round-trips with strict malformed and inherited-property rejection. Existing fields, errors and operation semantics are unchanged. Wire 9 and binding 5 require exact-version negotiation and route-prefix migration."
+  "baseSnapshotSha256": "7a04404b97d56b7de98e886cd07f5766e6e6246cddad35130d892f99a5941153",
+  "candidateSnapshotSha256": "a4b9d0fe56bef6eac957dd6e1824596f7b681d140add2417bfeb29278092ceae",
+  "reason": "Public parser fixtures correct supplementary Unicode letter and number adjacency while preserving emoji and Markdown boundaries. Backup identity indexes preserve exact secret, replay, terminal Member and redeemed-override conflicts; accepted 64k membership, 32k terminal history and 8k redeemed-override capacity fixtures remove repeated history scans. Closing-directive literal fixtures and 11520 public-entry-point comparisons preserve reference grammar and offsets. Both checkpoint encoders retain decoder admission and exact canonical newline-terminated bytes. Public declarations, exports, wire v9 and Cloud binding v5 are unchanged."
 }

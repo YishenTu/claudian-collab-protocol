@@ -189,6 +189,25 @@ Resolves
     });
   });
 
+  it.each([
+    ['ClOsEs : \t #17', 'resolves'],
+    ['closed\t:\t#17', 'resolves'],
+    ['resolve:\t #17', 'resolves'],
+    ['resolve:: #17', 'references'],
+    ['discloses #17', 'references'],
+    ['aresolve #17', 'references'],
+    ['λresolve #17', 'resolves'],
+    ['1resolve #17', 'resolves'],
+    ['resolve \n#17', 'references'],
+    ['resolve : \n#17', 'references'],
+    [`resolve${' '.repeat(8192)}: \t#17`, 'resolves'],
+  ])('preserves immediate closing-keyword grammar: %s', (description, kind) => {
+    expect(parseCollabTicketReferences(description)).toEqual({
+      status: 'ok',
+      references: [{ ticketNumber: 17, kind }],
+    });
+  });
+
   it('rejects an out-of-range Ticket number without echoing input', () => {
     expect(parseCollabTicketReferences(`Resolves #${Number.MAX_SAFE_INTEGER}0`))
       .toEqual({

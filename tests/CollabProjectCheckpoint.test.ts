@@ -587,6 +587,23 @@ describe('Project checkpoint contract', () => {
       .toBe(ndjson);
   });
 
+  it.each(['authority-transfer', 'export'] as const)(
+    'the %s encoder preserves admitted bytes and rejects noncanonical record order',
+    profile => {
+      const records = portableRecords();
+      const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+      const decoded = decodeCollabProjectCheckpointCoordinationNdjson(encoded, profile);
+      expect(encodeCollabProjectCheckpointCoordinationNdjson(decoded, profile)).toBe(encoded);
+      const [first, ...remaining] = decoded;
+      expect(() => encodeCollabProjectCheckpointCoordinationNdjson([{
+        recordId: first.recordId,
+        kind: first.kind,
+        revision: first.revision,
+        value: first.value,
+      } as typeof first, ...remaining], profile)).toThrow('collab.error.protocol-payload-invalid');
+    },
+  );
+
   it('preserves the valid zero Manager-set generation and rejects impossible history', () => {
     type MutableTestRecord = {
       kind: string;

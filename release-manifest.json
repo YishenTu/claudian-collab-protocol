@@ -82,7 +82,7 @@
       },
       {
         "path": "dist/CollabMemberMentionParser.js",
-        "size": 2042
+        "size": 2162
       },
       {
         "path": "dist/CollabProjectBackupCheckpoint.d.ts",
@@ -90,7 +90,7 @@
       },
       {
         "path": "dist/CollabProjectBackupCheckpoint.js",
-        "size": 105633
+        "size": 105334
       },
       {
         "path": "dist/CollabProjectCheckpoint.d.ts",
@@ -98,7 +98,7 @@
       },
       {
         "path": "dist/CollabProjectCheckpoint.js",
-        "size": 58657
+        "size": 58662
       },
       {
         "path": "dist/CollabProjectMembership.d.ts",
@@ -146,7 +146,7 @@
       },
       {
         "path": "dist/CollabTicketReferenceParser.js",
-        "size": 2522
+        "size": 2998
       },
       {
         "path": "dist/CollabValidation.d.ts",
@@ -198,15 +198,15 @@
       },
       {
         "path": "dist/esm/CollabMemberMentionParser.mjs",
-        "size": 1887
+        "size": 2007
       },
       {
         "path": "dist/esm/CollabProjectBackupCheckpoint.mjs",
-        "size": 103516
+        "size": 103217
       },
       {
         "path": "dist/esm/CollabProjectCheckpoint.mjs",
-        "size": 56085
+        "size": 56090
       },
       {
         "path": "dist/esm/CollabProjectMembership.mjs",
@@ -230,7 +230,7 @@
       },
       {
         "path": "dist/esm/CollabTicketReferenceParser.mjs",
-        "size": 2286
+        "size": 2762
       },
       {
         "path": "dist/esm/CollabValidation.mjs",
@@ -277,11 +277,11 @@
         "size": 10654
       }
     ],
-    "integrity": "sha512-fo8/Wsootyp7qKEM4fBq7W/cfY1T6gEF+/jHGNJyuD0yESfGMa6MCe0MX+Xy5/sFeILmVHAuN04n4xTLPfPMpQ==",
-    "sha256": "e13d2fa8db4951abf43346526c3e0de416973e66f8f5159c12acb9a2cdebd273",
-    "shasum": "48e7970b9459efde5ce6bbf3ed2455caaa1ee19a",
-    "size": 133968,
-    "unpackedSize": 888654
+    "integrity": "sha512-Dc++6YEfq73adY2gFltDqwtj9rDS8C6ihnth5R61q4Zb0hOBR41RIWPWIQ0gxUAZsqgTUq/M1fePG5AnWQwnwA==",
+    "sha256": "fa1e67354e9bb1572000fb85c518986ce0ff51bb5ab1468ba3e98be9a84557cc",
+    "shasum": "de83bf0d2dec65f44bc9c8934249611899e9fcdb",
+    "size": 134332,
+    "unpackedSize": 889258
   },
   "toolchain": {
     "node": "24.16.0",

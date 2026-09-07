@@ -11,6 +11,24 @@ describe('parseCollabMemberMentions', () => {
     )).toEqual(['member-a', 'member-b']);
   });
 
+  it.each([
+    '𐐀@Alice',
+    '@Alice𐐀',
+    '𝟙@Alice',
+    '@Alice𝟙',
+    '𠮷@Alice',
+    '@Alice𠮷',
+  ])('rejects supplementary Unicode letter and number adjacency: %s', markdown => {
+    expect(mentions(markdown, 'Alice')).toEqual([]);
+  });
+
+  it.each(['😀@Alice😀', 'a @Alice a', '@Alice', '\n@Alice\n'])(
+    'preserves punctuation, whitespace and input boundaries: %s',
+    markdown => {
+      expect(mentions(markdown, 'Alice')).toEqual(['Alice']);
+    },
+  );
+
   it('prefers the longest exact active name and skips ambiguous names', () => {
     expect(parseCollabMemberMentions(
       'Ask @Alice Chen, @Alice, @Alex Kim, and @Bob.',

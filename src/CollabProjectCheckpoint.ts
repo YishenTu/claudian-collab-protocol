@@ -1424,10 +1424,11 @@ function terminalResponderRecord(
         : token(acknowledgement, 'principalId'),
     };
   });
+  const eligibleMemberIdSet = new Set(eligibleMemberIds);
   const acknowledgementPrincipals = new Set<unknown>();
   acknowledgements.forEach((item, index) => {
     if (
-      !eligibleMemberIds.includes(item.memberId)
+      !eligibleMemberIdSet.has(item.memberId)
       || (index > 0 && acknowledgements[index - 1].memberId.localeCompare(
         item.memberId,
         'en-US',
@@ -1912,8 +1913,8 @@ export function encodeCollabProjectCheckpointCoordinationNdjson(
   profile: CollabCheckpointProfile,
 ): string {
   const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
-  return decodeCollabProjectCheckpointCoordinationNdjson(encoded, profile)
-    .map(record => JSON.stringify(record)).join('\n') + '\n';
+  decodeCollabProjectCheckpointCoordinationNdjson(encoded, profile);
+  return encoded;
 }
 
 function checkpointRecordGitOids(

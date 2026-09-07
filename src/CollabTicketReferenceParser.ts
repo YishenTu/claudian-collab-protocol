@@ -37,15 +37,30 @@ export type CollabTicketReferenceScanResult =
   };
 
 const CLOSING_KEYWORD_PATTERN =
-  /(?:^|[^A-Za-z])(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[ \t]*:?[ \t]*$/i;
+  /^(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)$/i;
 const TICKET_REFERENCE_PATTERN = /(^|[^#0-9A-Za-z_])#([1-9][0-9]*)(?![#0-9A-Za-z_])/gm;
 
 function relationKindBefore(
   maskedDescription: string,
   referenceOffset: number,
 ): CollabTicketCommitRelationKind {
-  const prefix = maskedDescription.slice(0, referenceOffset);
-  return CLOSING_KEYWORD_PATTERN.test(prefix) ? 'resolves' : 'references';
+  let wordEnd = referenceOffset;
+  while (maskedDescription[wordEnd - 1] === ' ' || maskedDescription[wordEnd - 1] === '\t') {
+    wordEnd -= 1;
+  }
+  if (maskedDescription[wordEnd - 1] === ':') {
+    wordEnd -= 1;
+    while (maskedDescription[wordEnd - 1] === ' ' || maskedDescription[wordEnd - 1] === '\t') {
+      wordEnd -= 1;
+    }
+  }
+  let wordStart = wordEnd;
+  while (wordStart > 0 && /[A-Za-z]/.test(maskedDescription[wordStart - 1])) {
+    wordStart -= 1;
+  }
+  return CLOSING_KEYWORD_PATTERN.test(maskedDescription.slice(wordStart, wordEnd))
+    ? 'resolves'
+    : 'references';
 }
 
 export function parseCollabTicketReferences(

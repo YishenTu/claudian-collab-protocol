@@ -2618,15 +2618,15 @@
       },
       {
         "path": "src/CollabMemberMentionParser.ts",
-        "sha256": "fa6226e51e513e1121716bc87f7d2da66c5584e926aa8ee6e53f52515d4c5ba1"
+        "sha256": "675de4ff46e3bab2356ced86fd46c175612fd55d7f12206d23a196852ce9ea62"
       },
       {
         "path": "src/CollabProjectBackupCheckpoint.ts",
-        "sha256": "7bee26d3e4104c7633c5f3148e11687141ebdffd1281ff28b857399465878c61"
+        "sha256": "e4c75fe1763030d023aedd74db722b6abc4bc3719a45a8a0e9337c70eb0a3b73"
       },
       {
         "path": "src/CollabProjectCheckpoint.ts",
-        "sha256": "a26bbe6b5268414fbbb5f5664422a351ffd4b6161a6095f04d845bd43ac1ddbc"
+        "sha256": "38b4ef1c6624f3924d565745c9b75d0cd3d2e3cb3d6264d8f8a4d1a0a7dea380"
       },
       {
         "path": "src/CollabProjectMembership.ts",
@@ -2650,7 +2650,7 @@
       },
       {
         "path": "src/CollabTicketReferenceParser.ts",
-        "sha256": "a30c52823e7d1940431de336b308d2d9c24b9142d87bb285081514447c037959"
+        "sha256": "6394b11c02112352bd05ae09446d19208b139e3a571ff5b4bff2867ed482247a"
       },
       {
         "path": "src/CollabValidation.ts",
@@ -4087,7 +4087,7 @@
         },
         {
           "path": "src/CollabProjectCheckpoint.ts",
-          "sha256": "a26bbe6b5268414fbbb5f5664422a351ffd4b6161a6095f04d845bd43ac1ddbc"
+          "sha256": "38b4ef1c6624f3924d565745c9b75d0cd3d2e3cb3d6264d8f8a4d1a0a7dea380"
         },
         {
           "path": "src/CollabProjectMembership.ts",

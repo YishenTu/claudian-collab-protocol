@@ -2002,6 +2002,13 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       item.kind === 'terminal-responder'
     ))
     .map(item => [item.value.operationId, item]));
+  const terminalMembers = new Map([...terminalResponders].map(([operationId, terminal]) => [
+    operationId,
+    {
+      acknowledgements: new Map(terminal.value.acknowledgements.map(item => [item.memberId, item])),
+      eligibleMemberIds: new Set(terminal.value.eligibleMemberIds),
+    },
+  ]));
   const terminalPrincipals = new Map(records
     .filter((item): item is CollabProjectBackupTerminalPrincipalRecord => (
       item.kind === 'terminal-principal'
@@ -2032,6 +2039,11 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       item.kind === 'transferred-membership-claim-override'
     ),
   );
+  const redeemedOverrideIdentities = new Set(claimOverrides
+    .filter(item => item.value.state === 'redeemed')
+    .map(item => (
+      `${item.value.transferId}:${item.value.memberId}:${item.value.claimSha256}:${item.value.redemptionReceiptId}`
+    )));
   const claimOverrideEnvelopes = new Map(records
     .filter((item): item is CollabProjectBackupProtectedClaimOverrideEnvelopeRecord => (
       item.kind === 'protected-claim-override-envelope'
@@ -2060,6 +2072,35 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       item.kind === 'secret-replay-tombstone'
     ),
   );
+
+  const secretTombstonesByIdentity = new Map(secretReplayTombstones.map(item => [
+    `${item.recordId}:${item.value.requestFingerprint}`,
+    item,
+  ]));
+  const liveSecretIdentities = new Set<string>();
+  for (const invitation of invitations.values()) {
+    if (invitationEnvelopes.has(invitation.value.invitationId)) {
+      liveSecretIdentities.add(
+        `createProjectInvitation:${invitation.value.issuedByMemberId}:${invitation.value.idempotencyKey}`,
+      );
+    }
+  }
+  for (const override of claimOverrides) {
+    if (claimOverrideEnvelopes.has(override.recordId)) {
+      liveSecretIdentities.add(
+        `reissueTransferredMembershipClaim:${override.value.managerMemberId}:${override.value.idempotencyKey}`,
+      );
+    }
+  }
+  const liveIdempotencyIdentities = new Set(records
+    .filter(item => item.kind === 'idempotency-result')
+    .map(item => `${item.value.operation}:${item.value.memberId}:${item.value.idempotencyKey}`));
+  for (const offer of managerOffers) {
+    liveIdempotencyIdentities.add(
+      `createManagerResponsibilityOffer:${offer.value.sourceManagerMemberId}:${offer.value.idempotencyKey}`,
+    );
+  }
+  const claimOverrideRecordIds = new Set(claimOverrides.map(item => item.recordId));
 
   const nonterminalLifecycles = [...lifecycles.values()].filter(item => (
     item.value.state === 'active' || item.value.state === 'recovery-required'
@@ -2367,15 +2408,10 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     const redemptionReceipt = redemptionReceipts.get(
       `${claim.value.transferId}:${claim.value.memberId}`,
     );
-    const redeemedOverride = redemptionReceipt === undefined
-      ? undefined
-      : claimOverrides.find(item => (
-        item.value.transferId === claim.value.transferId
-        && item.value.memberId === claim.value.memberId
-        && item.value.state === 'redeemed'
-        && item.value.claimSha256 === redemptionReceipt.value.receipt.claimSha256
-        && item.value.redemptionReceiptId === redemptionReceipt.value.receipt.receiptId
-      ));
+    const hasRedeemedOverride = redemptionReceipt !== undefined
+      && redeemedOverrideIdentities.has(
+        `${claim.value.transferId}:${claim.value.memberId}:${redemptionReceipt.value.receipt.claimSha256}:${redemptionReceipt.value.receipt.receiptId}`,
+      );
     if (
       member?.value.status !== 'active'
       || recovery === undefined
@@ -2390,8 +2426,8 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       || (claim.value.state === 'redeemed' && redemptionReceipt === undefined)
       || (redemptionReceipt !== undefined
         && claim.value.state !== 'redeemed'
-        && redeemedOverride === undefined)
-      || (claim.value.state === 'redeemed' && redeemedOverride !== undefined)
+        && !hasRedeemedOverride)
+      || (claim.value.state === 'redeemed' && hasRedeemedOverride)
     ) {
       throw invalidPayload('records');
     }
@@ -2441,12 +2477,9 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
   }
   for (const invitation of invitations.values()) {
     const envelope = invitationEnvelopes.get(invitation.value.invitationId);
-    const tombstone = secretReplayTombstones.find(item => (
-      item.value.operation === 'createProjectInvitation'
-      && item.value.actorMemberId === invitation.value.issuedByMemberId
-      && item.value.idempotencyKey === invitation.value.idempotencyKey
-      && item.value.requestFingerprint === invitation.value.requestFingerprint
-    ));
+    const tombstone = secretTombstonesByIdentity.get(
+      `createProjectInvitation:${invitation.value.issuedByMemberId}:${invitation.value.idempotencyKey}:${invitation.value.requestFingerprint}`,
+    );
     if (
       !members.has(invitation.value.issuedByMemberId)
       || (envelope === undefined) === (tombstone === undefined)
@@ -2471,12 +2504,9 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     const envelope = claimOverrideEnvelopes.get(
       `${identity}:${override.value.claimGeneration}`,
     );
-    const tombstone = secretReplayTombstones.find(item => (
-      item.value.operation === 'reissueTransferredMembershipClaim'
-      && item.value.actorMemberId === override.value.managerMemberId
-      && item.value.idempotencyKey === override.value.idempotencyKey
-      && item.value.requestFingerprint === override.value.requestFingerprint
-    ));
+    const tombstone = secretTombstonesByIdentity.get(
+      `reissueTransferredMembershipClaim:${override.value.managerMemberId}:${override.value.idempotencyKey}:${override.value.requestFingerprint}`,
+    );
     if (
       !members.has(override.value.memberId)
       || !members.has(override.value.managerMemberId)
@@ -2541,11 +2571,7 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     ) throw invalidPayload('records');
   }
   for (const envelope of claimOverrideEnvelopes.values()) {
-    if (!claimOverrides.some(item => (
-      item.value.transferId === envelope.value.transferId
-      && item.value.memberId === envelope.value.memberId
-      && item.value.claimGeneration === envelope.value.claimGeneration
-    ))) throw invalidPayload('records');
+    if (!claimOverrideRecordIds.has(envelope.recordId)) throw invalidPayload('records');
   }
   const currentOffers = managerOffers.filter(item => (
     item.value.state === 'offered' || item.value.state === 'acknowledged'
@@ -2562,36 +2588,14 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       !== currentOffers.length
   ) throw invalidPayload('records');
   for (const tombstone of secretReplayTombstones) {
-    const liveSecretRecord = tombstone.value.operation === 'createProjectInvitation'
-      ? [...invitations.values()].some(item => (
-        item.value.issuedByMemberId === tombstone.value.actorMemberId
-        && item.value.idempotencyKey === tombstone.value.idempotencyKey
-        && invitationEnvelopes.has(item.value.invitationId)
-      ))
-      : claimOverrides.some(item => (
-        item.value.managerMemberId === tombstone.value.actorMemberId
-        && item.value.idempotencyKey === tombstone.value.idempotencyKey
-        && claimOverrideEnvelopes.has(
-          `${item.value.transferId}:${item.value.memberId}:${item.value.claimGeneration}`,
-        )
-      ));
-    if (!members.has(tombstone.value.actorMemberId) || liveSecretRecord) {
+    if (!members.has(tombstone.value.actorMemberId)
+      || liveSecretIdentities.has(tombstone.recordId)) {
       throw invalidPayload('records');
     }
   }
   for (const tombstone of membershipIdempotencyTombstones) {
-    const exactResult = records.some(item => (
-      item.kind === 'idempotency-result'
-      && item.value.memberId === tombstone.value.actorMemberId
-      && item.value.operation === tombstone.value.operation
-      && item.value.idempotencyKey === tombstone.value.idempotencyKey
-    ));
-    const exactOffer = tombstone.value.operation === 'createManagerResponsibilityOffer'
-      && managerOffers.some(item => (
-        item.value.sourceManagerMemberId === tombstone.value.actorMemberId
-        && item.value.idempotencyKey === tombstone.value.idempotencyKey
-      ));
-    if (!members.has(tombstone.value.actorMemberId) || exactResult || exactOffer) {
+    if (!members.has(tombstone.value.actorMemberId)
+      || liveIdempotencyIdentities.has(tombstone.recordId)) {
       throw invalidPayload('records');
     }
   }
@@ -2652,20 +2656,16 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       const lifecycle = lifecycles.get(receipt.transferId);
       const terminalPrincipal = terminalPrincipals.get(identity);
       const lanToCloud = recovery?.value.sourceAuthority.kind === 'lan';
-      const redeemedOverride = claimOverrides.find(item => (
-        item.value.transferId === receipt.transferId
-        && item.value.memberId === receipt.memberId
-        && item.value.state === 'redeemed'
-        && item.value.claimSha256 === receipt.claimSha256
-        && item.value.redemptionReceiptId === receipt.receiptId
-      ));
+      const hasRedeemedOverride = redeemedOverrideIdentities.has(
+        `${receipt.transferId}:${receipt.memberId}:${receipt.claimSha256}:${receipt.receiptId}`,
+      );
       const matchesSourceClaim = claim?.value.state === 'redeemed'
         && claim.value.claimSha256 === receipt.claimSha256
         && claim.value.checkpointSha256 === receipt.checkpointSha256
         && claim.value.operationIntentId === receipt.operationIntentId
         && claim.value.redemptionReceiptId === receipt.receiptId;
       const matchesOverride = claim !== undefined
-        && redeemedOverride !== undefined
+        && hasRedeemedOverride
         && claim.value.checkpointSha256 === receipt.checkpointSha256;
       if (
         recovery === undefined
@@ -2690,9 +2690,8 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     }
     if (item.kind === 'terminal-principal') {
       const terminal = terminalResponders.get(item.value.operationId);
-      const acknowledgement = terminal?.value.acknowledgements.find(value => (
-        value.memberId === item.value.memberId
-      ));
+      const terminalMemberIndex = terminalMembers.get(item.value.operationId);
+      const acknowledgement = terminalMemberIndex?.acknowledgements.get(item.value.memberId);
       const expectedOperationKind = terminal?.value.operation === 'getProjectAuthorityTransfer'
         ? 'authority-transfer'
         : terminal?.value.operation === 'retireProject'
@@ -2702,7 +2701,7 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
         !members.has(item.value.memberId)
         || terminal === undefined
         || expectedOperationKind !== item.value.operationKind
-        || !terminal.value.eligibleMemberIds.includes(item.value.memberId)
+        || !terminalMemberIndex?.eligibleMemberIds.has(item.value.memberId)
         || (item.value.acknowledgedAt === null) !== (acknowledgement === undefined)
         || (acknowledgement !== undefined && (
           acknowledgement.acknowledgedAt !== item.value.acknowledgedAt
@@ -2899,8 +2898,8 @@ export function encodeCollabProjectBackupCheckpointCoordinationNdjson(
   records: readonly CollabProjectBackupRecord[],
 ): string {
   const value = records.map(item => JSON.stringify(item)).join('\n') + '\n';
-  return decodeCollabProjectBackupCheckpointCoordinationNdjson(value)
-    .map(item => JSON.stringify(item)).join('\n') + '\n';
+  decodeCollabProjectBackupCheckpointCoordinationNdjson(value);
+  return value;
 }
 
 export function validateCollabProjectBackupCheckpointConsistency(

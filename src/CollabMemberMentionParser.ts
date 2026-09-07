@@ -1,7 +1,8 @@
 import { maskCollabMarkdownProse } from './CollabMarkdownProse';
 import type { CollabMemberId } from './types';
 
-const MENTION_ADJACENT_CHARACTER = /[\p{L}\p{N}_@-]/u;
+const MENTION_PRECEDING_CHARACTER = /[\p{L}\p{N}_@-]$/u;
+const MENTION_FOLLOWING_CHARACTER = /^[\p{L}\p{N}_@-]/u;
 
 export interface CollabMemberMentionTarget {
   readonly displayName: string;
@@ -26,12 +27,13 @@ export function parseCollabMemberMentions(
     const mentionStart = prose.indexOf('@', searchFrom);
     if (mentionStart < 0) break;
     searchFrom = mentionStart + 1;
-    const preceding = prose[mentionStart - 1];
-    if (preceding !== undefined && MENTION_ADJACENT_CHARACTER.test(preceding)) continue;
+    const preceding = prose.slice(Math.max(0, mentionStart - 2), mentionStart);
+    if (MENTION_PRECEDING_CHARACTER.test(preceding)) continue;
     const candidate = candidates.find(entry => {
       if (!prose.startsWith(entry.name, mentionStart + 1)) return false;
-      const following = prose[mentionStart + entry.name.length + 1];
-      return following === undefined || !MENTION_ADJACENT_CHARACTER.test(following);
+      const followingOffset = mentionStart + entry.name.length + 1;
+      const following = prose.slice(followingOffset, followingOffset + 2);
+      return !MENTION_FOLLOWING_CHARACTER.test(following);
     });
     if (!candidate) continue;
     memberIds.add(candidate.memberId);

@@ -15,7 +15,7 @@ import {
   decodeCollabCloudCapabilityDocument,
   decodeCollabCloudProjectCheckpointExportStatus,
   matchCollabCloudRoute,
-} from '../src/index';
+} from '../../src/index';
 
 function limits() {
   return {

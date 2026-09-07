@@ -1,8 +1,8 @@
-import type { CollabMemberMentionTarget } from '../src/index';
+import type { CollabMemberMentionTarget } from '../../src/index';
 import {
   parseCollabMemberMentions,
   parseCollabTicketReferences,
-} from '../src/index';
+} from '../../src/index';
 
 const TARGETS: readonly CollabMemberMentionTarget[] = [
   { displayName: 'Alice', memberId: 'member-alice' },

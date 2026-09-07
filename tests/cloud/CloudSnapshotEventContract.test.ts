@@ -6,7 +6,7 @@ import {
   collabMemberRef,
   decodeCollabCloudProjectEventMessage,
   decodeCollabCloudProjectSnapshot,
-} from '../src/index';
+} from '../../src/index';
 
 const NOW = '2026-08-21T00:00:00.000Z';
 const EARLIER = '2026-08-20T00:00:00.000Z';

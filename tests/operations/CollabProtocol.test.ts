@@ -1,5 +1,5 @@
-import { COLLAB_PROTOCOL_VERSION } from '../src/core/CollabConstants';
-import { decodeCollabProtocolEnvelope } from '../src/operations/CollabProtocol';
+import { COLLAB_PROTOCOL_VERSION } from '../../src/core/CollabConstants';
+import { decodeCollabProtocolEnvelope } from '../../src/operations/CollabProtocol';
 
 describe('CollabProtocol', () => {
   it('admits wire 10 and rejects the previous wire 9 before exposing its payload', () => {

@@ -3,7 +3,7 @@ import {
   COLLAB_LIMITS,
   COLLAB_PROTOCOL_VERSION,
   collabControlOperationCodec,
-} from '../src/index';
+} from '../../src/index';
 
 const NOW = '2026-08-18T00:00:00.000Z';
 const MAIN = '1'.repeat(40);

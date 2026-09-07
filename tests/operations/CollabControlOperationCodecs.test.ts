@@ -2,7 +2,7 @@ import {
   COLLAB_CONTROL_OPERATION_CODECS,
   COLLAB_LIMITS,
   collabControlOperationCodec,
-} from '../src/index';
+} from '../../src/index';
 
 function envelope(data: unknown): unknown {
   return data;

@@ -131,10 +131,10 @@ export default defineConfig([
       'src/operations/CollabRequestTicketResponseCodecs.ts',
       'src/cloud/DevelopmentBootstrap.ts',
       'src/index.ts',
-      'tests/CollabError.test.ts',
-      'tests/DevelopmentBootstrapContract.test.ts',
+      'tests/core/CollabError.test.ts',
+      'tests/cloud/DevelopmentBootstrapContract.test.ts',
       'tests/packaging.test.ts',
-      'tests/types.test.ts',
+      'tests/core/types.test.ts',
     ],
     rules: {
       'simple-import-sort/exports': 'off',

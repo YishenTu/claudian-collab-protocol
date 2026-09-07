@@ -3,7 +3,7 @@ import {
   isCollabMemberId,
   isCollabOpaqueId,
   isCollabProjectId,
-} from '../src';
+} from '../../src';
 
 describe('Collab wire identifiers', () => {
   it.each([

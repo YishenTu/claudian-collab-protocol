@@ -6,7 +6,7 @@ import {
   decodeResolveTicketNumberResponse,
   type ResolveTicketNumberRequest,
   type ResolveTicketNumberResponse,
-} from '../src/index';
+} from '../../src/index';
 
 describe('resolveTicketNumber', () => {
   it.each([1, 42, Number.MAX_SAFE_INTEGER])('decodes the exact Project and positive safe Ticket number %s', ticketNumber => {

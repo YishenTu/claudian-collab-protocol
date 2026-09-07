@@ -3,7 +3,7 @@ import {
   COLLAB_PROTOCOL_VERSION,
   collabControlOperationCodec,
   decodeCollabProtocolEnvelope,
-} from '../src/index';
+} from '../../src/index';
 
 const NOW = '2026-08-25T00:00:00.000Z';
 const ED25519_SIGNATURE = 'A'.repeat(86);

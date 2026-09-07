@@ -3,7 +3,7 @@ import {
   COLLAB_MAIN_REF,
   COLLAB_MEMBER_REF_PREFIX,
   COLLAB_PROTOCOL_VERSION,
-} from '../src/core/CollabConstants';
+} from '../../src/core/CollabConstants';
 
 describe('CollabConstants', () => {
   it('freezes the wire protocol version', () => {

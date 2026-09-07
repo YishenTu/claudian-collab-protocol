@@ -20,7 +20,7 @@ import {
   decodeCollabCloudErrorEnvelope,
   decodeCollabCloudSuccessEnvelope,
   matchCollabCloudRoute,
-} from '../src/index';
+} from '../../src/index';
 
 const PROJECT_ID = 'project_1';
 

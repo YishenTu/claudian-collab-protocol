@@ -4,7 +4,7 @@ import {
   type CollabComment,
   type CollabMember,
   collabMemberRef,
-} from '../src/index';
+} from '../../src/index';
 
 describe('shared Collab domain types', () => {
   it('builds only safe personal refs', () => {

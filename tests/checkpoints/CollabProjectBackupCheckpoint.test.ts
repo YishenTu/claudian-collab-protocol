@@ -1,4 +1,4 @@
-import type { CollabProjectBackupRecordKind } from '../src/checkpoints/CollabProjectBackupCheckpoint';
+import type { CollabProjectBackupRecordKind } from '../../src/checkpoints/CollabProjectBackupCheckpoint';
 import {
   COLLAB_PROJECT_BACKUP_COORDINATION_FORMAT_VERSION,
   COLLAB_PROJECT_BACKUP_RECORD_KINDS,
@@ -9,13 +9,13 @@ import {
   encodeCollabProjectBackupCheckpointManifestCanonicalJson,
   encodeCollabProjectBackupCheckpointManifestDigestInput,
   validateCollabProjectBackupCheckpointConsistency,
-} from '../src/checkpoints/CollabProjectBackupCheckpoint';
+} from '../../src/checkpoints/CollabProjectBackupCheckpoint';
 import {
   COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
   COLLAB_PROJECT_COORDINATION_FORMAT_VERSION,
   decodeCollabProjectCheckpointCoordinationNdjson,
   decodeCollabProjectCheckpointManifest,
-} from '../src/checkpoints/CollabProjectCheckpoint';
+} from '../../src/checkpoints/CollabProjectCheckpoint';
 
 const NOW = '2026-08-28T00:00:00.000Z';
 const LATER = '2026-08-28T00:00:01.000Z';

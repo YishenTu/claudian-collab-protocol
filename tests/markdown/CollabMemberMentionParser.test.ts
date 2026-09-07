@@ -1,4 +1,4 @@
-import { parseCollabMemberMentions } from '../src/index';
+import { parseCollabMemberMentions } from '../../src/index';
 
 describe('parseCollabMemberMentions', () => {
   it('resolves visible Member names to stable IDs in first-seen order', () => {

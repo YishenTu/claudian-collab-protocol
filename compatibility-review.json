@@ -1,10 +1,89 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "a4b9d0fe56bef6eac957dd6e1824596f7b681d140add2417bfeb29278092ceae",
-  "candidateSnapshotSha256": "2bcccfd0fd8f26182ae7e8ce4a472a81d7a37017d990dea535dbbb5429b7301e",
-  "reviewKind": "versioned-operation-addition",
-  "addedOperations": [
-    "resolveTicketNumber"
-  ],
-  "reason": "ResolveTicketNumber public fixtures enforce an exact Project identifier and a positive safe Ticket number request, and an opaque Ticket ID or null response. Existing operation fixtures retain their meanings under wire10 and Cloud binding6. Source-proof and CLI regeneration regressions preserve existing declarations, import identities, global bindings, reasons and the entire existing dispatch sequence; new canonical return cases are only a leading prefix. Unrelated changes, binding capture, fallthrough insertion, reordered cases, default relocation, nested switches and stale reviews are rejected."
+  "reviewKind": "module-relocation",
+  "reason": "Move the existing modules into core, operations, cloud, checkpoints, and markdown while preserving public exports, declaration meaning, full source syntax and module evaluation order after resolving the exact move map. Existing contract fixtures and the module-relocation command tests establish unchanged decoder behavior and reject import retargeting, implementation drift, incomplete maps, and stale review evidence. Wire v10 and Cloud binding v6 remain unchanged.",
+  "baseSnapshotSha256": "2bcccfd0fd8f26182ae7e8ce4a472a81d7a37017d990dea535dbbb5429b7301e",
+  "candidateSnapshotSha256": "a3e06b155841676f450f4da71afbde930f88fb297f8f24019ed06b3fb36b1924",
+  "moduleMoves": [
+    {
+      "from": "src/CollabAuthorityTransfer.ts",
+      "to": "src/operations/CollabAuthorityTransfer.ts"
+    },
+    {
+      "from": "src/CollabCloudBinding.ts",
+      "to": "src/cloud/CollabCloudBinding.ts"
+    },
+    {
+      "from": "src/CollabCloudProjectEvent.ts",
+      "to": "src/cloud/CollabCloudProjectEvent.ts"
+    },
+    {
+      "from": "src/CollabCloudProjectSnapshot.ts",
+      "to": "src/cloud/CollabCloudProjectSnapshot.ts"
+    },
+    {
+      "from": "src/CollabConstants.ts",
+      "to": "src/core/CollabConstants.ts"
+    },
+    {
+      "from": "src/CollabControlOperationCodecs.ts",
+      "to": "src/operations/CollabControlOperationCodecs.ts"
+    },
+    {
+      "from": "src/CollabError.ts",
+      "to": "src/core/CollabError.ts"
+    },
+    {
+      "from": "src/CollabMarkdownProse.ts",
+      "to": "src/markdown/CollabMarkdownProse.ts"
+    },
+    {
+      "from": "src/CollabMemberMentionParser.ts",
+      "to": "src/markdown/CollabMemberMentionParser.ts"
+    },
+    {
+      "from": "src/CollabProjectBackupCheckpoint.ts",
+      "to": "src/checkpoints/CollabProjectBackupCheckpoint.ts"
+    },
+    {
+      "from": "src/CollabProjectCheckpoint.ts",
+      "to": "src/checkpoints/CollabProjectCheckpoint.ts"
+    },
+    {
+      "from": "src/CollabProjectMembership.ts",
+      "to": "src/operations/CollabProjectMembership.ts"
+    },
+    {
+      "from": "src/CollabProjectRetirement.ts",
+      "to": "src/operations/CollabProjectRetirement.ts"
+    },
+    {
+      "from": "src/CollabProtocol.ts",
+      "to": "src/operations/CollabProtocol.ts"
+    },
+    {
+      "from": "src/CollabRequestTicketRequestCodecs.ts",
+      "to": "src/operations/CollabRequestTicketRequestCodecs.ts"
+    },
+    {
+      "from": "src/CollabRequestTicketResponseCodecs.ts",
+      "to": "src/operations/CollabRequestTicketResponseCodecs.ts"
+    },
+    {
+      "from": "src/CollabTicketReferenceParser.ts",
+      "to": "src/markdown/CollabTicketReferenceParser.ts"
+    },
+    {
+      "from": "src/CollabValidation.ts",
+      "to": "src/core/CollabValidation.ts"
+    },
+    {
+      "from": "src/DevelopmentBootstrap.ts",
+      "to": "src/cloud/DevelopmentBootstrap.ts"
+    },
+    {
+      "from": "src/types.ts",
+      "to": "src/core/types.ts"
+    }
+  ]
 }

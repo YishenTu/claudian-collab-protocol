@@ -1,9 +1,9 @@
-import { COLLAB_LIMITS } from './CollabConstants';
+import { COLLAB_LIMITS } from '../core/CollabConstants';
 import { maskCollabMarkdownProse } from './CollabMarkdownProse';
 import type {
   CollabParsedTicketReference,
   CollabTicketCommitRelationKind,
-} from './types';
+} from '../core/types';
 
 export type CollabTicketReferenceParseFailureReason =
   | 'description-too-large'

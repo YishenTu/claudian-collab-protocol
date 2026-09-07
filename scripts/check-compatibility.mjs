@@ -50,24 +50,24 @@ const VERSIONED_OPERATION_ADDITION_REVIEW_FIELDS = new Set([
   'reason',
 ]);
 const WIRE_MODULES = new Set([
-  './CollabAuthorityTransfer',
-  './CollabConstants',
-  './CollabControlOperationCodecs',
-  './CollabError',
-  './CollabProtocol',
-  './CollabProjectMembership',
-  './CollabProjectCheckpoint',
-  './CollabProjectRetirement',
-  './CollabRequestTicketRequestCodecs',
-  './CollabRequestTicketResponseCodecs',
-  './CollabValidation',
-  './types',
+  './operations/CollabAuthorityTransfer',
+  './core/CollabConstants',
+  './operations/CollabControlOperationCodecs',
+  './core/CollabError',
+  './operations/CollabProtocol',
+  './operations/CollabProjectMembership',
+  './checkpoints/CollabProjectCheckpoint',
+  './operations/CollabProjectRetirement',
+  './operations/CollabRequestTicketRequestCodecs',
+  './operations/CollabRequestTicketResponseCodecs',
+  './core/CollabValidation',
+  './core/types',
 ]);
 const CLOUD_BINDING_MODULES = new Set([
-  './CollabCloudBinding',
-  './CollabCloudProjectEvent',
-  './CollabCloudProjectSnapshot',
-  './DevelopmentBootstrap',
+  './cloud/CollabCloudBinding',
+  './cloud/CollabCloudProjectEvent',
+  './cloud/CollabCloudProjectSnapshot',
+  './cloud/DevelopmentBootstrap',
 ]);
 const PUBLISHED_3_3_1_SNAPSHOT_SHA256 =
   '376f1090a97989757773f5fae5bbcbaee5f559e2ca1f5c09ddef9beaba0b0444';
@@ -757,7 +757,7 @@ export function assertCloudBindingVersionMigration(
   currentVersion,
   reviewedDeclarations = new Set(),
 ) {
-  const fileName = 'src/CollabCloudBinding.ts';
+  const fileName = 'src/cloud/CollabCloudBinding.ts';
   const groupedTopLevel = (sourceText) => {
     const source = sourceFile(sourceText, fileName);
     const named = new Map();
@@ -852,7 +852,7 @@ export function assertCloudBindingVersionMigration(
   }
 }
 
-function assertIndexAddition(baseSource, currentSource, allowedNames, modules = new Set(['./CollabAuthorityTransfer'])) {
+function assertIndexAddition(baseSource, currentSource, allowedNames, modules = new Set(['./operations/CollabAuthorityTransfer'])) {
   const exportsByKey = (sourceText) => {
     const source = sourceFile(sourceText, 'src/index.ts');
     const result = new Map();
@@ -1018,12 +1018,12 @@ function assertSafeReasonAddition(before, after, additions) {
 
 export function assertRequestTicketOperationSourceAddition(input) {
   const moduleChanges = new Map([
-    ['src/CollabProtocol.ts', new Set(['CollabControlOperationMap'])],
-    ['src/CollabRequestTicketRequestCodecs.ts', new Set(['CollabRequestTicketOperation', 'decodeRequestTicketRequest', 'INVALID_REASONS'])],
-    ['src/CollabRequestTicketResponseCodecs.ts', new Set()],
-    ['src/CollabControlOperationCodecs.ts', new Set(['decodeResponse', 'COLLAB_CONTROL_OPERATION_CODECS'])],
+    ['src/operations/CollabProtocol.ts', new Set(['CollabControlOperationMap'])],
+    ['src/operations/CollabRequestTicketRequestCodecs.ts', new Set(['CollabRequestTicketOperation', 'decodeRequestTicketRequest', 'INVALID_REASONS'])],
+    ['src/operations/CollabRequestTicketResponseCodecs.ts', new Set()],
+    ['src/operations/CollabControlOperationCodecs.ts', new Set(['decodeResponse', 'COLLAB_CONTROL_OPERATION_CODECS'])],
   ]);
-  const requiredPaths = [...moduleChanges.keys(), 'src/CollabConstants.ts', 'src/CollabCloudBinding.ts', 'src/index.ts'];
+  const requiredPaths = [...moduleChanges.keys(), 'src/core/CollabConstants.ts', 'src/cloud/CollabCloudBinding.ts', 'src/index.ts'];
   if (!Array.isArray(input?.addedOperations) || input.addedOperations.length === 0
     || requiredPaths.some(pathname => typeof input.baseFiles?.[pathname] !== 'string'
       || typeof input.currentFiles?.[pathname] !== 'string')) {
@@ -1059,14 +1059,14 @@ export function assertRequestTicketOperationSourceAddition(input) {
     for (const name of newNames) exportNames.add(name);
     modules.set(pathname, module);
   }
-  const protocol = modules.get('src/CollabProtocol.ts');
+  const protocol = modules.get('src/operations/CollabProtocol.ts');
   const baseMap = protocol.before.named.get('CollabControlOperationMap');
   const currentMap = protocol.after.named.get('CollabControlOperationMap');
   if (!baseMap || !currentMap || !preservesOperationMembers(baseMap.statement.getText(baseMap.source),
     currentMap.statement.getText(currentMap.source), additions)) {
     throw new Error('Request/Ticket operation map is not strictly additive');
   }
-  const requests = modules.get('src/CollabRequestTicketRequestCodecs.ts');
+  const requests = modules.get('src/operations/CollabRequestTicketRequestCodecs.ts');
   const baseUnion = requests.before.named.get('CollabRequestTicketOperation');
   const currentUnion = requests.after.named.get('CollabRequestTicketOperation');
   if (!baseUnion || !currentUnion || !preservesOperationUnion(baseUnion.statement.getText(baseUnion.source),
@@ -1076,28 +1076,28 @@ export function assertRequestTicketOperationSourceAddition(input) {
   assertDispatchAddition(requests.before.named.get('decodeRequestTicketRequest'),
     requests.after.named.get('decodeRequestTicketRequest'), additions, 'input');
   assertSafeReasonAddition(requests.before.named.get('INVALID_REASONS'), requests.after.named.get('INVALID_REASONS'), additions);
-  const codecs = modules.get('src/CollabControlOperationCodecs.ts');
+  const codecs = modules.get('src/operations/CollabControlOperationCodecs.ts');
   assertDispatchAddition(codecs.before.named.get('decodeResponse'), codecs.after.named.get('decodeResponse'), additions, 'input', 'Response');
   assertControlCodecAddition(codecs.before.named.get('COLLAB_CONTROL_OPERATION_CODECS'),
     codecs.after.named.get('COLLAB_CONTROL_OPERATION_CODECS'), additions);
-  const constantsPath = 'src/CollabConstants.ts';
+  const constantsPath = 'src/core/CollabConstants.ts';
   if (sourceSyntax(normalizedVersionSource(input.currentFiles[constantsPath], 'COLLAB_PROTOCOL_VERSION',
     input.currentProtocolVersion, input.baseProtocolVersion), constantsPath)
     !== sourceSyntax(input.baseFiles[constantsPath], constantsPath)) {
     throw new Error('Protocol constants changed beyond the reviewed version increase');
   }
-  assertCloudBindingVersionMigration(input.baseFiles['src/CollabCloudBinding.ts'], input.currentFiles['src/CollabCloudBinding.ts'],
+  assertCloudBindingVersionMigration(input.baseFiles['src/cloud/CollabCloudBinding.ts'], input.currentFiles['src/cloud/CollabCloudBinding.ts'],
     input.baseCloudBindingVersion, input.currentCloudBindingVersion);
   assertIndexAddition(input.baseFiles['src/index.ts'], input.currentFiles['src/index.ts'], exportNames,
-    new Set(['./CollabProtocol', './CollabRequestTicketRequestCodecs', './CollabRequestTicketResponseCodecs']));
+    new Set(['./operations/CollabProtocol', './operations/CollabRequestTicketRequestCodecs', './operations/CollabRequestTicketResponseCodecs']));
 }
 
 export function assertAuthorityTransferOperationSourceAddition(input) {
   const requiredPaths = [
-    'src/CollabAuthorityTransfer.ts',
-    'src/CollabCloudBinding.ts',
-    'src/CollabConstants.ts',
-    'src/CollabControlOperationCodecs.ts',
+    'src/operations/CollabAuthorityTransfer.ts',
+    'src/cloud/CollabCloudBinding.ts',
+    'src/core/CollabConstants.ts',
+    'src/operations/CollabControlOperationCodecs.ts',
     'src/index.ts',
   ];
   if (
@@ -1107,7 +1107,7 @@ export function assertAuthorityTransferOperationSourceAddition(input) {
       || typeof input.currentFiles?.[pathname] !== 'string')
   ) throw new Error('Invalid authority-transfer operation source review input');
   const additions = [...input.addedOperations].sort();
-  const authorityPath = 'src/CollabAuthorityTransfer.ts';
+  const authorityPath = 'src/operations/CollabAuthorityTransfer.ts';
   const baseAuthority = parsedTopLevel(input.baseFiles[authorityPath], authorityPath);
   const currentAuthority = parsedTopLevel(input.currentFiles[authorityPath], authorityPath);
   const allowedChanged = new Set([
@@ -1193,7 +1193,7 @@ export function assertAuthorityTransferOperationSourceAddition(input) {
     }
   }
 
-  const codecsPath = 'src/CollabControlOperationCodecs.ts';
+  const codecsPath = 'src/operations/CollabControlOperationCodecs.ts';
   const baseCodecs = parsedTopLevel(input.baseFiles[codecsPath], codecsPath);
   const currentCodecs = parsedTopLevel(input.currentFiles[codecsPath], codecsPath);
   assertOnlyNamedChange(
@@ -1211,7 +1211,7 @@ export function assertAuthorityTransferOperationSourceAddition(input) {
     additions,
   );
 
-  const constantsPath = 'src/CollabConstants.ts';
+  const constantsPath = 'src/core/CollabConstants.ts';
   if (sourceSyntax(
     normalizedVersionSource(
       input.currentFiles[constantsPath],
@@ -1223,7 +1223,7 @@ export function assertAuthorityTransferOperationSourceAddition(input) {
   ) !== sourceSyntax(input.baseFiles[constantsPath], constantsPath)) {
     throw new Error('Protocol constants changed beyond the reviewed version increase');
   }
-  const bindingPath = 'src/CollabCloudBinding.ts';
+  const bindingPath = 'src/cloud/CollabCloudBinding.ts';
   assertCloudBindingVersionMigration(
     input.baseFiles[bindingPath],
     input.currentFiles[bindingPath],
@@ -1316,9 +1316,9 @@ function assertVersionedOperationAdditionReview(base, current, review) {
   }
 
   const allowedRuntimeModules = new Set([
-    './CollabCloudBinding',
-    './CollabConstants',
-    './CollabControlOperationCodecs',
+    './cloud/CollabCloudBinding',
+    './core/CollabConstants',
+    './operations/CollabControlOperationCodecs',
     './index',
     ...addedDeclarationSources,
   ]);
@@ -1420,7 +1420,7 @@ function assertOptionalContractAdditionReview(base, current, review) {
     if (stableJson(candidate) === stableJson(declaration)) continue;
     if (isAllowedChangedOperationDeclaration(declaration, candidate, [], { base, current })
       && ['COLLAB_PROTOCOL_VERSION', 'COLLAB_CLOUD_BINDING_VERSION'].includes(declaration.exportName)) continue;
-    if (declaration.source !== './CollabCloudBinding'
+    if (declaration.source !== './cloud/CollabCloudBinding'
       || !optionalDeclarationAddition(declaration.declaration, candidate.declaration)) {
       throw new Error(`Not an optional public addition: ${declaration.exportName}`);
     }
@@ -1428,7 +1428,7 @@ function assertOptionalContractAdditionReview(base, current, review) {
   }
   if (additions.size === 0) throw new Error('Optional contract review requires an optional public addition');
   const graph = topLevelReferenceGraph(base.contract.publicDeclarations
-    .filter(declaration => declaration.source === './CollabCloudBinding')
+    .filter(declaration => declaration.source === './cloud/CollabCloudBinding')
     .map(declaration => declaration.declaration).join('\n'));
   const reachesAddition = name => {
     const pending = [name];
@@ -1445,7 +1445,7 @@ function assertOptionalContractAdditionReview(base, current, review) {
   const implementations = stringEntries(review.implementationDeclarations, 'implementation declaration');
   for (const name of implementations.keys()) {
     const declaration = base.contract.publicDeclarations.find(item => item.exportName === name);
-    if (declaration?.source !== './CollabCloudBinding'
+    if (declaration?.source !== './cloud/CollabCloudBinding'
       || !ts.isFunctionDeclaration(sourceFile(declaration.declaration, 'contract.d.ts').statements[0])) {
       throw new Error('Optional contract implementation review must name an existing public function');
     }
@@ -1458,7 +1458,7 @@ function assertOptionalContractAdditionReview(base, current, review) {
   if (beforeDigests.size !== afterDigests.size) throw new Error('Optional contract review changed runtime modules');
   for (const [pathname, value] of beforeDigests) {
     if (!afterDigests.has(pathname) || (afterDigests.get(pathname) !== value
-      && !['src/CollabConstants.ts', 'src/CollabCloudBinding.ts'].includes(pathname))) {
+      && !['src/core/CollabConstants.ts', 'src/cloud/CollabCloudBinding.ts'].includes(pathname))) {
       throw new Error('Optional contract review changed unrelated runtime modules');
     }
   }
@@ -1509,9 +1509,166 @@ export function createImplementationOnlyReview(base, current, reason) {
   return review;
 }
 
+function relocationPaths(base, current, moduleMoves) {
+  const before = keyedEntries(base.contract.runtimeBehaviorDigests, 'path', 'runtime behavior digest');
+  const after = keyedEntries(current.contract.runtimeBehaviorDigests, 'path', 'runtime behavior digest');
+  if (!Array.isArray(moduleMoves) || moduleMoves.length === 0) throw new Error('Module relocation requires an explicit move map');
+  const forward = new Map();
+  const reverse = new Map();
+  for (const move of moduleMoves) {
+    exactFields(move, new Set(['from', 'to']), 'module move');
+    for (const name of [move.from, move.to]) {
+      if (typeof name !== 'string' || !/^src\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.ts$/u.test(name)) {
+        throw new Error('Invalid module relocation path');
+      }
+    }
+    if (move.from === move.to || move.from === 'src/index.ts' || move.to === 'src/index.ts'
+      || !before.has(move.from) || !after.has(move.to)
+      || forward.has(move.from) || reverse.has(move.to)) {
+      throw new Error('Module relocation requires a one-to-one map of existing modules and preserves the root entry point');
+    }
+    forward.set(move.from, move.to);
+    reverse.set(move.to, move.from);
+  }
+  const mapped = [...before.keys()].map(name => forward.get(name) ?? name).sort();
+  if (stableJson(mapped) !== stableJson([...after.keys()].sort())) {
+    throw new Error('Module relocation must preserve the complete source inventory');
+  }
+  return { before: new Set(before.keys()), after: new Set(after.keys()), forward, reverse };
+}
+
+function relocateSpecifiers(sourceText, fileName, paths, reverse, publicDeclarations = new Map()) {
+  const parsed = sourceFile(sourceText, fileName);
+  if (parsed.parseDiagnostics.length > 0) throw new Error(`Cannot parse relocated module: ${fileName}`);
+  const edits = [];
+  const originalName = reverse.get(fileName) ?? fileName;
+  function moduleSpecifier(node, qualifier) {
+    if (!ts.isStringLiteral(node)) throw new Error('Module relocation cannot review computed module access');
+    if (!node.text.startsWith('.')) return;
+    const extension = path.posix.extname(node.text);
+    if (extension !== '' && extension !== '.js' && extension !== '.ts') {
+      throw new Error('Module relocation cannot resolve this module extension');
+    }
+    const target = path.posix.normalize(path.posix.join(path.posix.dirname(fileName), node.text));
+    const candidates = extension === ''
+      ? [`${target}.ts`, `${target}/index.ts`]
+      : [`${target.slice(0, -extension.length)}.ts`];
+    const matches = candidates.filter(candidate => paths.has(candidate));
+    if (matches.length !== 1) throw new Error(`Module relocation cannot resolve import unambiguously in ${fileName}`);
+    const [targetPath] = matches;
+    let declarationPath = targetPath;
+    if (targetPath === 'src/index.ts' && qualifier && ts.isIdentifier(qualifier) && publicDeclarations.size > 0) {
+      const declaration = publicDeclarations.get(qualifier.text);
+      if (!declaration) throw new Error('Module relocation cannot resolve a root type re-export');
+      declarationPath = declaration.source === '.' ? 'src/index.ts' : `src/${declaration.source.slice(2)}.ts`;
+      if (!paths.has(declarationPath)) throw new Error('Module relocation type re-export has no source module');
+      const names = [...new Set(sourceFile(declaration.declaration, declarationPath).statements.flatMap(declaredNames))];
+      if (names.length !== 1) throw new Error('Module relocation cannot resolve an ambiguous type re-export');
+      edits.push({ start: qualifier.getStart(parsed), end: qualifier.end, text: names[0] });
+    }
+    const originalTarget = reverse.get(declarationPath) ?? declarationPath;
+    let specifier = path.posix.relative(path.posix.dirname(originalName), originalTarget).slice(0, -3) + extension;
+    if (!specifier.startsWith('.')) specifier = `./${specifier}`;
+    edits.push({ start: node.getStart(parsed), end: node.end, text: JSON.stringify(specifier) });
+  }
+  function visit(node) {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) {
+      moduleSpecifier(node.moduleSpecifier);
+    } else if (ts.isImportTypeNode(node)) {
+      if (!ts.isLiteralTypeNode(node.argument)) throw new Error('Unsupported relocated import type');
+      moduleSpecifier(node.argument.literal, node.qualifier);
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      moduleSpecifier(node.arguments[0]);
+    } else if (ts.isMetaProperty(node)
+      || (ts.isIdentifier(node) && ['__dirname', '__filename', 'require'].includes(node.text))) {
+      throw new Error('Module relocation cannot review location-dependent runtime access');
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(parsed);
+  let result = sourceText;
+  for (const edit of edits.sort((left, right) => right.start - left.start)) {
+    result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
+  }
+  return result;
+}
+
+function relocatedContract(contract, paths, reverse) {
+  keyedEntries(contract.publicDeclarations, 'exportName', 'public declaration');
+  const publicDeclarations = new Map(contract.publicDeclarations.map(entry => [entry.exportName, entry]));
+  const declarations = entries => entries.map(entry => {
+    const fileName = entry.source === '.' ? 'src/index.ts' : `src/${entry.source.replace(/^\.\//u, '')}.ts`;
+    if (!paths.has(fileName)) throw new Error('Module relocation declaration has no source module');
+    const originalName = reverse.get(fileName) ?? fileName;
+    return {
+      ...entry,
+      source: entry.source === '.' ? '.' : moduleForBehaviorPath(originalName),
+      declaration: sourceSyntax(relocateSpecifiers(entry.declaration, fileName, paths, reverse, publicDeclarations), originalName),
+    };
+  });
+  const digests = entries => {
+    keyedEntries(entries, 'path', 'runtime behavior digest');
+    return entries.map(entry => {
+      if (!paths.has(entry.path)) throw new Error('Module relocation contract has an unknown source module');
+      return { path: reverse.get(entry.path) ?? entry.path };
+    }).sort((left, right) => left.path.localeCompare(right.path, 'en-US'));
+  };
+  const group = value => ({ ...value, declarations: declarations(value.declarations), runtimeBehaviorDigests: digests(value.runtimeBehaviorDigests) });
+  return {
+    ...contract,
+    publicDeclarations: declarations(contract.publicDeclarations),
+    runtimeBehaviorDigests: digests(contract.runtimeBehaviorDigests),
+    wire: group(contract.wire),
+    cloudBinding: group(contract.cloudBinding),
+  };
+}
+
+function assertModuleRelocationReview(base, current, review) {
+  exactFields(review, new Set([...IMPLEMENTATION_REVIEW_FIELDS, 'reviewKind', 'moduleMoves']), 'module relocation review');
+  if (review.schemaVersion !== 1 || review.reviewKind !== 'module-relocation'
+    || typeof review.reason !== 'string' || review.reason.trim().length === 0 || review.reason.length > 4096) {
+    throw new Error('Invalid module relocation review');
+  }
+  if (review.baseSnapshotSha256 !== snapshotDigest(base) || review.candidateSnapshotSha256 !== snapshotDigest(current)) {
+    throw new Error('Module relocation review does not match the exact base and candidate snapshots');
+  }
+  const paths = relocationPaths(base, current, review.moduleMoves);
+  if (base.protocolVersion !== current.protocolVersion || base.cloudBindingVersion !== current.cloudBindingVersion
+    || stableJson(relocatedContract(base.contract, paths.before, new Map()))
+      !== stableJson(relocatedContract(current.contract, paths.after, paths.reverse))) {
+    throw new Error('Module relocation cannot change public API, wire, or Cloud binding semantic facts');
+  }
+  return paths;
+}
+
+function assertModuleRelocationSource(baseSha, base, current, review) {
+  const paths = assertModuleRelocationReview(base, current, review);
+  const baseFiles = execFileSync('git', ['ls-tree', '-r', '--name-only', baseSha, 'src'],
+    { cwd: repositoryRoot, encoding: 'utf8' }).trim().split('\n').filter(name => name.endsWith('.ts')).sort();
+  const currentFiles = sourceFiles().map(name => path.relative(repositoryRoot, name).split(path.sep).join('/')).sort();
+  if (stableJson(baseFiles) !== stableJson([...paths.before].sort())
+    || stableJson(currentFiles) !== stableJson([...paths.after].sort())) {
+    throw new Error('Module relocation snapshots must cover the complete source inventory');
+  }
+  for (const beforePath of baseFiles) {
+    const afterPath = paths.forward.get(beforePath) ?? beforePath;
+    const beforeText = execFileSync('git', ['show', `${baseSha}:${beforePath}`], { cwd: repositoryRoot, encoding: 'utf8' });
+    const afterText = readFileSync(path.join(repositoryRoot, afterPath), 'utf8');
+    if (sourceSyntax(relocateSpecifiers(beforeText, beforePath, paths.before, new Map()), beforePath)
+      !== sourceSyntax(relocateSpecifiers(afterText, afterPath, paths.after, paths.reverse), beforePath)) {
+      throw new Error(`Module relocation changed source beyond module specifiers: ${afterPath}`);
+    }
+  }
+}
+
 export function assertVersionedContractChange(base, current, review) {
   validateCurrentSnapshot(base);
   validateCurrentSnapshot(current);
+  if (review?.reviewKind === 'module-relocation') {
+    assertModuleRelocationReview(base, current, review);
+    assertVersionedContractChange(base, { ...current, contract: base.contract });
+    return;
+  }
   const optionalContractAddition = review?.reviewKind === 'optional-contract-addition';
   const versionedOperationAddition = review?.reviewKind === 'versioned-operation-addition';
   if (optionalContractAddition) {
@@ -1791,10 +1948,10 @@ export function assertVersionedOperationSourceAddition(input) {
   const additions = input?.addedOperations;
   if (!Array.isArray(additions) || additions.length === 0) throw new Error('Invalid versioned operation source review input');
   const families = [
-    { pathname: 'src/CollabAuthorityTransfer.ts', name: 'CollabAuthorityTransferOperationMap',
-      paths: ['src/CollabAuthorityTransfer.ts'], check: assertAuthorityTransferOperationSourceAddition },
-    { pathname: 'src/CollabProtocol.ts', name: 'CollabControlOperationMap',
-      paths: ['src/CollabProtocol.ts', 'src/CollabRequestTicketRequestCodecs.ts', 'src/CollabRequestTicketResponseCodecs.ts'],
+    { pathname: 'src/operations/CollabAuthorityTransfer.ts', name: 'CollabAuthorityTransferOperationMap',
+      paths: ['src/operations/CollabAuthorityTransfer.ts'], check: assertAuthorityTransferOperationSourceAddition },
+    { pathname: 'src/operations/CollabProtocol.ts', name: 'CollabControlOperationMap',
+      paths: ['src/operations/CollabProtocol.ts', 'src/operations/CollabRequestTicketRequestCodecs.ts', 'src/operations/CollabRequestTicketResponseCodecs.ts'],
       check: assertRequestTicketOperationSourceAddition },
   ].filter(family => {
     const before = input.baseFiles?.[family.pathname];
@@ -1808,8 +1965,8 @@ export function assertVersionedOperationSourceAddition(input) {
   });
   if (families.length !== 1) throw new Error('Versioned addition must belong to exactly one supported operation family');
   const [family] = families;
-  const allowed = new Set([...family.paths, 'src/CollabCloudBinding.ts', 'src/CollabConstants.ts',
-    'src/CollabControlOperationCodecs.ts', 'src/index.ts']);
+  const allowed = new Set([...family.paths, 'src/cloud/CollabCloudBinding.ts', 'src/core/CollabConstants.ts',
+    'src/operations/CollabControlOperationCodecs.ts', 'src/index.ts']);
   if (stableJson(Object.keys(input.baseFiles).sort()) !== stableJson(Object.keys(input.currentFiles).sort())) {
     throw new Error('Versioned operation review cannot add or remove source modules');
   }
@@ -1862,9 +2019,13 @@ function operationSourceReviewInput(baseSha, base, current) {
 }
 
 function assertReviewedSourceChange(baseSha, base, current, review) {
+  if (review?.reviewKind === 'module-relocation') {
+    assertModuleRelocationSource(baseSha, base, current, review);
+    return;
+  }
   if (review?.reviewKind === 'optional-contract-addition') {
     const readBefore = pathname => execFileSync('git', ['show', `${baseSha}:${pathname}`], { cwd: repositoryRoot, encoding: 'utf8' });
-    const constantsPath = 'src/CollabConstants.ts';
+    const constantsPath = 'src/core/CollabConstants.ts';
     const currentConstants = normalizedVersionSource(readFileSync(path.join(repositoryRoot, constantsPath), 'utf8'),
       'COLLAB_PROTOCOL_VERSION', current.protocolVersion, base.protocolVersion);
     if (sourceSyntax(readBefore(constantsPath), constantsPath) !== sourceSyntax(currentConstants, constantsPath)) {
@@ -1872,11 +2033,11 @@ function assertReviewedSourceChange(baseSha, base, current, review) {
     }
     const changed = current.contract.publicDeclarations.filter(candidate => {
       const previous = base.contract.publicDeclarations.find(item => item.exportName === candidate.exportName);
-      return previous && previous.declaration !== candidate.declaration && candidate.source === './CollabCloudBinding'
+      return previous && previous.declaration !== candidate.declaration && candidate.source === './cloud/CollabCloudBinding'
         && candidate.exportName !== 'COLLAB_CLOUD_BINDING_VERSION';
     }).map(item => item.exportName);
-    assertCloudBindingVersionMigration(readBefore('src/CollabCloudBinding.ts'),
-      readFileSync(path.join(repositoryRoot, 'src/CollabCloudBinding.ts'), 'utf8'),
+    assertCloudBindingVersionMigration(readBefore('src/cloud/CollabCloudBinding.ts'),
+      readFileSync(path.join(repositoryRoot, 'src/cloud/CollabCloudBinding.ts'), 'utf8'),
       base.cloudBindingVersion, current.cloudBindingVersion,
       new Set([...changed, ...review.implementationDeclarations]));
     return;
@@ -1898,12 +2059,13 @@ function run() {
   const implementationReviewIndex = args.indexOf('--record-implementation-only-review');
   const operationReviewIndex = args.indexOf('--record-versioned-operation-addition-review');
   const optionalReviewIndex = args.indexOf('--record-optional-contract-addition-review');
-  if ([implementationReviewIndex, operationReviewIndex, optionalReviewIndex].filter(index => index >= 0).length > 1) {
+  const relocationReviewIndex = args.indexOf('--record-module-relocation-review');
+  if ([implementationReviewIndex, operationReviewIndex, optionalReviewIndex, relocationReviewIndex].filter(index => index >= 0).length > 1) {
     throw new Error('Only one compatibility review kind may be recorded');
   }
   const reviewIndex = implementationReviewIndex >= 0
     ? implementationReviewIndex
-    : operationReviewIndex >= 0 ? operationReviewIndex : optionalReviewIndex;
+    : operationReviewIndex >= 0 ? operationReviewIndex : optionalReviewIndex >= 0 ? optionalReviewIndex : relocationReviewIndex;
   const reviewReason = reviewIndex >= 0 ? args[reviewIndex + 1] : null;
   if (reviewIndex >= 0 && (!baseSha || !reviewReason || reviewReason.startsWith('--') || write)) {
     throw new Error('--record-implementation-only-review requires a reason, --base, and a current written snapshot');
@@ -1928,7 +2090,15 @@ function run() {
             operationSourceReviewInput(baseSha, base, committed),
           );
         }
-        const review = optionalReviewIndex >= 0
+        const movesIndex = args.indexOf('--module-moves');
+        if (relocationReviewIndex >= 0 && (movesIndex < 0 || !args[movesIndex + 1] || args[movesIndex + 1].startsWith('--'))) {
+          throw new Error('Module relocation review requires --module-moves <json-file>');
+        }
+        const review = relocationReviewIndex >= 0
+          ? { schemaVersion: 1, reviewKind: 'module-relocation', reason: reviewReason,
+            baseSnapshotSha256: snapshotDigest(base), candidateSnapshotSha256: snapshotDigest(committed),
+            moduleMoves: JSON.parse(readFileSync(path.resolve(repositoryRoot, args[movesIndex + 1]), 'utf8')) }
+          : optionalReviewIndex >= 0
           ? createOptionalContractAdditionReview(base, committed, reviewReason,
             (args[args.indexOf('--implementation-declarations') + 1] ?? '').split(',').filter(Boolean))
           : operationReviewIndex >= 0

@@ -1,10 +1,10 @@
 import {
   COLLAB_LIMITS,
   COLLAB_MAIN_REF,
-} from './CollabConstants';
+} from '../core/CollabConstants';
 import { COLLAB_CLOUD_BINDING_LIMITS } from './CollabCloudBinding';
-import { CollabError } from './CollabError';
-import type { CollabDecodeResult } from './CollabProtocol';
+import { CollabError } from '../core/CollabError';
+import type { CollabDecodeResult } from '../operations/CollabProtocol';
 import type {
   CollabChangeRequest,
   CollabGitOid,
@@ -14,15 +14,15 @@ import type {
   CollabRequestTicketRelation,
   CollabRole,
   CollabTicketSummary,
-} from './types';
-import { collabMemberRef } from './types';
+} from '../core/types';
+import { collabMemberRef } from '../core/types';
 import {
   hasUtf8ByteLengthAtMost,
   isCollabGitOid,
   isCollabMemberId,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 
 export interface CollabCloudProjectSummary {
   readonly authorityGeneration: number;

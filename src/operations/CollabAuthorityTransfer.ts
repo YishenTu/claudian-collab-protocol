@@ -1,19 +1,19 @@
-import { CollabError } from './CollabError';
+import { CollabError } from '../core/CollabError';
 import type {
   CollabCheckpointAuthority,
   CollabCheckpointAuthorityKind,
-} from './CollabProjectCheckpoint';
+} from '../checkpoints/CollabProjectCheckpoint';
 import {
   hasUtf8ByteLengthAtMost,
   isCollabMemberId,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 import type {
   CollabIsoTimestamp,
   CollabMemberId,
   CollabProjectId,
-} from './types';
+} from '../core/types';
 
 export const COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES = Object.freeze([
   'collecting-readiness',

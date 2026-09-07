@@ -1,7 +1,7 @@
 import {
   parseCollabTicketReferences,
   scanCollabTicketReferences,
-} from '../src/CollabTicketReferenceParser';
+} from '../src/markdown/CollabTicketReferenceParser';
 
 describe('CollabTicketReferenceParser', () => {
   it('parses bare Ticket numbers as references', () => {

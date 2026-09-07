@@ -113,17 +113,24 @@ export default defineConfig([
     },
   },
   {
-    // These files retain the exact accepted Claudian migration bytes. New
-    // modules still enter through the import-order gate above.
+    // Preserve reviewed module evaluation order across source relocation.
+    // New modules still enter through the import-order gate above.
     files: [
-      'src/CollabCloudBinding.ts',
-      'src/CollabCloudProjectEvent.ts',
-      'src/CollabCloudProjectSnapshot.ts',
-      'src/CollabRequestTicketRequestCodecs.ts',
-      'src/CollabRequestTicketResponseCodecs.ts',
-      'src/DevelopmentBootstrap.ts',
+      'src/checkpoints/CollabProjectBackupCheckpoint.ts',
+      'src/checkpoints/CollabProjectCheckpoint.ts',
+      'src/markdown/CollabMemberMentionParser.ts',
+      'src/markdown/CollabTicketReferenceParser.ts',
+      'src/operations/CollabAuthorityTransfer.ts',
+      'src/operations/CollabControlOperationCodecs.ts',
+      'src/operations/CollabProjectMembership.ts',
+      'src/operations/CollabProtocol.ts',
+      'src/cloud/CollabCloudBinding.ts',
+      'src/cloud/CollabCloudProjectEvent.ts',
+      'src/cloud/CollabCloudProjectSnapshot.ts',
+      'src/operations/CollabRequestTicketRequestCodecs.ts',
+      'src/operations/CollabRequestTicketResponseCodecs.ts',
+      'src/cloud/DevelopmentBootstrap.ts',
       'src/index.ts',
-      'tests/CloudBindingV1.test.ts',
       'tests/CollabError.test.ts',
       'tests/DevelopmentBootstrapContract.test.ts',
       'tests/packaging.test.ts',

@@ -10,16 +10,16 @@ import {
   decodeCollabAuthorityTransferLifecycleFence,
   decodeCollabTransferredMembershipClaimCustodyReceipt,
   decodeCollabTransferredMembershipRedemptionReceipt,
-} from './CollabAuthorityTransfer';
+} from '../operations/CollabAuthorityTransfer';
 import {
   COLLAB_MAIN_REF,
   COLLAB_MEMBER_REF_PREFIX,
-} from './CollabConstants';
+} from '../core/CollabConstants';
 import {
   type CollabControlOperation,
   collabControlOperationCodec,
-} from './CollabControlOperationCodecs';
-import { CollabError } from './CollabError';
+} from '../operations/CollabControlOperationCodecs';
+import { CollabError } from '../core/CollabError';
 import {
   COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
   COLLAB_CHECKPOINT_PORTABLE_RECORD_KINDS,
@@ -42,19 +42,19 @@ import {
   type CollabManagerResponsibilityPurpose,
   type CollabProjectInvitationState,
   type CollabProjectMembershipOperation,
-} from './CollabProjectMembership';
+} from '../operations/CollabProjectMembership';
 import {
   hasUtf8ByteLengthAtMost,
   isCollabGitOid,
   isCollabMemberId,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 import type {
   CollabIsoTimestamp,
   CollabMemberId,
   CollabProjectId,
-} from './types';
+} from '../core/types';
 
 export const COLLAB_PROJECT_BACKUP_COMPATIBILITY_STAGE =
   'pre-production-replaceable' as const;

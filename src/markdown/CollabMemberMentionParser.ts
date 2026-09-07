@@ -1,5 +1,5 @@
 import { maskCollabMarkdownProse } from './CollabMarkdownProse';
-import type { CollabMemberId } from './types';
+import type { CollabMemberId } from '../core/types';
 
 const MENTION_PRECEDING_CHARACTER = /[\p{L}\p{N}_@-]$/u;
 const MENTION_FOLLOWING_CHARACTER = /^[\p{L}\p{N}_@-]/u;

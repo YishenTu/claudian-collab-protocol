@@ -4,7 +4,7 @@ import {
   decodeCollabAuthorityTransferOperationRequest,
   decodeCollabAuthorityTransferOperationResponse,
 } from './CollabAuthorityTransfer';
-import { CollabError } from './CollabError';
+import { CollabError } from '../core/CollabError';
 import { COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS } from './CollabProjectMembership';
 import {
   COLLAB_PROJECT_RETIREMENT_OPERATIONS,

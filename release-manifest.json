@@ -6,263 +6,263 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "4.3.0"
+    "version": "4.3.1"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-4.3.0.tgz",
+    "filename": "claudian-collab-protocol-4.3.1.tgz",
     "files": [
       {
-        "path": "dist/CollabAuthorityTransfer.d.ts",
-        "size": 18269
+        "path": "dist/checkpoints/CollabProjectBackupCheckpoint.d.ts",
+        "size": 15748
       },
       {
-        "path": "dist/CollabAuthorityTransfer.js",
-        "size": 41350
+        "path": "dist/checkpoints/CollabProjectBackupCheckpoint.js",
+        "size": 105388
       },
       {
-        "path": "dist/CollabCloudBinding.d.ts",
-        "size": 9132
+        "path": "dist/checkpoints/CollabProjectCheckpoint.d.ts",
+        "size": 17011
       },
       {
-        "path": "dist/CollabCloudBinding.js",
-        "size": 26863
+        "path": "dist/checkpoints/CollabProjectCheckpoint.js",
+        "size": 58711
       },
       {
-        "path": "dist/CollabCloudProjectEvent.d.ts",
-        "size": 2209
+        "path": "dist/cloud/CollabCloudBinding.d.ts",
+        "size": 9149
       },
       {
-        "path": "dist/CollabCloudProjectEvent.js",
-        "size": 5917
+        "path": "dist/cloud/CollabCloudBinding.js",
+        "size": 26906
       },
       {
-        "path": "dist/CollabCloudProjectSnapshot.d.ts",
-        "size": 2017
+        "path": "dist/cloud/CollabCloudProjectEvent.d.ts",
+        "size": 2221
       },
       {
-        "path": "dist/CollabCloudProjectSnapshot.js",
-        "size": 11510
+        "path": "dist/cloud/CollabCloudProjectEvent.js",
+        "size": 5935
       },
       {
-        "path": "dist/CollabConstants.d.ts",
+        "path": "dist/cloud/CollabCloudProjectSnapshot.d.ts",
+        "size": 2041
+      },
+      {
+        "path": "dist/cloud/CollabCloudProjectSnapshot.js",
+        "size": 11534
+      },
+      {
+        "path": "dist/cloud/DevelopmentBootstrap.d.ts",
+        "size": 9975
+      },
+      {
+        "path": "dist/cloud/DevelopmentBootstrap.js",
+        "size": 22813
+      },
+      {
+        "path": "dist/core/CollabConstants.d.ts",
         "size": 1133
       },
       {
-        "path": "dist/CollabConstants.js",
+        "path": "dist/core/CollabConstants.js",
         "size": 1268
       },
       {
-        "path": "dist/CollabControlOperationCodecs.d.ts",
-        "size": 12061
-      },
-      {
-        "path": "dist/CollabControlOperationCodecs.js",
-        "size": 7041
-      },
-      {
-        "path": "dist/CollabError.d.ts",
+        "path": "dist/core/CollabError.d.ts",
         "size": 2268
       },
       {
-        "path": "dist/CollabError.js",
+        "path": "dist/core/CollabError.js",
         "size": 6104
       },
       {
-        "path": "dist/CollabMarkdownProse.d.ts",
-        "size": 75
-      },
-      {
-        "path": "dist/CollabMarkdownProse.js",
-        "size": 1874
-      },
-      {
-        "path": "dist/CollabMemberMentionParser.d.ts",
-        "size": 310
-      },
-      {
-        "path": "dist/CollabMemberMentionParser.js",
-        "size": 2162
-      },
-      {
-        "path": "dist/CollabProjectBackupCheckpoint.d.ts",
-        "size": 15706
-      },
-      {
-        "path": "dist/CollabProjectBackupCheckpoint.js",
-        "size": 105334
-      },
-      {
-        "path": "dist/CollabProjectCheckpoint.d.ts",
-        "size": 16968
-      },
-      {
-        "path": "dist/CollabProjectCheckpoint.js",
-        "size": 58662
-      },
-      {
-        "path": "dist/CollabProjectMembership.d.ts",
-        "size": 16474
-      },
-      {
-        "path": "dist/CollabProjectMembership.js",
-        "size": 29550
-      },
-      {
-        "path": "dist/CollabProjectRetirement.d.ts",
-        "size": 2511
-      },
-      {
-        "path": "dist/CollabProjectRetirement.js",
-        "size": 5083
-      },
-      {
-        "path": "dist/CollabProtocol.d.ts",
-        "size": 6387
-      },
-      {
-        "path": "dist/CollabProtocol.js",
-        "size": 2303
-      },
-      {
-        "path": "dist/CollabRequestTicketRequestCodecs.d.ts",
-        "size": 923
-      },
-      {
-        "path": "dist/CollabRequestTicketRequestCodecs.js",
-        "size": 13687
-      },
-      {
-        "path": "dist/CollabRequestTicketResponseCodecs.d.ts",
-        "size": 1793
-      },
-      {
-        "path": "dist/CollabRequestTicketResponseCodecs.js",
-        "size": 16837
-      },
-      {
-        "path": "dist/CollabTicketReferenceParser.d.ts",
-        "size": 1037
-      },
-      {
-        "path": "dist/CollabTicketReferenceParser.js",
-        "size": 2998
-      },
-      {
-        "path": "dist/CollabValidation.d.ts",
+        "path": "dist/core/CollabValidation.d.ts",
         "size": 389
       },
       {
-        "path": "dist/CollabValidation.js",
+        "path": "dist/core/CollabValidation.js",
         "size": 1166
       },
       {
-        "path": "dist/DevelopmentBootstrap.d.ts",
-        "size": 9951
-      },
-      {
-        "path": "dist/DevelopmentBootstrap.js",
-        "size": 22789
-      },
-      {
-        "path": "dist/esm/CollabAuthorityTransfer.mjs",
-        "size": 39063
-      },
-      {
-        "path": "dist/esm/CollabCloudBinding.mjs",
-        "size": 24735
-      },
-      {
-        "path": "dist/esm/CollabCloudProjectEvent.mjs",
-        "size": 5539
-      },
-      {
-        "path": "dist/esm/CollabCloudProjectSnapshot.mjs",
-        "size": 10797
-      },
-      {
-        "path": "dist/esm/CollabConstants.mjs",
-        "size": 1084
-      },
-      {
-        "path": "dist/esm/CollabControlOperationCodecs.mjs",
-        "size": 6562
-      },
-      {
-        "path": "dist/esm/CollabError.mjs",
-        "size": 5831
-      },
-      {
-        "path": "dist/esm/CollabMarkdownProse.mjs",
-        "size": 1729
-      },
-      {
-        "path": "dist/esm/CollabMemberMentionParser.mjs",
-        "size": 2007
-      },
-      {
-        "path": "dist/esm/CollabProjectBackupCheckpoint.mjs",
-        "size": 103217
-      },
-      {
-        "path": "dist/esm/CollabProjectCheckpoint.mjs",
-        "size": 56090
-      },
-      {
-        "path": "dist/esm/CollabProjectMembership.mjs",
-        "size": 28355
-      },
-      {
-        "path": "dist/esm/CollabProjectRetirement.mjs",
-        "size": 4380
-      },
-      {
-        "path": "dist/esm/CollabProtocol.mjs",
-        "size": 2092
-      },
-      {
-        "path": "dist/esm/CollabRequestTicketRequestCodecs.mjs",
-        "size": 12512
-      },
-      {
-        "path": "dist/esm/CollabRequestTicketResponseCodecs.mjs",
-        "size": 14964
-      },
-      {
-        "path": "dist/esm/CollabTicketReferenceParser.mjs",
-        "size": 2762
-      },
-      {
-        "path": "dist/esm/CollabValidation.mjs",
-        "size": 887
-      },
-      {
-        "path": "dist/esm/DevelopmentBootstrap.mjs",
-        "size": 21469
-      },
-      {
-        "path": "dist/esm/index.mjs",
-        "size": 5221
-      },
-      {
-        "path": "dist/esm/types.mjs",
-        "size": 328
-      },
-      {
-        "path": "dist/index.d.ts",
-        "size": 14794
-      },
-      {
-        "path": "dist/index.js",
-        "size": 27849
-      },
-      {
-        "path": "dist/types.d.ts",
+        "path": "dist/core/types.d.ts",
         "size": 4455
       },
       {
-        "path": "dist/types.js",
+        "path": "dist/core/types.js",
         "size": 471
+      },
+      {
+        "path": "dist/esm/checkpoints/CollabProjectBackupCheckpoint.mjs",
+        "size": 103271
+      },
+      {
+        "path": "dist/esm/checkpoints/CollabProjectCheckpoint.mjs",
+        "size": 56139
+      },
+      {
+        "path": "dist/esm/cloud/CollabCloudBinding.mjs",
+        "size": 24778
+      },
+      {
+        "path": "dist/esm/cloud/CollabCloudProjectEvent.mjs",
+        "size": 5557
+      },
+      {
+        "path": "dist/esm/cloud/CollabCloudProjectSnapshot.mjs",
+        "size": 10821
+      },
+      {
+        "path": "dist/esm/cloud/DevelopmentBootstrap.mjs",
+        "size": 21493
+      },
+      {
+        "path": "dist/esm/core/CollabConstants.mjs",
+        "size": 1084
+      },
+      {
+        "path": "dist/esm/core/CollabError.mjs",
+        "size": 5831
+      },
+      {
+        "path": "dist/esm/core/CollabValidation.mjs",
+        "size": 887
+      },
+      {
+        "path": "dist/esm/core/types.mjs",
+        "size": 328
+      },
+      {
+        "path": "dist/esm/index.mjs",
+        "size": 5384
+      },
+      {
+        "path": "dist/esm/markdown/CollabMarkdownProse.mjs",
+        "size": 1729
+      },
+      {
+        "path": "dist/esm/markdown/CollabMemberMentionParser.mjs",
+        "size": 2007
+      },
+      {
+        "path": "dist/esm/markdown/CollabTicketReferenceParser.mjs",
+        "size": 2768
+      },
+      {
+        "path": "dist/esm/operations/CollabAuthorityTransfer.mjs",
+        "size": 39075
+      },
+      {
+        "path": "dist/esm/operations/CollabControlOperationCodecs.mjs",
+        "size": 6568
+      },
+      {
+        "path": "dist/esm/operations/CollabProjectMembership.mjs",
+        "size": 28373
+      },
+      {
+        "path": "dist/esm/operations/CollabProjectRetirement.mjs",
+        "size": 4392
+      },
+      {
+        "path": "dist/esm/operations/CollabProtocol.mjs",
+        "size": 2104
+      },
+      {
+        "path": "dist/esm/operations/CollabRequestTicketRequestCodecs.mjs",
+        "size": 12530
+      },
+      {
+        "path": "dist/esm/operations/CollabRequestTicketResponseCodecs.mjs",
+        "size": 14982
+      },
+      {
+        "path": "dist/index.d.ts",
+        "size": 15104
+      },
+      {
+        "path": "dist/index.js",
+        "size": 28012
+      },
+      {
+        "path": "dist/markdown/CollabMarkdownProse.d.ts",
+        "size": 75
+      },
+      {
+        "path": "dist/markdown/CollabMarkdownProse.js",
+        "size": 1874
+      },
+      {
+        "path": "dist/markdown/CollabMemberMentionParser.d.ts",
+        "size": 316
+      },
+      {
+        "path": "dist/markdown/CollabMemberMentionParser.js",
+        "size": 2162
+      },
+      {
+        "path": "dist/markdown/CollabTicketReferenceParser.d.ts",
+        "size": 1043
+      },
+      {
+        "path": "dist/markdown/CollabTicketReferenceParser.js",
+        "size": 3004
+      },
+      {
+        "path": "dist/operations/CollabAuthorityTransfer.d.ts",
+        "size": 18288
+      },
+      {
+        "path": "dist/operations/CollabAuthorityTransfer.js",
+        "size": 41362
+      },
+      {
+        "path": "dist/operations/CollabControlOperationCodecs.d.ts",
+        "size": 12031
+      },
+      {
+        "path": "dist/operations/CollabControlOperationCodecs.js",
+        "size": 7047
+      },
+      {
+        "path": "dist/operations/CollabProjectMembership.d.ts",
+        "size": 16480
+      },
+      {
+        "path": "dist/operations/CollabProjectMembership.js",
+        "size": 29568
+      },
+      {
+        "path": "dist/operations/CollabProjectRetirement.d.ts",
+        "size": 2517
+      },
+      {
+        "path": "dist/operations/CollabProjectRetirement.js",
+        "size": 5095
+      },
+      {
+        "path": "dist/operations/CollabProtocol.d.ts",
+        "size": 6405
+      },
+      {
+        "path": "dist/operations/CollabProtocol.js",
+        "size": 2315
+      },
+      {
+        "path": "dist/operations/CollabRequestTicketRequestCodecs.d.ts",
+        "size": 923
+      },
+      {
+        "path": "dist/operations/CollabRequestTicketRequestCodecs.js",
+        "size": 13705
+      },
+      {
+        "path": "dist/operations/CollabRequestTicketResponseCodecs.d.ts",
+        "size": 1799
+      },
+      {
+        "path": "dist/operations/CollabRequestTicketResponseCodecs.js",
+        "size": 16855
       },
       {
         "path": "LICENSE",
@@ -274,14 +274,14 @@
       },
       {
         "path": "README.md",
-        "size": 10711
+        "size": 2835
       }
     ],
-    "integrity": "sha512-iLAFQqdjgW3La/FPwVfd2CNuP1W1OZCS43GRXUh6Jr3IyMeAgeztdIGa3iVSJYv6f5MRm0YjSRIJgjlvEhyCDQ==",
-    "sha256": "4a6685c113008a06aa3ee44e73270a7941f11c00d6cc7f52d4e3e44c5a86650c",
-    "shasum": "75195878e14b9cc503526fd8ecba98a60264ee7e",
-    "size": 134879,
-    "unpackedSize": 893301
+    "integrity": "sha512-opMwok4rf7pinsGXxaSNNkI7HhsTBET60lyY/u7VpVuZRNgnM8Vpo/+PS14q/58jjfGVzNc5/FXHC399803bhQ==",
+    "sha256": "f7a507ab9c526891226451559e4e061cc506c229679b431fccfa42e0c4b5c22a",
+    "shasum": "7c0fea2af3ad0c6544400d16fb8d7a5be10d97c6",
+    "size": 132179,
+    "unpackedSize": 886888
   },
   "toolchain": {
     "node": "24.16.0",

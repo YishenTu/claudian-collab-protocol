@@ -97,7 +97,7 @@ const packageVersion = ${JSON.stringify(installedManifest.version)};
 assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 10);
 assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 6);
 assert.notEqual(packageVersion, String(protocol.COLLAB_PROTOCOL_VERSION));
-assert.equal(packageVersion, '4.3.0');
+assert.equal(packageVersion, '4.3.1');
 assert.equal(
   require.resolve('@claudian-collab/protocol'),
   path.join(__dirname, 'node_modules', '@claudian-collab', 'protocol', 'dist', 'index.js'),
@@ -230,7 +230,7 @@ run(process.execPath, [
 console.log('TypeScript ESM and CJS declarations OK');
 
 // 4. Subpath imports must be blocked by the exports map.
-for (const subpath of ['dist/CollabError.js', 'package.json']) {
+for (const subpath of ['dist/core/CollabError.js', 'package.json']) {
   run(process.execPath, [
     '-e',
     `try { require('@claudian-collab/protocol/${subpath}'); process.exit(3); }`

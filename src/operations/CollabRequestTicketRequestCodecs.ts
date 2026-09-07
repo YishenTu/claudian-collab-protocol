@@ -1,5 +1,5 @@
-import { COLLAB_LIMITS } from './CollabConstants';
-import { CollabError } from './CollabError';
+import { COLLAB_LIMITS } from '../core/CollabConstants';
+import { CollabError } from '../core/CollabError';
 import type {
   AcceptRequest,
   ChangeTicketStatusRequest,
@@ -14,13 +14,13 @@ import type {
   UpdateMyRequestMetadataRequest,
   UpdateTicketContentRequest,
 } from './CollabProtocol';
-import type { CollabResolvingTicketExpectation } from './types';
+import type { CollabResolvingTicketExpectation } from '../core/types';
 import {
   hasUtf8ByteLengthAtMost,
   isCollabGitOid,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 
 export type CollabRequestTicketOperation =
   | 'acceptRequest'

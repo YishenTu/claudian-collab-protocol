@@ -1,6 +1,6 @@
 import type { CollabAuthorityTransferOperationMap } from './CollabAuthorityTransfer';
-import { COLLAB_PROTOCOL_VERSION, type CollabProtocolVersion } from './CollabConstants';
-import { CollabError } from './CollabError';
+import { COLLAB_PROTOCOL_VERSION, type CollabProtocolVersion } from '../core/CollabConstants';
+import { CollabError } from '../core/CollabError';
 import type { CollabProjectMembershipOperationMap } from './CollabProjectMembership';
 import type { CollabProjectRetirementOperationMap } from './CollabProjectRetirement';
 import type {
@@ -21,7 +21,7 @@ import type {
   CollabTicketPage,
   CollabTicketStatus,
   CollabTicketSummary,
-} from './types';
+} from '../core/types';
 
 export interface CollabProtocolEnvelope<T> {
   protocolVersion: CollabProtocolVersion;

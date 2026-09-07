@@ -1,8 +1,8 @@
-import { COLLAB_LIMITS, COLLAB_PROTOCOL_VERSION } from './CollabConstants';
+import { COLLAB_LIMITS, COLLAB_PROTOCOL_VERSION } from '../core/CollabConstants';
 import {
   COLLAB_CONTROL_OPERATION_CODECS,
   type CollabControlOperation,
-} from './CollabControlOperationCodecs';
+} from '../operations/CollabControlOperationCodecs';
 import {
   COLLAB_ERROR_CODES,
   CollabError,
@@ -10,16 +10,16 @@ import {
   type CollabDiagnosticContext,
   type CollabErrorCode,
   type CollabRecoveryAction,
-} from './CollabError';
+} from '../core/CollabError';
 import {
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 import {
   COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
   COLLAB_PROJECT_CHECKPOINT_ARTIFACTS,
-} from './CollabProjectCheckpoint';
-import type { CollabIsoTimestamp, CollabProjectId } from './types';
+} from '../checkpoints/CollabProjectCheckpoint';
+import type { CollabIsoTimestamp, CollabProjectId } from '../core/types';
 
 export const COLLAB_CLOUD_BINDING_VERSION = 6 as const;
 export const COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION = 2 as const;

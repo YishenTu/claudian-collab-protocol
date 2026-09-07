@@ -1,6 +1,6 @@
 import type { CollabTransferredMembershipClaim } from './CollabAuthorityTransfer';
-import { COLLAB_MEMBER_REF_PREFIX } from './CollabConstants';
-import { CollabError } from './CollabError';
+import { COLLAB_MEMBER_REF_PREFIX } from '../core/CollabConstants';
+import { CollabError } from '../core/CollabError';
 import type { CollabDecodeResult } from './CollabProtocol';
 import {
   hasUtf8ByteLengthAtMost,
@@ -8,7 +8,7 @@ import {
   isCollabMemberId,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 import type {
   CollabGitOid,
   CollabIdempotencyKey,
@@ -17,7 +17,7 @@ import type {
   CollabProjectId,
   CollabRequestId,
   CollabRole,
-} from './types';
+} from '../core/types';
 
 export const COLLAB_PROJECT_MEMBERSHIP_LIMITS = Object.freeze({
   invitationSecretLength: 43,

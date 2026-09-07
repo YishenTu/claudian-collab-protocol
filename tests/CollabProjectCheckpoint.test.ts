@@ -16,7 +16,7 @@ import {
   encodeCollabProjectCheckpointManifestDigestInput,
   encodeCollabProtectedClaimAssociatedData,
   validateCollabProjectCheckpointConsistency,
-} from '../src/CollabProjectCheckpoint';
+} from '../src/checkpoints/CollabProjectCheckpoint';
 
 const NOW = '2026-08-25T00:00:00.000Z';
 const MAIN = '1'.repeat(40);

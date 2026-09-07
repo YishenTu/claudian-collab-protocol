@@ -1,5 +1,5 @@
-import { COLLAB_LIMITS, COLLAB_PROTOCOL_VERSION } from './CollabConstants';
-import { CollabError } from './CollabError';
+import { COLLAB_LIMITS, COLLAB_PROTOCOL_VERSION } from '../core/CollabConstants';
+import { CollabError } from '../core/CollabError';
 import type {
   CollabGitOid,
   CollabIsoTimestamp,
@@ -7,14 +7,14 @@ import type {
   CollabProjectId,
   CollabRequestId,
   CollabTicketId,
-} from './types';
+} from '../core/types';
 import {
   hasUtf8ByteLengthAtMost,
   isCollabGitOid,
   isCollabMemberId,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 
 export const COLLAB_CLOUD_EVENT_KINDS = Object.freeze([
   'membership.updated',

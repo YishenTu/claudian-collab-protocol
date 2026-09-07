@@ -1,5 +1,5 @@
-import { COLLAB_LIMITS } from './CollabConstants';
-import { CollabError } from './CollabError';
+import { COLLAB_LIMITS } from '../core/CollabConstants';
+import { CollabError } from '../core/CollabError';
 import {
   type AcceptResponse,
   type CreateCommentResponse,
@@ -23,13 +23,13 @@ import {
   type CollabTicketDetail,
   type CollabTicketPage,
   type CollabTicketSummary,
-} from './types';
+} from '../core/types';
 import {
   hasUtf8ByteLengthAtMost,
   isCollabGitOid,
   isCollabMemberId,
   isCollabOpaqueId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 
 type UnknownRecord = Readonly<Record<string, unknown>>;
 

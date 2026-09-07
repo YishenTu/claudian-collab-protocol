@@ -3,7 +3,7 @@ import {
   decodeCollabProjectRetirementAcknowledgement,
   decodeCollabProjectRetirementRequest,
   decodeCollabProjectRetirementResult,
-} from '../src/CollabProjectRetirement';
+} from '../src/operations/CollabProjectRetirement';
 
 const NOW = '2026-08-25T00:00:00.000Z';
 const EXPIRES = '2026-09-24T00:00:00.000Z';

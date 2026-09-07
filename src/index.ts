@@ -3,8 +3,8 @@ export {
   COLLAB_MAIN_REF,
   COLLAB_MEMBER_REF_PREFIX,
   COLLAB_PROTOCOL_VERSION,
-} from './CollabConstants';
-export type { CollabProtocolVersion } from './CollabConstants';
+} from './core/CollabConstants';
+export type { CollabProtocolVersion } from './core/CollabConstants';
 
 export {
   COLLAB_AUTHORITY_TRANSFER_CANCELLABLE_PHASES,
@@ -26,7 +26,7 @@ export {
   encodeCollabCloudToLanTargetCleanupProofSigningInput,
   encodeCollabTransferredMembershipClaimBatchDigestInput,
   encodeCollabTransferredMembershipRedemptionReceiptSigningInput,
-} from './CollabAuthorityTransfer';
+} from './operations/CollabAuthorityTransfer';
 export type {
   AcceptCloudToLanTransferTargetRequest,
   AcceptLanToCloudTransferTargetRequest,
@@ -66,7 +66,7 @@ export type {
   ReportCloudToLanTargetStagedRequest,
   RequestLanToCloudTransferRequest,
   RotateTransferredMembershipClaimsRequest,
-} from './CollabAuthorityTransfer';
+} from './operations/CollabAuthorityTransfer';
 
 export {
   COLLAB_CHECKPOINT_ARTIFACT_LIMITS,
@@ -85,7 +85,7 @@ export {
   encodeCollabProjectCheckpointManifestDigestInput,
   encodeCollabProtectedClaimAssociatedData,
   validateCollabProjectCheckpointConsistency,
-} from './CollabProjectCheckpoint';
+} from './checkpoints/CollabProjectCheckpoint';
 export type {
   CollabCheckpointArtifactFact,
   CollabCheckpointAuthorityVolumePairRecord,
@@ -120,7 +120,7 @@ export type {
   CollabCheckpointTombstoneRecord,
   CollabProjectCheckpointManifest,
   CollabProtectedClaimAssociatedData,
-} from './CollabProjectCheckpoint';
+} from './checkpoints/CollabProjectCheckpoint';
 
 export {
   COLLAB_PROJECT_MEMBERSHIP_LIMITS,
@@ -128,7 +128,7 @@ export {
   COLLAB_PROJECT_MEMBERSHIP_OPERATION_CODECS,
   decodeCollabProjectMembershipOperationRequest,
   decodeCollabProjectMembershipOperationResponse,
-} from './CollabProjectMembership';
+} from './operations/CollabProjectMembership';
 export type {
   CollabImportedClaimState,
   CollabManagerResponsibilityOffer,
@@ -173,7 +173,7 @@ export type {
   RevokeTransferredMembershipClaimRequest,
   RevokeTransferredMembershipClaimResponse,
   TransitionManagerResponsibilityOfferRequest,
-} from './CollabProjectMembership';
+} from './operations/CollabProjectMembership';
 
 export {
   COLLAB_PROJECT_BACKUP_COMPATIBILITY_STAGE,
@@ -186,7 +186,7 @@ export {
   encodeCollabProjectBackupCheckpointManifestCanonicalJson,
   encodeCollabProjectBackupCheckpointManifestDigestInput,
   validateCollabProjectBackupCheckpointConsistency,
-} from './CollabProjectBackupCheckpoint';
+} from './checkpoints/CollabProjectBackupCheckpoint';
 export type {
   CollabProjectBackupAuthorityTransferRecoveryRecord,
   CollabProjectBackupCheckpointManifest,
@@ -214,7 +214,7 @@ export type {
   CollabProjectBackupTransferredMembershipClaimOverrideRecord,
   CollabProjectBackupTransferReceiptKeyRecord,
   CollabProjectBackupTransferRedemptionReceiptRecord,
-} from './CollabProjectBackupCheckpoint';
+} from './checkpoints/CollabProjectBackupCheckpoint';
 
 export {
   COLLAB_PROJECT_RETIREMENT_OPERATIONS,
@@ -224,7 +224,7 @@ export {
   decodeCollabProjectRetirementOperationResponse,
   decodeCollabProjectRetirementRequest,
   decodeCollabProjectRetirementResult,
-} from './CollabProjectRetirement';
+} from './operations/CollabProjectRetirement';
 export type {
   CollabProjectRetirementAcknowledgement,
   CollabProjectRetirementAcknowledgementRequest,
@@ -232,7 +232,7 @@ export type {
   CollabProjectRetirementOperationMap,
   CollabProjectRetirementRequest,
   CollabProjectRetirementResult,
-} from './CollabProjectRetirement';
+} from './operations/CollabProjectRetirement';
 
 export {
   COLLAB_CLOUD_BINDING_LIMITS,
@@ -257,7 +257,7 @@ export {
   decodeCollabCloudProjectCheckpointExportStatus,
   decodeCollabCloudSuccessEnvelope,
   matchCollabCloudRoute,
-} from './CollabCloudBinding';
+} from './cloud/CollabCloudBinding';
 export type {
   CollabCloudAuthorityTransferArtifact,
   CollabCloudAuthorityTransferArtifactDirection,
@@ -273,7 +273,7 @@ export type {
   CollabCloudSuccessEnvelope,
   CollabCloudWireError,
   DevelopmentBootstrapOperation,
-} from './CollabCloudBinding';
+} from './cloud/CollabCloudBinding';
 
 export {
   DEVELOPMENT_BOOTSTRAP_ACTIVATION_PHASES,
@@ -286,7 +286,7 @@ export {
   decodeDevelopmentBootstrapReport,
   developmentBootstrapOperationCodec,
   encodeDevelopmentBootstrapManifestCanonicalJson,
-} from './DevelopmentBootstrap';
+} from './cloud/DevelopmentBootstrap';
 export type {
   ActivateDevelopmentBootstrapRequest,
   BeginDevelopmentBootstrapRequest,
@@ -311,47 +311,47 @@ export type {
   GetDevelopmentBootstrapRequest,
   PutDevelopmentBootstrapGitBundleRequest,
   SubmitDevelopmentBootstrapReportRequest,
-} from './DevelopmentBootstrap';
+} from './cloud/DevelopmentBootstrap';
 
 export {
   COLLAB_CLOUD_PROJECT_SNAPSHOT_CODEC,
   decodeCollabCloudProjectSnapshot,
-} from './CollabCloudProjectSnapshot';
+} from './cloud/CollabCloudProjectSnapshot';
 export type {
   CollabCloudProjectMember,
   CollabCloudProjectSnapshot,
   CollabCloudProjectSnapshotCodec,
   CollabCloudProjectSummary,
   GetCollabCloudProjectSnapshotRequest,
-} from './CollabCloudProjectSnapshot';
+} from './cloud/CollabCloudProjectSnapshot';
 
 export {
   COLLAB_CLOUD_EVENT_KINDS,
   decodeCollabCloudProjectEventMessage,
-} from './CollabCloudProjectEvent';
+} from './cloud/CollabCloudProjectEvent';
 export type {
   CollabCloudEventKind,
   CollabCloudEventPayloadMap,
   CollabCloudProjectEvent,
   CollabCloudProjectEventMessage,
   CollabCloudSnapshotRequired,
-} from './CollabCloudProjectEvent';
+} from './cloud/CollabCloudProjectEvent';
 
 export {
   COLLAB_CONTROL_OPERATION_CODECS,
   collabControlOperationCodec,
-} from './CollabControlOperationCodecs';
+} from './operations/CollabControlOperationCodecs';
 export type {
   CollabControlOperation,
   CollabControlOperationCodec,
-} from './CollabControlOperationCodecs';
+} from './operations/CollabControlOperationCodecs';
 
 export {
   COLLAB_ERROR_CODES,
   CollabError,
   collabErrorGroup,
   sanitizeCollabDiagnosticContext,
-} from './CollabError';
+} from './core/CollabError';
 export type {
   CollabDiagnosticContext,
   CollabDiagnosticValue,
@@ -359,12 +359,12 @@ export type {
   CollabErrorGroup,
   CollabErrorOptions,
   CollabRecoveryAction,
-} from './CollabError';
+} from './core/CollabError';
 
-export { parseCollabMemberMentions } from './CollabMemberMentionParser';
-export type { CollabMemberMentionTarget } from './CollabMemberMentionParser';
+export { parseCollabMemberMentions } from './markdown/CollabMemberMentionParser';
+export type { CollabMemberMentionTarget } from './markdown/CollabMemberMentionParser';
 
-export { decodeCollabProtocolEnvelope } from './CollabProtocol';
+export { decodeCollabProtocolEnvelope } from './operations/CollabProtocol';
 export type {
   AcceptRequest,
   AcceptResponse,
@@ -395,31 +395,31 @@ export type {
   UpdateMyRequestMetadataRequest,
   UpdateMyRequestMetadataResponse,
   UpdateTicketContentRequest,
-} from './CollabProtocol';
+} from './operations/CollabProtocol';
 
 export {
   parseCollabTicketReferences,
   scanCollabTicketReferences,
-} from './CollabTicketReferenceParser';
+} from './markdown/CollabTicketReferenceParser';
 export type {
   CollabTicketReferenceParseFailureReason,
   CollabTicketReferenceParseResult,
   CollabTicketReferenceScanResult,
   CollabTicketReferenceToken,
-} from './CollabTicketReferenceParser';
+} from './markdown/CollabTicketReferenceParser';
 
-export { decodeResolveTicketNumber } from './CollabRequestTicketRequestCodecs';
-export type { CollabRequestTicketOperation } from './CollabRequestTicketRequestCodecs';
-export { decodeResolveTicketNumberResponse } from './CollabRequestTicketResponseCodecs';
+export { decodeResolveTicketNumber } from './operations/CollabRequestTicketRequestCodecs';
+export type { CollabRequestTicketOperation } from './operations/CollabRequestTicketRequestCodecs';
+export { decodeResolveTicketNumberResponse } from './operations/CollabRequestTicketResponseCodecs';
 
 export {
   isCollabGitOid,
   isCollabMemberId,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from './core/CollabValidation';
 
-export { collabMemberRef } from './types';
+export { collabMemberRef } from './core/types';
 export type {
   CollabChangedFile,
   CollabChangeRequest,
@@ -456,4 +456,4 @@ export type {
   CollabTicketRelationId,
   CollabTicketStatus,
   CollabTicketSummary,
-} from './types';
+} from './core/types';

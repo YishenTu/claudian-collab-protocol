@@ -1,14 +1,14 @@
-import { CollabError } from './CollabError';
+import { CollabError } from '../core/CollabError';
 import {
   isCollabGitOid,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 import type {
   CollabGitOid,
   CollabIsoTimestamp,
   CollabProjectId,
-} from './types';
+} from '../core/types';
 
 export const COLLAB_PROJECT_RETIREMENT_RESULT_KINDS = Object.freeze([
   'project-retired',

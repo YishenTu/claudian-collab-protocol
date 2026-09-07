@@ -9,47 +9,47 @@ import { fileURLToPath } from 'node:url';
 import * as compatibility from '../scripts/check-compatibility.mjs';
 
 const baseFiles = {
-  'src/CollabProtocol.ts': `export interface ExistingRequest { readonly revision: number; }
+  'src/operations/CollabProtocol.ts': `export interface ExistingRequest { readonly revision: number; }
     export interface CollabControlOperationMap { readonly existing: { readonly request: ExistingRequest; readonly response: ExistingRequest }; }`,
-  'src/CollabRequestTicketRequestCodecs.ts': `import type { ExistingRequest } from './CollabProtocol';
+  'src/operations/CollabRequestTicketRequestCodecs.ts': `import type { ExistingRequest } from './CollabProtocol';
     export type CollabRequestTicketOperation = 'existing';
     function isRevision(value: unknown): boolean { return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1; }
     function decodeExisting(input: unknown): ExistingRequest | null { if (!isRevision((input as ExistingRequest).revision)) return null; return input as ExistingRequest; }
     function decodeRequestTicketRequest(operation: string, input: unknown) { switch (operation) { case 'closeTicket': case 'reopenTicket': case 'existing': return decodeExisting(input); default: return null; } }
     const INVALID_REASONS = { existing: 'existing-invalid' } as const;`,
-  'src/CollabRequestTicketResponseCodecs.ts': `import type { ExistingRequest } from './CollabProtocol';
+  'src/operations/CollabRequestTicketResponseCodecs.ts': `import type { ExistingRequest } from './CollabProtocol';
     export function decodeExistingResponse(input: unknown): ExistingRequest { return input as ExistingRequest; }`,
-  'src/CollabControlOperationCodecs.ts': `import { decodeExistingResponse } from './CollabRequestTicketResponseCodecs';
+  'src/operations/CollabControlOperationCodecs.ts': `import { decodeExistingResponse } from './CollabRequestTicketResponseCodecs';
     function decodeResponse(operation: string, input: unknown) { switch (operation) { case 'closeTicket': case 'reopenTicket': case 'existing': return decodeExistingResponse(input); default: return null; } }
     const codec = (operation: string) => operation;
     export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({ existing: codec('existing') });`,
-  'src/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 4 as const;',
-  'src/CollabCloudBinding.ts': `export const COLLAB_CLOUD_BINDING_VERSION = 1 as const;
+  'src/core/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 4 as const;',
+  'src/cloud/CollabCloudBinding.ts': `export const COLLAB_CLOUD_BINDING_VERSION = 1 as const;
     export function collabCloudProjectOperationRoute() { return '/v1/projects'; }`,
-  'src/index.ts': "export type { ExistingRequest, CollabControlOperationMap } from './CollabProtocol';",
+  'src/index.ts': "export type { ExistingRequest, CollabControlOperationMap } from './operations/CollabProtocol';",
 };
 const currentFiles = {
   ...baseFiles,
-  'src/CollabProtocol.ts': `${baseFiles['src/CollabProtocol.ts'].replace('readonly existing:', 'readonly resolveTicketNumber: { readonly request: ResolveTicketNumberRequest; readonly response: ResolveTicketNumberResponse }; readonly existing:')}
+  'src/operations/CollabProtocol.ts': `${baseFiles['src/operations/CollabProtocol.ts'].replace('readonly existing:', 'readonly resolveTicketNumber: { readonly request: ResolveTicketNumberRequest; readonly response: ResolveTicketNumberResponse }; readonly existing:')}
     export interface ResolveTicketNumberRequest { readonly ticketNumber: number; }
     export interface ResolveTicketNumberResponse { readonly ticketId: string | null; }`,
-  'src/CollabRequestTicketRequestCodecs.ts': `${baseFiles['src/CollabRequestTicketRequestCodecs.ts']
+  'src/operations/CollabRequestTicketRequestCodecs.ts': `${baseFiles['src/operations/CollabRequestTicketRequestCodecs.ts']
     .replace('{ ExistingRequest }', '{ ExistingRequest, ResolveTicketNumberRequest }')
     .replace("= 'existing';", "= 'existing' | 'resolveTicketNumber';")
     .replace("switch (operation) {", "switch (operation) { case 'resolveTicketNumber': return decodeResolveTicketNumber(input);")
     .replace("{ existing: 'existing-invalid' }", "{ existing: 'existing-invalid', resolveTicketNumber: 'ticket-number-query-invalid' }")}
     export function decodeResolveTicketNumber(input: unknown): ResolveTicketNumberRequest { return input as ResolveTicketNumberRequest; }`,
-  'src/CollabRequestTicketResponseCodecs.ts': `${baseFiles['src/CollabRequestTicketResponseCodecs.ts'].replace('{ ExistingRequest }', '{ ExistingRequest, ResolveTicketNumberResponse }')}
+  'src/operations/CollabRequestTicketResponseCodecs.ts': `${baseFiles['src/operations/CollabRequestTicketResponseCodecs.ts'].replace('{ ExistingRequest }', '{ ExistingRequest, ResolveTicketNumberResponse }')}
     export function decodeResolveTicketNumberResponse(input: unknown): ResolveTicketNumberResponse { return input as ResolveTicketNumberResponse; }`,
-  'src/CollabControlOperationCodecs.ts': baseFiles['src/CollabControlOperationCodecs.ts']
+  'src/operations/CollabControlOperationCodecs.ts': baseFiles['src/operations/CollabControlOperationCodecs.ts']
     .replace('{ decodeExistingResponse }', '{ decodeExistingResponse, decodeResolveTicketNumberResponse }')
     .replace("switch (operation) {", "switch (operation) { case 'resolveTicketNumber': return decodeResolveTicketNumberResponse(input);")
     .replace("{ existing: codec('existing') }", "{ existing: codec('existing'), resolveTicketNumber: codec('resolveTicketNumber') }"),
-  'src/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 5 as const;',
-  'src/CollabCloudBinding.ts': baseFiles['src/CollabCloudBinding.ts'].replace('= 1 as const', '= 2 as const').replace('/v1/', '/v2/'),
+  'src/core/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 5 as const;',
+  'src/cloud/CollabCloudBinding.ts': baseFiles['src/cloud/CollabCloudBinding.ts'].replace('= 1 as const', '= 2 as const').replace('/v1/', '/v2/'),
   'src/index.ts': `${baseFiles['src/index.ts'].replace('ExistingRequest,', 'ExistingRequest, ResolveTicketNumberRequest, ResolveTicketNumberResponse,')}
-    export { decodeResolveTicketNumber } from './CollabRequestTicketRequestCodecs';
-    export { decodeResolveTicketNumberResponse } from './CollabRequestTicketResponseCodecs';`,
+    export { decodeResolveTicketNumber } from './operations/CollabRequestTicketRequestCodecs';
+    export { decodeResolveTicketNumberResponse } from './operations/CollabRequestTicketResponseCodecs';`,
 };
 const input = {
   addedOperations: ['resolveTicketNumber'], baseFiles, currentFiles,
@@ -60,23 +60,23 @@ test('Request/Ticket addition proves DTOs, both decoders and reachable import/ex
   assert.doesNotThrow(() => compatibility.assertRequestTicketOperationSourceAddition(input));
 });
 const mutations = [
-  ['existing request behavior', 'src/CollabRequestTicketRequestCodecs.ts', 'return input as ExistingRequest;', 'return null;'],
-  ['existing response behavior', 'src/CollabRequestTicketResponseCodecs.ts', 'return input as ExistingRequest;', 'return null;'],
-  ['existing reason', 'src/CollabRequestTicketRequestCodecs.ts', "existing: 'existing-invalid'", "existing: 'changed-invalid'"],
-  ['duplicate union', 'src/CollabRequestTicketRequestCodecs.ts', "= 'existing' |", "= 'existing' | 'existing' |"],
-  ['changed union header', 'src/CollabRequestTicketRequestCodecs.ts', 'type CollabRequestTicketOperation =', 'type CollabRequestTicketOperation<T> ='],
-  ['changed map member', 'src/CollabProtocol.ts', 'readonly request: ExistingRequest;', 'readonly request: never;'],
-  ['new map heritage', 'src/CollabProtocol.ts', 'interface CollabControlOperationMap {', 'interface CollabControlOperationMap extends Other {'],
-  ['changed import identity', 'src/CollabRequestTicketRequestCodecs.ts', '{ ExistingRequest,', '{ Changed as ExistingRequest,'],
-  ['new unused import', 'src/CollabRequestTicketRequestCodecs.ts', '{ ExistingRequest,', '{ Unused, ExistingRequest,'],
-  ['new module access', 'src/CollabRequestTicketRequestCodecs.ts', 'export function decodeResolveTicketNumber', "import { external } from './Unrelated'; export function decodeResolveTicketNumber"],
-  ['unreachable declaration', 'src/CollabProtocol.ts', 'export interface ResolveTicketNumberRequest', 'interface Unrelated {} export interface ResolveTicketNumberRequest'],
-  ['response bypass', 'src/CollabControlOperationCodecs.ts', 'return decodeResolveTicketNumberResponse(input);', 'return input;'],
-  ['request bypass', 'src/CollabRequestTicketRequestCodecs.ts', 'return decodeResolveTicketNumber(input);', 'return input;'],
+  ['existing request behavior', 'src/operations/CollabRequestTicketRequestCodecs.ts', 'return input as ExistingRequest;', 'return null;'],
+  ['existing response behavior', 'src/operations/CollabRequestTicketResponseCodecs.ts', 'return input as ExistingRequest;', 'return null;'],
+  ['existing reason', 'src/operations/CollabRequestTicketRequestCodecs.ts', "existing: 'existing-invalid'", "existing: 'changed-invalid'"],
+  ['duplicate union', 'src/operations/CollabRequestTicketRequestCodecs.ts', "= 'existing' |", "= 'existing' | 'existing' |"],
+  ['changed union header', 'src/operations/CollabRequestTicketRequestCodecs.ts', 'type CollabRequestTicketOperation =', 'type CollabRequestTicketOperation<T> ='],
+  ['changed map member', 'src/operations/CollabProtocol.ts', 'readonly request: ExistingRequest;', 'readonly request: never;'],
+  ['new map heritage', 'src/operations/CollabProtocol.ts', 'interface CollabControlOperationMap {', 'interface CollabControlOperationMap extends Other {'],
+  ['changed import identity', 'src/operations/CollabRequestTicketRequestCodecs.ts', '{ ExistingRequest,', '{ Changed as ExistingRequest,'],
+  ['new unused import', 'src/operations/CollabRequestTicketRequestCodecs.ts', '{ ExistingRequest,', '{ Unused, ExistingRequest,'],
+  ['new module access', 'src/operations/CollabRequestTicketRequestCodecs.ts', 'export function decodeResolveTicketNumber', "import { external } from './Unrelated'; export function decodeResolveTicketNumber"],
+  ['unreachable declaration', 'src/operations/CollabProtocol.ts', 'export interface ResolveTicketNumberRequest', 'interface Unrelated {} export interface ResolveTicketNumberRequest'],
+  ['response bypass', 'src/operations/CollabControlOperationCodecs.ts', 'return decodeResolveTicketNumberResponse(input);', 'return input;'],
+  ['request bypass', 'src/operations/CollabRequestTicketRequestCodecs.ts', 'return decodeResolveTicketNumber(input);', 'return input;'],
   ['export alias', 'src/index.ts', '{ decodeResolveTicketNumber }', '{ decodeResolveTicketNumber as other }'],
   ['unreachable export', 'src/index.ts', '{ decodeResolveTicketNumber }', '{ decodeResolveTicketNumber, hidden }'],
-  ['side effect import', 'src/CollabRequestTicketRequestCodecs.ts', 'export function decodeResolveTicketNumber', "import './CollabProtocol'; export function decodeResolveTicketNumber"],
-  ['import shadowing', 'src/CollabRequestTicketRequestCodecs.ts', 'decodeResolveTicketNumber(input: unknown): ResolveTicketNumberRequest', 'decodeResolveTicketNumber<ResolveTicketNumberRequest>(input: unknown): ResolveTicketNumberRequest'],
+  ['side effect import', 'src/operations/CollabRequestTicketRequestCodecs.ts', 'export function decodeResolveTicketNumber', "import './CollabProtocol'; export function decodeResolveTicketNumber"],
+  ['import shadowing', 'src/operations/CollabRequestTicketRequestCodecs.ts', 'decodeResolveTicketNumber(input: unknown): ResolveTicketNumberRequest', 'decodeResolveTicketNumber<ResolveTicketNumberRequest>(input: unknown): ResolveTicketNumberRequest'],
 ];
 for (const [label, pathname, before, after] of mutations) {
   test(`Request/Ticket addition rejects ${label}`, () => {
@@ -87,8 +87,8 @@ for (const [label, pathname, before, after] of mutations) {
 }
 
 for (const [pathname, decoder] of [
-  ['src/CollabRequestTicketRequestCodecs.ts', 'decodeResolveTicketNumber'],
-  ['src/CollabControlOperationCodecs.ts', 'decodeResolveTicketNumberResponse'],
+  ['src/operations/CollabRequestTicketRequestCodecs.ts', 'decodeResolveTicketNumber'],
+  ['src/operations/CollabControlOperationCodecs.ts', 'decodeResolveTicketNumberResponse'],
 ]) {
   const addedCase = `case 'resolveTicketNumber': return ${decoder}(input);`;
   for (const [label, mutate] of [
@@ -120,7 +120,7 @@ for (const [pathname, decoder] of [
 }
 
 test('Request/Ticket rejects operation-reachable declarations that capture existing global references', () => {
-  const pathname = 'src/CollabRequestTicketRequestCodecs.ts';
+  const pathname = 'src/operations/CollabRequestTicketRequestCodecs.ts';
   const shadowed = currentFiles[pathname].replace('return input as ResolveTicketNumberRequest;',
     'if (!Number.isSafeInteger(1)) return null; return input as ResolveTicketNumberRequest;')
     + " const Number = { isSafeInteger: (value: unknown): boolean => typeof value === 'number' };";
@@ -130,7 +130,7 @@ test('Request/Ticket rejects operation-reachable declarations that capture exist
 });
 
 test('Request/Ticket preserves local bindings with the same spelling as a new declaration', () => {
-  const pathname = 'src/CollabRequestTicketRequestCodecs.ts';
+  const pathname = 'src/operations/CollabRequestTicketRequestCodecs.ts';
   const localBinding = "function isRevision(value: unknown): boolean { const Number = { isSafeInteger: (candidate: unknown) => typeof candidate === 'number' };";
   const base = baseFiles[pathname].replace('function isRevision(value: unknown): boolean {', localBinding);
   const candidate = currentFiles[pathname].replace('function isRevision(value: unknown): boolean {', localBinding)
@@ -143,7 +143,7 @@ test('Request/Ticket preserves local bindings with the same spelling as a new de
 });
 
 test('Request/Ticket rejects new imports that capture existing unresolved references', () => {
-  const pathname = 'src/CollabRequestTicketRequestCodecs.ts';
+  const pathname = 'src/operations/CollabRequestTicketRequestCodecs.ts';
   const shadowed = currentFiles[pathname].replace('{ ExistingRequest,', '{ Number, ExistingRequest,')
     .replace('return input as ResolveTicketNumberRequest;',
       'if (!Number.isSafeInteger(1)) return null; return input as ResolveTicketNumberRequest;');
@@ -168,8 +168,8 @@ test('source family dispatcher accepts Request/Ticket additions and rejects unre
 test('source family dispatcher rejects mixed authority-transfer and Request/Ticket additions', () => {
   assert.throws(() => compatibility.assertVersionedOperationSourceAddition({
     ...input,
-    baseFiles: { ...baseFiles, 'src/CollabAuthorityTransfer.ts': 'export interface CollabAuthorityTransferOperationMap {}' },
-    currentFiles: { ...currentFiles, 'src/CollabAuthorityTransfer.ts': 'export interface CollabAuthorityTransferOperationMap { readonly resolveTicketNumber: {}; }' },
+    baseFiles: { ...baseFiles, 'src/operations/CollabAuthorityTransfer.ts': 'export interface CollabAuthorityTransferOperationMap {}' },
+    currentFiles: { ...currentFiles, 'src/operations/CollabAuthorityTransfer.ts': 'export interface CollabAuthorityTransferOperationMap { readonly resolveTicketNumber: {}; }' },
   }), /one supported operation family/u);
 });
 
@@ -181,12 +181,15 @@ test('Request/Ticket CLI records exact review and rejects regenerated existing d
   for (const directory of ['scripts', 'src', 'dist']) mkdirSync(path.join(root, directory));
   copyFileSync(path.join(repositoryRoot, 'scripts/check-compatibility.mjs'), path.join(root, 'scripts/check-compatibility.mjs'));
   symlinkSync(path.join(repositoryRoot, 'node_modules'), path.join(root, 'node_modules'), 'dir');
-  const put = (file, value) => writeFileSync(path.join(root, file), value);
+  const put = (file, value) => {
+    mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    writeFileSync(path.join(root, file), value);
+  };
   const commonExports = `
-export { COLLAB_PROTOCOL_VERSION } from './CollabConstants';
-export { COLLAB_CLOUD_BINDING_VERSION } from './CollabCloudBinding';
-export { COLLAB_CONTROL_OPERATION_CODECS } from './CollabControlOperationCodecs';
-export type { CollabRequestTicketOperation } from './CollabRequestTicketRequestCodecs';`;
+export { COLLAB_PROTOCOL_VERSION } from './core/CollabConstants';
+export { COLLAB_CLOUD_BINDING_VERSION } from './cloud/CollabCloudBinding';
+export { COLLAB_CONTROL_OPERATION_CODECS } from './operations/CollabControlOperationCodecs';
+export type { CollabRequestTicketOperation } from './operations/CollabRequestTicketRequestCodecs';`;
   const install = (files, added) => {
     for (const [pathname, source] of Object.entries(files)) put(pathname, source + (pathname === 'src/index.ts' ? commonExports : ''));
     put('package.json', JSON.stringify({ version: added ? '1.1.0' : '1.0.0' }));
@@ -222,7 +225,7 @@ ${added ? ', decodeResolveTicketNumber: value => value, decodeResolveTicketNumbe
   assert.equal(verified.status, 0, verified.stderr);
   const review = JSON.parse(readFileSync(path.join(root, 'compatibility-review.json'), 'utf8'));
   assert.deepEqual(review.addedOperations, ['resolveTicketNumber']);
-  const requestPath = 'src/CollabRequestTicketRequestCodecs.ts';
+  const requestPath = 'src/operations/CollabRequestTicketRequestCodecs.ts';
   put(requestPath, currentFiles[requestPath].replace('return input as ResolveTicketNumberRequest;',
     'if (!Number.isSafeInteger(1)) return null; return input as ResolveTicketNumberRequest;')
     + " const Number = { isSafeInteger: (value: unknown): boolean => typeof value === 'number' };");
@@ -233,7 +236,7 @@ ${added ? ', decodeResolveTicketNumber: value => value, decodeResolveTicketNumbe
   put(requestPath, currentFiles[requestPath]);
   for (const [pathname, decoder] of [
     [requestPath, 'decodeResolveTicketNumber'],
-    ['src/CollabControlOperationCodecs.ts', 'decodeResolveTicketNumberResponse'],
+    ['src/operations/CollabControlOperationCodecs.ts', 'decodeResolveTicketNumberResponse'],
   ]) {
     const inserted = currentFiles[pathname].replace(`case 'resolveTicketNumber': return ${decoder}(input);`, '')
       .replace("case 'reopenTicket':", `case 'resolveTicketNumber': return ${decoder}(input); case 'reopenTicket':`);
@@ -244,7 +247,7 @@ ${added ? ', decodeResolveTicketNumber: value => value, decodeResolveTicketNumbe
     assert.match(fallthrough.stderr, /dispatch/u);
     put(pathname, currentFiles[pathname]);
   }
-  const responsePath = 'src/CollabRequestTicketResponseCodecs.ts';
+  const responsePath = 'src/operations/CollabRequestTicketResponseCodecs.ts';
   put(responsePath, currentFiles[responsePath].replace('return input as ExistingRequest;', 'return null;'));
   assert.equal(command('--write').status, 0);
   const stale = command('--base', base);

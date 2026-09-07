@@ -21,7 +21,7 @@ import {
   encodeCollabCloudToLanTargetCleanupProofSigningInput,
   encodeCollabTransferredMembershipClaimBatchDigestInput,
   encodeCollabTransferredMembershipRedemptionReceiptSigningInput,
-} from '../src/CollabAuthorityTransfer';
+} from '../src/operations/CollabAuthorityTransfer';
 
 const NOW = '2026-08-25T00:00:00.000Z';
 const LATER = '2026-09-24T00:00:00.000Z';

@@ -4,7 +4,7 @@ import {
   collabErrorGroup,
   sanitizeCollabDiagnosticContext,
   type CollabErrorGroup,
-} from '../src/CollabError';
+} from '../src/core/CollabError';
 
 describe('CollabError', () => {
   it('exports only decision-complete shared wire errors', () => {

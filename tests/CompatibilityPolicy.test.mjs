@@ -37,10 +37,10 @@ function sourceFiles(directory = path.join(repositoryRoot, 'src')) {
 function snapshot({
   binding = { routes: ['capabilities'] },
   bindingVersion = 1,
-  declarations = [{ declaration: 'export interface A {}', exportName: 'A', source: './types' }],
+  declarations = [{ declaration: 'export interface A {}', exportName: 'A', source: './core/types' }],
   packageVersion = '1.0.0',
   protocolVersion = 4,
-  runtime = [{ path: 'src/types.ts', sha256: 'runtime-a' }],
+  runtime = [{ path: 'src/core/types.ts', sha256: 'runtime-a' }],
   runtimeExports = ['A'],
   wire = { operations: ['getRequest'] },
   ...extra
@@ -91,15 +91,15 @@ test('accepts an explicitly reviewed implementation-only refactor', () => {
   const base = snapshot({
     wire: {
       operations: ['getRequest'],
-      runtimeBehaviorDigests: [{ path: 'src/types.ts', sha256: 'runtime-a' }],
+      runtimeBehaviorDigests: [{ path: 'src/core/types.ts', sha256: 'runtime-a' }],
     },
   });
   const current = snapshot({
     packageVersion: '1.0.1',
-    runtime: [{ path: 'src/types.ts', sha256: 'runtime-refactored' }],
+    runtime: [{ path: 'src/core/types.ts', sha256: 'runtime-refactored' }],
     wire: {
       operations: ['getRequest'],
-      runtimeBehaviorDigests: [{ path: 'src/types.ts', sha256: 'runtime-refactored' }],
+      runtimeBehaviorDigests: [{ path: 'src/core/types.ts', sha256: 'runtime-refactored' }],
     },
   });
   const review = compatibility.createImplementationOnlyReview(
@@ -114,7 +114,7 @@ test('accepts an explicitly reviewed implementation-only refactor', () => {
 test('an implementation review cannot waive public or declarative contract changes', () => {
   const base = snapshot();
   const changes = [
-    { declarations: [{ declaration: 'export interface A { value: string }', exportName: 'A', source: './types' }] },
+    { declarations: [{ declaration: 'export interface A { value: string }', exportName: 'A', source: './core/types' }] },
     { runtimeExports: ['A', 'B'] },
     { wire: { operations: ['getRequest', 'deleteRequest'] } },
     { wire: { operations: ['getRequest'], limits: { maxBytes: 1 } } },
@@ -136,7 +136,7 @@ test('implementation reviews preserve the captured Cloud operation inventory', (
   });
   const current = snapshot({
     packageVersion: '1.0.1',
-    runtime: [{ path: 'src/types.ts', sha256: 'refactored-runtime' }],
+    runtime: [{ path: 'src/core/types.ts', sha256: 'refactored-runtime' }],
     binding: { jsonOperations: ['getProjectSnapshot'] },
     wire: { operations: ['retireProject'] },
   });
@@ -161,7 +161,7 @@ test('implementation reviews are exact, fail closed, and retain version monotoni
   const base = snapshot();
   const current = snapshot({
     packageVersion: '1.0.1',
-    runtime: [{ path: 'src/types.ts', sha256: 'refactored-runtime' }],
+    runtime: [{ path: 'src/core/types.ts', sha256: 'refactored-runtime' }],
   });
   const review = compatibility.createImplementationOnlyReview(base, current, 'Preserve public behavior.');
   assert.throws(() => assertVersionedContractChange(base, current), /package major release/u);
@@ -178,8 +178,8 @@ test('implementation reviews are exact, fail closed, and retain version monotoni
 
 test('requires at least a minor release for additive public API', () => {
   const addedDeclaration = [
-    { declaration: 'export interface A {}', exportName: 'A', source: './types' },
-    { declaration: 'export interface B {}', exportName: 'B', source: './types' },
+    { declaration: 'export interface A {}', exportName: 'A', source: './core/types' },
+    { declaration: 'export interface B {}', exportName: 'B', source: './core/types' },
   ];
   assert.equal(classifyPackageApiChange(snapshot(), snapshot({
     declarations: addedDeclaration,
@@ -204,11 +204,11 @@ test('accepts an exactly reviewed versioned operation addition without waiving e
   const declarations = [{
     declaration: 'export interface CollabAuthorityTransferOperationMap { readonly existing: Existing; }',
     exportName: 'CollabAuthorityTransferOperationMap',
-    source: './CollabAuthorityTransfer',
+    source: './operations/CollabAuthorityTransfer',
   }, {
     declaration: 'export interface CollabAuthorityTransferStatus { readonly phase: string; }',
     exportName: 'CollabAuthorityTransferStatus',
-    source: './CollabAuthorityTransfer',
+    source: './operations/CollabAuthorityTransfer',
   }];
   const base = snapshot({
     binding: {
@@ -216,7 +216,7 @@ test('accepts an exactly reviewed versioned operation addition without waiving e
       jsonOperations: ['getProjectSnapshot', 'existing'],
     },
     declarations,
-    runtime: [{ path: 'src/CollabAuthorityTransfer.ts', sha256: 'runtime-v1' }],
+    runtime: [{ path: 'src/operations/CollabAuthorityTransfer.ts', sha256: 'runtime-v1' }],
     runtimeExports: [],
     wire: { operations: ['existing'] },
   });
@@ -229,19 +229,19 @@ test('accepts an exactly reviewed versioned operation addition without waiving e
     declarations: [{
       declaration: 'export interface CollabAuthorityTransferOperationMap { readonly existing: Existing; readonly confirmTargetCleanup: ConfirmTargetCleanup; }',
       exportName: 'CollabAuthorityTransferOperationMap',
-      source: './CollabAuthorityTransfer',
+      source: './operations/CollabAuthorityTransfer',
     }, {
       declaration: 'export interface CollabAuthorityTransferStatus { readonly phase: string; }',
       exportName: 'CollabAuthorityTransferStatus',
-      source: './CollabAuthorityTransfer',
+      source: './operations/CollabAuthorityTransfer',
     }, {
       declaration: 'export interface ConfirmTargetCleanup {}',
       exportName: 'ConfirmTargetCleanup',
-      source: './CollabAuthorityTransfer',
+      source: './operations/CollabAuthorityTransfer',
     }],
     packageVersion: '1.1.0',
     protocolVersion: 5,
-    runtime: [{ path: 'src/CollabAuthorityTransfer.ts', sha256: 'runtime-v2' }],
+    runtime: [{ path: 'src/operations/CollabAuthorityTransfer.ts', sha256: 'runtime-v2' }],
     runtimeExports: [],
     wire: { operations: ['existing', 'confirmTargetCleanup'] },
   });
@@ -290,7 +290,7 @@ test('accepts an exactly reviewed versioned operation addition without waiving e
 
 test('source review rejects existing decoder drift and unreachable same-module additions', () => {
   const baseFiles = {
-    'src/CollabAuthorityTransfer.ts': `
+    'src/operations/CollabAuthorityTransfer.ts': `
       export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze(['existing'] as const);
       export interface CollabAuthorityTransferOperationMap {
         readonly existing: { readonly request: ExistingRequest; readonly response: ExistingResponse };
@@ -300,20 +300,20 @@ test('source review rejects existing decoder drift and unreachable same-module a
         switch (operation) { case 'existing': return decodeExisting(value); }
       }
     `,
-    'src/CollabCloudBinding.ts': `
+    'src/cloud/CollabCloudBinding.ts': `
       export const COLLAB_CLOUD_BINDING_VERSION = 1 as const;
       export function collabCloudProjectOperationRoute() { return '/v1/projects'; }
     `,
-    'src/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 4 as const;',
-    'src/CollabControlOperationCodecs.ts': `
+    'src/core/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 4 as const;',
+    'src/operations/CollabControlOperationCodecs.ts': `
       const codec = (operation: string) => operation;
       export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({ existing: codec('existing') });
     `,
-    'src/index.ts': "export { COLLAB_AUTHORITY_TRANSFER_OPERATIONS, decodeCollabAuthorityTransferOperationRequest } from './CollabAuthorityTransfer';",
+    'src/index.ts': "export { COLLAB_AUTHORITY_TRANSFER_OPERATIONS, decodeCollabAuthorityTransferOperationRequest } from './operations/CollabAuthorityTransfer';",
   };
   const currentFiles = {
     ...baseFiles,
-    'src/CollabAuthorityTransfer.ts': `
+    'src/operations/CollabAuthorityTransfer.ts': `
       export interface ConfirmTargetCleanupRequest { readonly proof: string; }
       export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze(['existing', 'confirmTargetCleanup'] as const);
       export interface CollabAuthorityTransferOperationMap {
@@ -329,12 +329,12 @@ test('source review rejects existing decoder drift and unreachable same-module a
         }
       }
     `,
-    'src/CollabCloudBinding.ts': `
+    'src/cloud/CollabCloudBinding.ts': `
       export const COLLAB_CLOUD_BINDING_VERSION = 2 as const;
       export function collabCloudProjectOperationRoute() { return '/v2/projects'; }
     `,
-    'src/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 5 as const;',
-    'src/CollabControlOperationCodecs.ts': `
+    'src/core/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 5 as const;',
+    'src/operations/CollabControlOperationCodecs.ts': `
       const codec = (operation: string) => operation;
       export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
         existing: codec('existing'),
@@ -354,8 +354,8 @@ test('source review rejects existing decoder drift and unreachable same-module a
   assert.doesNotThrow(() => compatibility.assertAuthorityTransferOperationSourceAddition(input));
 
   const decoderDrift = cloneJson(currentFiles);
-  decoderDrift['src/CollabAuthorityTransfer.ts'] = decoderDrift[
-    'src/CollabAuthorityTransfer.ts'
+  decoderDrift['src/operations/CollabAuthorityTransfer.ts'] = decoderDrift[
+    'src/operations/CollabAuthorityTransfer.ts'
   ].replace(
     'function decodeExisting(value: unknown) { return value; }',
     'function decodeExisting(_value: unknown) { return null; }',
@@ -369,7 +369,7 @@ test('source review rejects existing decoder drift and unreachable same-module a
   );
 
   const unrelatedAddition = cloneJson(currentFiles);
-  unrelatedAddition['src/CollabAuthorityTransfer.ts'] += '\nexport function unrelated() { return 1; }\n';
+  unrelatedAddition['src/operations/CollabAuthorityTransfer.ts'] += '\nexport function unrelated() { return 1; }\n';
   assert.throws(
     () => compatibility.assertAuthorityTransferOperationSourceAddition({
       ...input,
@@ -379,8 +379,8 @@ test('source review rejects existing decoder drift and unreachable same-module a
   );
 
   const heritageDrift = cloneJson(currentFiles);
-  heritageDrift['src/CollabAuthorityTransfer.ts'] = heritageDrift[
-    'src/CollabAuthorityTransfer.ts'
+  heritageDrift['src/operations/CollabAuthorityTransfer.ts'] = heritageDrift[
+    'src/operations/CollabAuthorityTransfer.ts'
   ].replace(
     'CollabAuthorityTransferOperationMap {',
     'CollabAuthorityTransferOperationMap extends ConfirmTargetCleanupRequest {',
@@ -395,7 +395,7 @@ test('source review rejects existing decoder drift and unreachable same-module a
 
   for (const collision of ['request', 'response', 'proof']) {
     const propertyCollision = cloneJson(currentFiles);
-    propertyCollision['src/CollabAuthorityTransfer.ts'] +=
+    propertyCollision['src/operations/CollabAuthorityTransfer.ts'] +=
       `\nexport interface ${collision} { readonly unrelated: true; }\n`;
     assert.throws(
       () => compatibility.assertAuthorityTransferOperationSourceAddition({
@@ -408,7 +408,7 @@ test('source review rejects existing decoder drift and unreachable same-module a
 
   const aliasedExport = cloneJson(currentFiles);
   aliasedExport['src/index.ts'] +=
-    "\nexport type { ExistingResponse as ConfirmTargetCleanupRequest } from './CollabAuthorityTransfer';\n";
+    "\nexport type { ExistingResponse as ConfirmTargetCleanupRequest } from './operations/CollabAuthorityTransfer';\n";
   assert.throws(
     () => compatibility.assertAuthorityTransferOperationSourceAddition({
       ...input,
@@ -419,7 +419,7 @@ test('source review rejects existing decoder drift and unreachable same-module a
 
   const selfAliasedExport = cloneJson(currentFiles);
   selfAliasedExport['src/index.ts'] +=
-    "\nexport type { ConfirmTargetCleanupRequest as ConfirmTargetCleanupRequest } from './CollabAuthorityTransfer';\n";
+    "\nexport type { ConfirmTargetCleanupRequest as ConfirmTargetCleanupRequest } from './operations/CollabAuthorityTransfer';\n";
   assert.throws(
     () => compatibility.assertAuthorityTransferOperationSourceAddition({
       ...input,
@@ -429,8 +429,8 @@ test('source review rejects existing decoder drift and unreachable same-module a
   );
 
   const duplicateMember = cloneJson(currentFiles);
-  duplicateMember['src/CollabAuthorityTransfer.ts'] = duplicateMember[
-    'src/CollabAuthorityTransfer.ts'
+  duplicateMember['src/operations/CollabAuthorityTransfer.ts'] = duplicateMember[
+    'src/operations/CollabAuthorityTransfer.ts'
   ].replace(
     'readonly confirmTargetCleanup: { readonly request: ConfirmTargetCleanupRequest; readonly response: ExistingResponse };',
     `readonly confirmTargetCleanup: { readonly request: ConfirmTargetCleanupRequest; readonly response: ExistingResponse };
@@ -445,13 +445,13 @@ test('source review rejects existing decoder drift and unreachable same-module a
   );
 
   const conventionOnlyDecoder = cloneJson(currentFiles);
-  conventionOnlyDecoder['src/CollabAuthorityTransfer.ts'] += `
+  conventionOnlyDecoder['src/operations/CollabAuthorityTransfer.ts'] += `
     export function decodeConfirmTargetCleanupRequest(): ConfirmTargetCleanupRequest {
       return { proof: 'unrelated' };
     }
   `;
   conventionOnlyDecoder['src/index.ts'] +=
-    "\nexport { decodeConfirmTargetCleanupRequest } from './CollabAuthorityTransfer';\n";
+    "\nexport { decodeConfirmTargetCleanupRequest } from './operations/CollabAuthorityTransfer';\n";
   assert.throws(
     () => compatibility.assertAuthorityTransferOperationSourceAddition({
       ...input,
@@ -461,8 +461,8 @@ test('source review rejects existing decoder drift and unreachable same-module a
   );
 
   const shadowedSigningEncoder = cloneJson(currentFiles);
-  shadowedSigningEncoder['src/CollabAuthorityTransfer.ts'] = shadowedSigningEncoder[
-    'src/CollabAuthorityTransfer.ts'
+  shadowedSigningEncoder['src/operations/CollabAuthorityTransfer.ts'] = shadowedSigningEncoder[
+    'src/operations/CollabAuthorityTransfer.ts'
   ].replace(
     'export interface ConfirmTargetCleanupRequest { readonly proof: string; }',
     `export interface ConfirmTargetCleanupProofSigningPayload { readonly proof: string; }
@@ -475,7 +475,7 @@ test('source review rejects existing decoder drift and unreachable same-module a
     >(_payload: ConfirmTargetCleanupProofSigningPayload): string { return 'unrelated'; }
   `;
   shadowedSigningEncoder['src/index.ts'] +=
-    "\nexport { encodeConfirmTargetCleanupProofSigningInput } from './CollabAuthorityTransfer';\n";
+    "\nexport { encodeConfirmTargetCleanupProofSigningInput } from './operations/CollabAuthorityTransfer';\n";
   assert.throws(
     () => compatibility.assertAuthorityTransferOperationSourceAddition({
       ...input,
@@ -488,13 +488,13 @@ test('source review rejects existing decoder drift and unreachable same-module a
     ...input,
     baseFiles: {
       ...baseFiles,
-      'src/CollabCloudBinding.ts': `${baseFiles['src/CollabCloudBinding.ts']}
+      'src/cloud/CollabCloudBinding.ts': `${baseFiles['src/cloud/CollabCloudBinding.ts']}
         export function environment() { return 'env1'; }
       `,
     },
     currentFiles: {
       ...currentFiles,
-      'src/CollabCloudBinding.ts': `${currentFiles['src/CollabCloudBinding.ts']}
+      'src/cloud/CollabCloudBinding.ts': `${currentFiles['src/cloud/CollabCloudBinding.ts']}
         export function environment() { return 'env2'; }
       `,
     },
@@ -511,7 +511,7 @@ test('requires a package major for changed declarations or runtime behavior', ()
   const changedDeclaration = [{
     declaration: 'export interface A { readonly value: string; }',
     exportName: 'A',
-    source: './types',
+    source: './core/types',
   }];
   assert.equal(classifyPackageApiChange(snapshot(), snapshot({
     declarations: changedDeclaration,
@@ -526,7 +526,7 @@ test('requires a package major for changed declarations or runtime behavior', ()
   assert.throws(
     () => assertVersionedContractChange(snapshot(), snapshot({
       packageVersion: '1.1.0',
-      runtime: [{ path: 'src/types.ts', sha256: 'changed-runtime' }],
+      runtime: [{ path: 'src/core/types.ts', sha256: 'changed-runtime' }],
     })),
     /package major release/u,
   );
@@ -618,9 +618,9 @@ test('the wire baseline classifies every lifecycle contract module', () => {
   const runtimePaths = new Set(wire.runtimeBehaviorDigests.map(entry => entry.path));
 
   for (const moduleName of [
-    'CollabAuthorityTransfer',
-    'CollabProjectCheckpoint',
-    'CollabProjectRetirement',
+    'operations/CollabAuthorityTransfer',
+    'checkpoints/CollabProjectCheckpoint',
+    'operations/CollabProjectRetirement',
   ]) {
     assert.equal(declarationSources.has(`./${moduleName}`), true);
     assert.equal(runtimePaths.has(`src/${moduleName}.ts`), true);
@@ -672,9 +672,9 @@ test('the Cloud binding baseline includes every derived route and limit input', 
 test('each lifecycle module declaration and behavior requires a wire-version bump', () => {
   const base = generateContractSnapshot();
   for (const moduleName of [
-    'CollabAuthorityTransfer',
-    'CollabProjectCheckpoint',
-    'CollabProjectRetirement',
+    'operations/CollabAuthorityTransfer',
+    'checkpoints/CollabProjectCheckpoint',
+    'operations/CollabProjectRetirement',
   ]) {
     const declarationChange = cloneJson(base);
     declarationChange.packageVersion = '3.0.0';
@@ -806,17 +806,17 @@ test('the compatibility command binds explicit review to exact generated snapsho
 
 
 test('optional contract additions require exact review and preserve every existing declaration', () => {
-  const declarations = [{ exportName: 'Envelope', source: './CollabCloudBinding',
+  const declarations = [{ exportName: 'Envelope', source: './cloud/CollabCloudBinding',
     declaration: 'export interface Envelope { readonly requestId: string; }' },
-  { exportName: 'encode', source: './CollabCloudBinding',
+  { exportName: 'encode', source: './cloud/CollabCloudBinding',
     declaration: 'export declare function encode(value: string): Envelope;' }];
   const base = snapshot({ declarations, runtimeExports: ['encode'],
-    runtime: [{ path: 'src/CollabCloudBinding.ts', sha256: 'before' }] });
+    runtime: [{ path: 'src/cloud/CollabCloudBinding.ts', sha256: 'before' }] });
   const current = snapshot({ declarations: [
     { ...declarations[0], declaration: 'export interface Envelope { readonly requestId: string; readonly outcome?: "rejected"; }' },
     { ...declarations[1], declaration: 'export declare function encode(value: string, outcome?: "rejected"): Envelope;' },
   ], runtimeExports: ['encode'], packageVersion: '1.1.0', protocolVersion: 5, bindingVersion: 2,
-  runtime: [{ path: 'src/CollabCloudBinding.ts', sha256: 'after' }] });
+  runtime: [{ path: 'src/cloud/CollabCloudBinding.ts', sha256: 'after' }] });
   const reason = 'Public codec fixtures retain old envelopes and validate the optional outcome.';
   const review = compatibility.createOptionalContractAdditionReview(base, current, reason, ['encode']);
   assert.doesNotThrow(() => assertVersionedContractChange(base, current, review));
@@ -850,7 +850,7 @@ test('optional contract additions require exact review and preserve every existi
     assert.throws(() => compatibility.createOptionalContractAdditionReview(base, drift, reason, ['encode']), /Optional contract/u);
   }
   assert.throws(() => compatibility.createOptionalContractAdditionReview(base, current, reason, ['missing']), /public function/u);
-  const route = { exportName: 'collabCloudProjectEventsRoute', source: './CollabCloudBinding',
+  const route = { exportName: 'collabCloudProjectEventsRoute', source: './cloud/CollabCloudBinding',
     declaration: 'export declare function collabCloudProjectEventsRoute(): string;' };
   const withRoute = value => {
     const copy = cloneJson(value);
@@ -913,13 +913,16 @@ COLLAB_CLOUD_BINDING_LIMITS: {}, COLLAB_LIMITS: { maxJsonPayloadUtf8Bytes: 1 },
 COLLAB_ERROR_CODES: [], COLLAB_MAIN_REF: 'refs/heads/main',
 COLLAB_MEMBER_REF_PREFIX: 'refs/heads/members/', COLLAB_CONTROL_OPERATION_CODECS: {},
 encode: value => ({ requestId: value }), collabCloudProjectEventsRoute: () => '/v1/projects' };`;
-  const put = (file, value) => writeFileSync(path.join(root, file), value);
+  const put = (file, value) => {
+    mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    writeFileSync(path.join(root, file), value);
+  };
   put('package.json', JSON.stringify({ version: '1.0.0' }));
-  put('src/CollabCloudBinding.ts', binding);
-  put('src/CollabConstants.ts', 'export const COLLAB_PROTOCOL_VERSION = 4 as const;');
-  put('src/index.ts', "export { COLLAB_CLOUD_BINDING_VERSION, type Envelope, encode, collabCloudProjectEventsRoute } from './CollabCloudBinding';");
-  put('dist/index.d.ts', "export { COLLAB_CLOUD_BINDING_VERSION, type Envelope, encode, collabCloudProjectEventsRoute } from './CollabCloudBinding';");
-  put('dist/CollabCloudBinding.d.ts', declarations);
+  put('src/cloud/CollabCloudBinding.ts', binding);
+  put('src/core/CollabConstants.ts', 'export const COLLAB_PROTOCOL_VERSION = 4 as const;');
+  put('src/index.ts', "export { COLLAB_CLOUD_BINDING_VERSION, type Envelope, encode, collabCloudProjectEventsRoute } from './cloud/CollabCloudBinding';");
+  put('dist/index.d.ts', "export { COLLAB_CLOUD_BINDING_VERSION, type Envelope, encode, collabCloudProjectEventsRoute } from './cloud/CollabCloudBinding';");
+  put('dist/cloud/CollabCloudBinding.d.ts', declarations);
   put('dist/index.js', runtime);
   const command = (...args) => {
     const result = spawnSync(process.execPath, ['scripts/check-compatibility.mjs', ...args], { cwd: root, encoding: 'utf8' });
@@ -934,11 +937,11 @@ encode: value => ({ requestId: value }), collabCloudProjectEventsRoute: () => '/
   git('commit', '--quiet', '-m', 'test: record optional contract base');
   const base = git('rev-parse', 'HEAD');
   put('package.json', JSON.stringify({ version: '1.1.0' }));
-  put('src/CollabConstants.ts', 'export const COLLAB_PROTOCOL_VERSION = 5 as const;');
-  put('src/CollabCloudBinding.ts', binding.replace('VERSION = 1', 'VERSION = 2')
+  put('src/core/CollabConstants.ts', 'export const COLLAB_PROTOCOL_VERSION = 5 as const;');
+  put('src/cloud/CollabCloudBinding.ts', binding.replace('VERSION = 1', 'VERSION = 2')
     .replace('requestId: string;', 'requestId: string; readonly outcome?: "rejected";')
     .replace('/v1/projects', '/v2/projects'));
-  put('dist/CollabCloudBinding.d.ts', declarations.replace('VERSION: 1', 'VERSION: 2')
+  put('dist/cloud/CollabCloudBinding.d.ts', declarations.replace('VERSION: 1', 'VERSION: 2')
     .replace('requestId: string;', 'requestId: string; readonly outcome?: "rejected";'));
   put('dist/index.js', runtime.replace('VERSION: 1', 'VERSION: 2').replace('VERSION: 4', 'VERSION: 5'));
   assert.equal(command('--write').status, 0);
@@ -946,7 +949,7 @@ encode: value => ({ requestId: value }), collabCloudProjectEventsRoute: () => '/
     'The optional field preserves existing envelope inputs.', '--implementation-declarations', names);
   const accepted = record('encode');
   assert.equal(accepted.status, 0, accepted.stderr);
-  put('src/CollabCloudBinding.ts', readFileSync(path.join(root, 'src/CollabCloudBinding.ts'), 'utf8')
+  put('src/cloud/CollabCloudBinding.ts', readFileSync(path.join(root, 'src/cloud/CollabCloudBinding.ts'), 'utf8')
     .replace('/v2/projects', '/v2/BROKEN'));
   assert.equal(command('--write').status, 0);
   const rejected = record('encode,collabCloudProjectEventsRoute');

@@ -4,35 +4,35 @@ import {
   type CollabAuthorityTransferStatus,
   decodeCollabAuthorityRelinquishmentProof,
   decodeCollabAuthorityTransferLifecycleFence,
-} from './CollabAuthorityTransfer';
+} from '../operations/CollabAuthorityTransfer';
 import {
   type CollabCloudProjectEvent,
   decodeCollabCloudProjectEventMessage,
-} from './CollabCloudProjectEvent';
+} from '../cloud/CollabCloudProjectEvent';
 import {
   COLLAB_MAIN_REF,
   COLLAB_MEMBER_REF_PREFIX,
   COLLAB_PROTOCOL_VERSION,
-} from './CollabConstants';
+} from '../core/CollabConstants';
 import {
   COLLAB_CONTROL_OPERATION_CODECS,
   type CollabControlOperation,
   collabControlOperationCodec,
-} from './CollabControlOperationCodecs';
-import { CollabError } from './CollabError';
+} from '../operations/CollabControlOperationCodecs';
+import { CollabError } from '../core/CollabError';
 import {
   hasUtf8ByteLengthAtMost,
   isCollabGitOid,
   isCollabMemberId,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 import type {
   CollabGitOid,
   CollabIsoTimestamp,
   CollabMemberId,
   CollabProjectId,
-} from './types';
+} from '../core/types';
 
 export const COLLAB_PROJECT_CHECKPOINT_MANIFEST_SCHEMA_VERSION = 1 as const;
 export const COLLAB_PROJECT_COORDINATION_FORMAT_VERSION = 1 as const;

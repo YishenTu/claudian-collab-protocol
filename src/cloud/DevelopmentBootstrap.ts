@@ -3,13 +3,13 @@ import {
   COLLAB_MAIN_REF,
   COLLAB_PROTOCOL_VERSION,
   type CollabProtocolVersion,
-} from './CollabConstants';
+} from '../core/CollabConstants';
 import {
   COLLAB_CLOUD_BINDING_LIMITS,
   type DevelopmentBootstrapOperation,
 } from './CollabCloudBinding';
-import { CollabError } from './CollabError';
-import type { CollabDecodeResult } from './CollabProtocol';
+import { CollabError } from '../core/CollabError';
+import type { CollabDecodeResult } from '../operations/CollabProtocol';
 import type {
   CollabGitOid,
   CollabIsoTimestamp,
@@ -17,15 +17,15 @@ import type {
   CollabOperationId,
   CollabProjectId,
   CollabRole,
-} from './types';
-import { collabMemberRef } from './types';
+} from '../core/types';
+import { collabMemberRef } from '../core/types';
 import {
   hasUtf8ByteLengthAtMost,
   isCollabGitOid,
   isCollabMemberId,
   isCollabOpaqueId,
   isCollabProjectId,
-} from './CollabValidation';
+} from '../core/CollabValidation';
 
 export const DEVELOPMENT_BOOTSTRAP_MANIFEST_SCHEMA_VERSION = 1 as const;
 

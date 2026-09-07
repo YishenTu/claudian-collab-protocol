@@ -39,12 +39,21 @@ function assert(condition, message) {
   if (!condition) throw new Error(`release candidate failure: ${message}`);
 }
 
-export function expectedPackedPaths(sourceFileNames) {
+export function expectedPackedPaths(sourceRoot) {
+  function sourceFiles(directory) {
+    return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) return sourceFiles(absolutePath);
+      return entry.isFile() && entry.name.endsWith('.ts')
+        ? [path.relative(sourceRoot, absolutePath).split(path.sep).join('/')]
+        : [];
+    });
+  }
   return [
     'LICENSE',
     'README.md',
     'package.json',
-    ...sourceFileNames.flatMap((name) => {
+    ...sourceFiles(sourceRoot).flatMap((name) => {
       const base = name.replace(/\.ts$/u, '');
       return [
         `dist/${base}.d.ts`,
@@ -63,7 +72,7 @@ export function createReleaseRecord({
   sha256,
 }) {
   assert(packageManifest.name === '@claudian-collab/protocol', 'unexpected package name');
-  assert(packageManifest.version === '4.3.0', 'unexpected package version');
+  assert(packageManifest.version === '4.3.1', 'unexpected package version');
   assert(
     packageManifest.publishConfig?.access === 'public'
       && packageManifest.publishConfig?.provenance === true,
@@ -204,7 +213,7 @@ function buildCandidate(outputRoot) {
   assert(Array.isArray(packOutput) && packOutput.length === 1, 'npm pack returned no artifact');
   const [packResult] = packOutput;
   const expectedFiles = expectedPackedPaths(
-    readdirSync(path.join(repositoryRoot, 'src')).filter(name => name.endsWith('.ts')),
+    path.join(repositoryRoot, 'src'),
   );
   const actualFiles = packResult.files.map(file => file.path).sort();
   assert(

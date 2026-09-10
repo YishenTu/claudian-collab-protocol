@@ -550,7 +550,7 @@
         },
         {
           "path": "src/cloud/CollabCloudProjectSnapshot.ts",
-          "sha256": "c2ca7178f1883b32b6d26d9cb792736d1bbbf963a9a74f7a82910a969c212d38"
+          "sha256": "05168a7ca22abe9356c02150b084a7edd045968873b3e235c71d21e38dba3263"
         },
         {
           "path": "src/cloud/DevelopmentBootstrap.ts",
@@ -2625,7 +2625,7 @@
       },
       {
         "path": "src/cloud/CollabCloudProjectSnapshot.ts",
-        "sha256": "c2ca7178f1883b32b6d26d9cb792736d1bbbf963a9a74f7a82910a969c212d38"
+        "sha256": "05168a7ca22abe9356c02150b084a7edd045968873b3e235c71d21e38dba3263"
       },
       {
         "path": "src/cloud/DevelopmentBootstrap.ts",
@@ -2689,7 +2689,7 @@
       },
       {
         "path": "src/operations/CollabRequestTicketResponseCodecs.ts",
-        "sha256": "64a57d8fdd3a73639193f0b163693e4392e47df3729374562126db44ac2a2140"
+        "sha256": "c70e9c2bfb490eede97edec525ef2bb2b345334ab5fb6917d2762c35c9f6d564"
       }
     ],
     "wire": {
@@ -4159,12 +4159,12 @@
         },
         {
           "path": "src/operations/CollabRequestTicketResponseCodecs.ts",
-          "sha256": "64a57d8fdd3a73639193f0b163693e4392e47df3729374562126db44ac2a2140"
+          "sha256": "c70e9c2bfb490eede97edec525ef2bb2b345334ab5fb6917d2762c35c9f6d564"
         }
       ]
     }
   },
-  "packageVersion": "4.3.1",
+  "packageVersion": "4.3.2",
   "protocolVersion": 10,
   "schemaVersion": 2
 }

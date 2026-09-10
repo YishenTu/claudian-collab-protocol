@@ -6,11 +6,11 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "4.3.1"
+    "version": "4.3.2"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-4.3.1.tgz",
+    "filename": "claudian-collab-protocol-4.3.2.tgz",
     "files": [
       {
         "path": "dist/checkpoints/CollabProjectBackupCheckpoint.d.ts",
@@ -50,7 +50,7 @@
       },
       {
         "path": "dist/cloud/CollabCloudProjectSnapshot.js",
-        "size": 11534
+        "size": 10920
       },
       {
         "path": "dist/cloud/DevelopmentBootstrap.d.ts",
@@ -110,7 +110,7 @@
       },
       {
         "path": "dist/esm/cloud/CollabCloudProjectSnapshot.mjs",
-        "size": 10821
+        "size": 10245
       },
       {
         "path": "dist/esm/cloud/DevelopmentBootstrap.mjs",
@@ -174,7 +174,7 @@
       },
       {
         "path": "dist/esm/operations/CollabRequestTicketResponseCodecs.mjs",
-        "size": 14982
+        "size": 15019
       },
       {
         "path": "dist/index.d.ts",
@@ -258,11 +258,11 @@
       },
       {
         "path": "dist/operations/CollabRequestTicketResponseCodecs.d.ts",
-        "size": 1799
+        "size": 1907
       },
       {
         "path": "dist/operations/CollabRequestTicketResponseCodecs.js",
-        "size": 16855
+        "size": 16936
       },
       {
         "path": "LICENSE",
@@ -277,11 +277,11 @@
         "size": 2835
       }
     ],
-    "integrity": "sha512-opMwok4rf7pinsGXxaSNNkI7HhsTBET60lyY/u7VpVuZRNgnM8Vpo/+PS14q/58jjfGVzNc5/FXHC399803bhQ==",
-    "sha256": "f7a507ab9c526891226451559e4e061cc506c229679b431fccfa42e0c4b5c22a",
-    "shasum": "7c0fea2af3ad0c6544400d16fb8d7a5be10d97c6",
-    "size": 132179,
-    "unpackedSize": 886888
+    "integrity": "sha512-Inz+a8HDk9Ys/qISb9xeCJ3BfivVQzSTSy2KbqbdOHbyPMPyrxNknifJ4/7LVCFfeedBTtz30+scmm/SZZ1OBQ==",
+    "sha256": "1000145cdde4bbfbd2334255634266fa728a2afa0ff999c3fecad2e914e9a78f",
+    "shasum": "e693409c5ed4823a25ec30c9840ce8ce3e6fe447",
+    "size": 132119,
+    "unpackedSize": 885924
   },
   "toolchain": {
     "node": "24.16.0",

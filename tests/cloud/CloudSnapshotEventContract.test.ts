@@ -3,6 +3,7 @@ import {
   COLLAB_CLOUD_PROJECT_SNAPSHOT_CODEC,
   COLLAB_MAIN_REF,
   COLLAB_PROTOCOL_VERSION,
+  collabControlOperationCodec,
   collabMemberRef,
   decodeCollabCloudProjectEventMessage,
   decodeCollabCloudProjectSnapshot,
@@ -87,6 +88,17 @@ function snapshot(overrides: Record<string, unknown> = {}) {
 }
 
 describe('Cloud Project snapshot', () => {
+  it('uses the same positive Ticket revision contract as Ticket pages', () => {
+    const invalidTicket = { ...ticket('ticket_1', 1, NOW), revision: 0 };
+    expect(() => collabControlOperationCodec('listTickets').decodeResponse({
+      tickets: [invalidTicket],
+    })).toThrow();
+    expect(() => decodeCollabCloudProjectSnapshot(snapshot({
+      openTicketCount: 1,
+      ticketHighlights: [invalidTicket],
+    }))).toThrow();
+  });
+
   it('retains the server-established logical authority generation above one', () => {
     expect(COLLAB_CLOUD_PROJECT_SNAPSHOT_CODEC.decodeResponse(snapshot()).project)
       .toEqual({

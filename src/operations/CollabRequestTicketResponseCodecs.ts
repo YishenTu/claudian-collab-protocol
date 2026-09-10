@@ -201,7 +201,7 @@ function changeRequest(value: unknown): CollabChangeRequest {
   };
 }
 
-function ticketSummary(value: unknown): CollabTicketSummary {
+export function decodeTicketSummary(value: unknown): CollabTicketSummary {
   const source = record(value, 'ticket');
   const status = source.status;
   const closedAt = optionalTimestamp(source, 'closedAt');
@@ -344,7 +344,7 @@ function ticketDetail(value: unknown): CollabTicketDetail {
   ) {
     throw decodeError('ticketDetail');
   }
-  const decodedTicket = ticketSummary(source.ticket);
+  const decodedTicket = decodeTicketSummary(source.ticket);
   const comments = ticketCommentPage(source.comments);
   if (comments.comments.some(commentValue => commentValue.ticketId !== decodedTicket.id)) {
     throw decodeError('ticketDetail.comments');
@@ -472,7 +472,7 @@ export function decodeTicketPageResponse(value: unknown): CollabTicketPage {
     : string(data, 'nextCursor', 512);
   return {
     ...(nextCursor ? { nextCursor } : {}),
-    tickets: data.tickets.map(ticketSummary),
+    tickets: data.tickets.map(decodeTicketSummary),
   };
 }
 
@@ -495,12 +495,12 @@ export function decodeCreateTicketResponse(value: unknown): CreateTicketResponse
 }
 
 export function decodeTicketMutationResponse(value: unknown): TicketMutationResponse {
-  return { ticket: ticketSummary(record(envelopeData(value), 'data').ticket) };
+  return { ticket: decodeTicketSummary(record(envelopeData(value), 'data').ticket) };
 }
 
 export function decodeTicketCommentResponse(value: unknown): CreateTicketCommentResponse {
   const data = record(envelopeData(value), 'data');
-  const decodedTicket = ticketSummary(data.ticket);
+  const decodedTicket = decodeTicketSummary(data.ticket);
   const decodedComment = ticketComment(data.comment);
   if (decodedComment.ticketId !== decodedTicket.id) {
     throw decodeError('ticketCommentResponse');

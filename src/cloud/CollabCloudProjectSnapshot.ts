@@ -1,3 +1,4 @@
+import { decodeTicketSummary } from '../operations/CollabRequestTicketResponseCodecs';
 import {
   COLLAB_LIMITS,
   COLLAB_MAIN_REF,
@@ -273,26 +274,7 @@ function decodeOpenTicket(value: unknown): CollabTicketSummary {
     'updatedAt',
   ]);
   if (source.status !== 'open') throw invalidPayload('ticketHighlight');
-  return {
-    acceptedRelationCount: nonNegativeInteger(
-      source,
-      'acceptedRelationCount',
-      COLLAB_LIMITS.maxTicketAcceptedRelations,
-    ),
-    authorMemberId: stringField(source, 'authorMemberId', 64, isCollabMemberId),
-    commentCount: nonNegativeInteger(
-      source,
-      'commentCount',
-      COLLAB_LIMITS.maxTicketComments,
-    ),
-    createdAt: timestamp(source, 'createdAt'),
-    id: stringField(source, 'id', 128, isCollabOpaqueId),
-    number: positiveInteger(source, 'number'),
-    revision: nonNegativeInteger(source, 'revision'),
-    status: 'open',
-    title: stringField(source, 'title', COLLAB_LIMITS.maxTicketTitleUtf16),
-    updatedAt: timestamp(source, 'updatedAt'),
-  };
+  return decodeTicketSummary(source);
 }
 
 function assertSnapshotSize(value: unknown): void {

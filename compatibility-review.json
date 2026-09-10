@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "a3e06b155841676f450f4da71afbde930f88fb297f8f24019ed06b3fb36b1924",
-  "candidateSnapshotSha256": "a4152ecc054af9f4bcd7050c37ca514947258ee57aeb029003b9cb154c16a113",
-  "reason": "User-approved compatible defect correction: Cloud snapshot Ticket summaries now use the existing canonical Ticket summary decoder and reject revision zero consistently with listTickets and checkpoint decoding. CloudSnapshotEventContract.test.ts exercises both public response decoders with the same zero-revision fixture, and existing snapshot fixtures preserve valid positive revisions, exact fields, and open-only status. Public declarations, root exports, wire version 10, and Cloud binding version 6 remain unchanged. The exact v4.3.1 base and generated candidate snapshots bound by this record cover this decoder repair and internal helper reuse."
+  "baseSnapshotSha256": "a4152ecc054af9f4bcd7050c37ca514947258ee57aeb029003b9cb154c16a113",
+  "candidateSnapshotSha256": "2f555b6f9aa235d4d477d0d3fd44187d326953ad3621d6eb939d9508db74e14e",
+  "reason": "Compatible backup continuity defect repair authorized with the six architecture findings: distinguish retained transfer population, revoked claims and receipts, settled override custody, historical Host evidence and terminal principals from current admission. Public checkpoint decoder and consistency fixtures cover Remove, redeemed Leave, Host departure, malformed publication refs and omitted terminal custody; existing format-1 principal rules remain. Public declarations and exports, wire 10, Cloud binding 6 and backup format 3 are unchanged."
 }

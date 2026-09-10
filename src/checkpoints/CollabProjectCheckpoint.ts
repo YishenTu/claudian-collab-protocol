@@ -1865,7 +1865,7 @@ export function validateCheckpointRecordSequence(
       || item.value.acknowledgements.some(acknowledgement => (
         acknowledgementBinding === 'current-principal'
           ? principalBindings.get(acknowledgement.memberId) !== acknowledgement.principalId
-          : !principalBindings.has(acknowledgement.memberId)
+          : !members.has(acknowledgement.memberId)
       ))
     )) throw invalidPayload('records');
   }

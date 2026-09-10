@@ -1782,6 +1782,181 @@ describe('Project backup checkpoint format v3', () => {
     )).toThrow('collab.error.protocol-payload-invalid');
   });
 
+  it.each([
+    ['unclaimed', 'revoked'],
+    ['redeemed', 'revoked'],
+    ['redeemed', 'left'],
+  ])('retains %s imported claim history after the Member is %s', (claimState, memberStatus) => {
+    const continuity = claimState === 'unclaimed'
+      ? activeImportedClaimContinuityRecords()
+      : lanToCloudContinuityRecords();
+    const records = canonicalRecords(continuity.map(record => (
+      record.kind === 'transferred-membership-claim'
+        ? { ...record, value: {
+            ...record.value, state: 'revoked', targetPrincipalId: null,
+            operationIntentId: null, redemptionReceiptId: null, updatedAt: ACKNOWLEDGED,
+          } }
+        : record
+    )), unboundImportedBaseRecords().map(record => (
+      record.kind === 'member' && record.recordId === 'member_2'
+        ? { ...record, revision: 2, value: {
+            ...record.value, status: memberStatus, revokedAt: ACKNOWLEDGED,
+            updatedAt: ACKNOWLEDGED,
+          } }
+        : record
+    )));
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+    expect(validateCollabProjectBackupCheckpointConsistency(decodeCollabProjectBackupCheckpointManifest(manifest({
+      createdAt: ACKNOWLEDGED,
+      refs: [
+        { name: 'refs/heads/main', oid: MAIN },
+        { name: 'refs/heads/members/member_1', oid: MEMBER },
+      ],
+    })), decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded))).toEqual(records);
+    const missingClaim = records.filter(record => record.kind !== 'transferred-membership-claim');
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      missingClaim.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+    const usableClaim = records.map(record => record.kind === 'transferred-membership-claim'
+      ? { ...record, value: { ...record.value, state: 'unclaimed' } }
+      : record);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      usableClaim.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it.each([false, true])('retains settled override custody and receipts (redeemed: %s)', redeemed => {
+    const history = [
+      ...activeImportedClaimContinuityRecords(),
+      ...membershipV3Records().filter(record => (
+        record.kind === 'transferred-membership-claim-override'
+      )),
+      ...(redeemed ? [overrideRedemptionReceipt()] : []),
+    ].map(record => (
+      record.kind === 'transferred-membership-claim'
+        || record.kind === 'transferred-membership-claim-override'
+        ? { ...record, value: {
+            ...record.value, state: 'revoked', targetPrincipalId: null,
+            ...(record.kind === 'transferred-membership-claim' ? { operationIntentId: null } : {}),
+            redemptionReceiptId: null, updatedAt: ACKNOWLEDGED,
+          } }
+        : record
+    ));
+    const records = canonicalRecords(history, unboundImportedBaseRecords().map(record => (
+      record.kind === 'member' && record.recordId === 'member_2'
+        ? { ...record, revision: 2, value: {
+            ...record.value, status: 'revoked', revokedAt: ACKNOWLEDGED,
+            updatedAt: ACKNOWLEDGED,
+          } }
+        : record
+    )));
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+    expect(validateCollabProjectBackupCheckpointConsistency(decodeCollabProjectBackupCheckpointManifest(manifest({
+      createdAt: ACKNOWLEDGED,
+      refs: [
+        { name: 'refs/heads/main', oid: MAIN },
+        { name: 'refs/heads/members/member_1', oid: MEMBER },
+      ],
+    })), decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded))).toEqual(records);
+    const receipt = overrideRedemptionReceipt();
+    const altered = canonicalRecords([
+      ...records.filter(record => record.kind !== 'transfer-redemption-receipt'),
+      { ...receipt, value: { ...receipt.value, receipt: {
+        ...receipt.value.receipt, claimSha256: CLAIM_SHA256,
+      } } },
+    ], []);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      altered.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('retains completed transfer source evidence after the original Host leaves', () => {
+    const base = baseRecords().filter(record => !(
+      record.kind === 'principal-binding' && record.recordId === 'member_1'
+    )).map(record => {
+      if (record.kind !== 'member') return record;
+      if (record.recordId === 'member_1') return { ...record, revision: 2, value: {
+        ...record.value, status: 'left', revokedAt: ACKNOWLEDGED, updatedAt: ACKNOWLEDGED,
+      } };
+      if (record.recordId === 'member_2') return { ...record, revision: 2, value: {
+        ...record.value, role: 'manager', updatedAt: ACKNOWLEDGED,
+      } };
+      return record;
+    });
+    const records = canonicalRecords(lanToCloudContinuityRecords(), base);
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+    expect(validateCollabProjectBackupCheckpointConsistency(decodeCollabProjectBackupCheckpointManifest(manifest({
+      createdAt: ACKNOWLEDGED,
+      refs: [
+        { name: 'refs/heads/main', oid: MAIN },
+        { name: 'refs/heads/members/member_2', oid: MEMBER_TWO },
+      ],
+    })), decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded))).toEqual(records);
+    for (const removedMemberId of ['member_1', 'member_2']) {
+      const missingHistoricalMember = records.filter(record => !(
+        record.kind === 'member' && record.recordId === removedMemberId
+      ));
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        missingHistoricalMember.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
+    }
+  });
+
+  it.each(['missing-host', 'unknown-member'])('rejects contradictory historical publication refs: %s', change => {
+    const records = canonicalRecords(lanToCloudContinuityRecords().map(record => (
+      record.kind === 'authority-transfer-recovery'
+        ? { ...record, value: { ...record.value, inactivePublication: {
+            ...record.value.inactivePublication,
+            refs: change === 'missing-host'
+              ? record.value.inactivePublication.refs.filter((ref: { name: string }) => (
+                  ref.name !== 'refs/heads/members/member_1'
+                ))
+              : [...record.value.inactivePublication.refs,
+                { name: 'refs/heads/members/member_unknown', oid: MEMBER_THREE }],
+          } } }
+        : record
+    )));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      records.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
+  it('retains acknowledged terminal membership independently of its current binding', () => {
+    const records = canonicalRecords(acknowledgedCloudToLanContinuityRecords(),
+      unboundImportedBaseRecords().map(record => (
+        record.kind === 'member' && record.recordId === 'member_2'
+          ? { ...record, revision: 2, value: {
+              ...record.value, status: 'left', revokedAt: ACKNOWLEDGED,
+              updatedAt: ACKNOWLEDGED,
+            } }
+          : record
+      )));
+    const encoded = records.map(record => JSON.stringify(record)).join('\n') + '\n';
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded)).toEqual(records);
+    expect(validateCollabProjectBackupCheckpointConsistency(decodeCollabProjectBackupCheckpointManifest(manifest({
+      createdAt: ACKNOWLEDGED,
+      refs: [
+        { name: 'refs/heads/main', oid: MAIN },
+        { name: 'refs/heads/members/member_1', oid: MEMBER },
+      ],
+    })), decodeCollabProjectBackupCheckpointCoordinationNdjson(encoded))).toEqual(records);
+  });
+
+  it('requires claim custody for active transfer Members omitted from terminal eligibility', () => {
+    const records = canonicalRecords(continuityRecords().filter(record => !(
+      (record.kind === 'protected-claim-envelope' && record.value.memberId === 'member_2')
+      || (record.kind === 'terminal-principal' && record.value.memberId === 'member_2')
+    )).map(record => record.kind === 'terminal-responder'
+      ? { ...record, value: { ...record.value, eligibleMemberIds: ['member_1'] } }
+      : record));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      records.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
   it('separates post-transfer Cloud members from the imported claim batch', () => {
     const joinedMember = {
       kind: 'member',
@@ -3321,7 +3496,7 @@ describe('Project backup checkpoint format v3', () => {
       }));
   });
 
-  it('preserves decoder acceptance and consistency rejection for distinct terminal principals', () => {
+  it('binds historical terminal principals consistently through every backup entry point', () => {
     const principalId = 'oidc:user.example:com';
     const records = canonicalRecords(continuityRecords()).map(record => {
       if (record.kind === 'terminal-responder') {
@@ -3350,13 +3525,10 @@ describe('Project backup checkpoint format v3', () => {
 
     expect(decoded).toEqual(records);
     expect(encodeCollabProjectBackupCheckpointCoordinationNdjson(decoded)).toBe(encoded);
-    expect(() => validateCollabProjectBackupCheckpointConsistency(
+    expect(validateCollabProjectBackupCheckpointConsistency(
       decodeCollabProjectBackupCheckpointManifest(manifest()),
       decoded,
-    )).toThrow(expect.objectContaining({
-      code: 'protocol-payload-invalid',
-      safeContext: { field: 'records' },
-    }));
+    )).toEqual(records);
     const terminal = decoded.find(record => record.kind === 'terminal-responder');
     expect(Object.isFrozen(terminal?.value.acknowledgements)).toBe(false);
     expect(Object.isFrozen(terminal?.value.eligibleMemberIds)).toBe(true);

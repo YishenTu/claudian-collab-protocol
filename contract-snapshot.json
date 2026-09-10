@@ -2609,11 +2609,11 @@
     "runtimeBehaviorDigests": [
       {
         "path": "src/checkpoints/CollabProjectBackupCheckpoint.ts",
-        "sha256": "f8219563ee473d363bc07b9091ddb2eb6fe090158202590d4a6269c38b8705f1"
+        "sha256": "ffa97b3046415315c1c7ddcb703fc5d9b4e5b1b4a9de7e80069109c83cca6589"
       },
       {
         "path": "src/checkpoints/CollabProjectCheckpoint.ts",
-        "sha256": "e4493e1e2d6f633d2f26e750e8b40018004c4a25cc5434d56d830b0110ec171a"
+        "sha256": "e02381a9f99aebd32ad4c0b55217171fb7a210501e7c9f1b5a0534d7ba0d4936"
       },
       {
         "path": "src/cloud/CollabCloudBinding.ts",
@@ -4115,7 +4115,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/checkpoints/CollabProjectCheckpoint.ts",
-          "sha256": "e4493e1e2d6f633d2f26e750e8b40018004c4a25cc5434d56d830b0110ec171a"
+          "sha256": "e02381a9f99aebd32ad4c0b55217171fb7a210501e7c9f1b5a0534d7ba0d4936"
         },
         {
           "path": "src/core/CollabConstants.ts",
@@ -4164,7 +4164,7 @@
       ]
     }
   },
-  "packageVersion": "4.3.2",
+  "packageVersion": "4.3.3",
   "protocolVersion": 10,
   "schemaVersion": 2
 }

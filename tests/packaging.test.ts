@@ -89,7 +89,7 @@ describe('package dependency boundary', () => {
     const manifest = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as {
       version: string;
     };
-    expect(manifest.version).toBe('4.3.2');
+    expect(manifest.version).toBe('4.3.3');
     expect(manifest.version).not.toBe(String(COLLAB_PROTOCOL_VERSION));
     expect(Number.parseInt(manifest.version.split('.')[0], 10)).toBe(4);
   });

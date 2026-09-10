@@ -1937,6 +1937,108 @@ function lifecycleJournalHasInvalidSemantics(
   return !deleteStatePhaseValid || hasResult !== (value.state === 'completed');
 }
 
+class BackupMembershipContinuity {
+  readonly members;
+  readonly principalBindings;
+  private readonly terminalResponders;
+
+  constructor(records: readonly CollabProjectBackupRecord[]) {
+    this.members = new Map(records.filter(item => item.kind === 'member')
+      .map(item => [item.value.memberId, item]));
+    this.principalBindings = new Map(records.filter(item => item.kind === 'principal-binding')
+      .map(item => [item.value.memberId, item.value.principalId]));
+    this.terminalResponders = new Map(records.filter(item => item.kind === 'terminal-responder')
+      .map(item => [item.value.operationId, item]));
+  }
+
+  departed(memberId: CollabMemberId): boolean {
+    const member = this.members.get(memberId)?.value;
+    return member !== undefined
+      && (member.status === 'revoked' || member.status === 'left')
+      && !this.principalBindings.has(memberId);
+  }
+
+  matchesHostEvidence(
+    memberId: CollabMemberId | null,
+    principalId: string,
+    recovery: CollabProjectBackupAuthorityTransferRecoveryRecord,
+    lifecycle: CollabProjectBackupLifecycleJournalRecord,
+  ): boolean {
+    if (memberId === null) return false;
+    const member = this.members.get(memberId)?.value;
+    if (member === undefined || Date.parse(member.createdAt) > Date.parse(recovery.value.createdAt)) {
+      return false;
+    }
+    return member.status === 'active'
+      ? this.principalBindings.get(memberId) === principalId
+      : this.departed(memberId)
+        && (lifecycle.value.state === 'completed' || lifecycle.value.state === 'cancelled');
+  }
+
+  receiptOwner(
+    receipt: CollabTransferredMembershipRedemptionReceipt,
+    source: CollabProjectBackupTransferredMembershipClaimRecord | undefined,
+    overrides: readonly CollabProjectBackupTransferredMembershipClaimOverrideRecord[],
+  ): 'source' | 'override' | undefined {
+    if (source === undefined || source.value.checkpointSha256 !== receipt.checkpointSha256) {
+      return undefined;
+    }
+    const historical = this.departed(receipt.memberId) && source.value.state === 'revoked';
+    const highest = overrides.reduce<CollabProjectBackupTransferredMembershipClaimOverrideRecord | undefined>(
+      (current, item) => current === undefined || item.value.claimGeneration > current.value.claimGeneration
+        ? item : current, undefined,
+    );
+    if (highest !== undefined) {
+      return highest.value.claimSha256 === receipt.claimSha256
+        && ((highest.value.state === 'redeemed'
+          && highest.value.redemptionReceiptId === receipt.receiptId
+          && this.principalBindings.get(receipt.memberId) === highest.value.targetPrincipalId)
+          || (historical && highest.value.state === 'revoked'))
+        ? 'override' : undefined;
+    }
+    return source.value.claimSha256 === receipt.claimSha256
+      && ((source.value.state === 'redeemed'
+        && source.value.operationIntentId === receipt.operationIntentId
+        && source.value.redemptionReceiptId === receipt.receiptId
+        && this.principalBindings.get(receipt.memberId) === source.value.targetPrincipalId)
+        || historical)
+      ? 'source' : undefined;
+  }
+
+  historicalTransferMembers(
+    recovery: CollabProjectBackupAuthorityTransferRecoveryRecord,
+  ): readonly CollabMemberId[] {
+    const hostMemberId = recovery.value.sourceAuthority.kind === 'lan'
+      ? recovery.value.sourceHostMemberId : recovery.value.targetHostMemberId;
+    const atTransfer = [...this.members.values()].filter(item => (
+      Date.parse(item.value.createdAt) <= Date.parse(recovery.value.createdAt)
+    ));
+    const publication = recovery.value.inactivePublication;
+    if (publication !== null) {
+      // These refs retain the imported population after its live memberships change.
+      const byRef = new Map(atTransfer.map(item => [item.value.personalRef, item.value.memberId]));
+      const historical = new Set<CollabMemberId>();
+      for (const ref of publication.refs) {
+        if (ref.name === COLLAB_MAIN_REF) continue;
+        const memberId = byRef.get(ref.name);
+        if (memberId === undefined) throw invalidPayload('records');
+        historical.add(memberId);
+      }
+      if (hostMemberId === null || !historical.has(hostMemberId)
+        || atTransfer.some(item => item.value.status === 'active'
+          && !historical.has(item.value.memberId))) throw invalidPayload('records');
+      historical.delete(hostMemberId);
+      return [...historical];
+    }
+    const terminal = this.terminalResponders.get(recovery.value.transferId);
+    const activeMembers = atTransfer.filter(item => item.value.status === 'active')
+      .map(item => item.value.memberId);
+    return [...new Set([...activeMembers, ...(terminal?.value.eligibleMemberIds ?? [])])]
+      .filter(memberId => memberId !== hostMemberId);
+  }
+
+}
+
 function validateContinuity(records: readonly CollabProjectBackupRecord[]): void {
   if (
     records.length === 0
@@ -1947,13 +2049,11 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
   const projectAuthorityGeneration = records[0].value.authorityGeneration;
   if (records.some(item => recordProjectId(item) !== projectId)) throw invalidPayload('records');
 
-  const memberRecords = new Map(records
-    .filter(item => item.kind === 'member')
-    .map(item => [item.value.memberId, item]));
+  const membership = new BackupMembershipContinuity(records);
+  const memberRecords = membership.members;
   const members = new Set(memberRecords.keys());
   const principalBindingRecords = records.filter(item => item.kind === 'principal-binding');
-  const principalBindings = new Map(principalBindingRecords
-    .map(item => [item.value.memberId, item.value.principalId]));
+  const principalBindings = membership.principalBindings;
   const lifecycles = new Map(records
     .filter((item): item is CollabProjectBackupLifecycleJournalRecord => (
       item.kind === 'lifecycle-journal'
@@ -1964,6 +2064,9 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       item.kind === 'authority-transfer-recovery'
     ))
     .map(item => [item.value.transferId, item]));
+  const transferMembers = new Map([...recoveries].map(([transferId, recovery]) => [
+    transferId, new Set(membership.historicalTransferMembers(recovery)),
+  ]));
   const keyRecords = records.filter(
     (item): item is CollabProjectBackupTransferReceiptKeyRecord => (
       item.kind === 'transfer-receipt-key'
@@ -2039,11 +2142,13 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       item.kind === 'transferred-membership-claim-override'
     ),
   );
-  const redeemedOverrideIdentities = new Set(claimOverrides
-    .filter(item => item.value.state === 'redeemed')
-    .map(item => (
-      `${item.value.transferId}:${item.value.memberId}:${item.value.claimSha256}:${item.value.redemptionReceiptId}`
-    )));
+  const overridesByMember = new Map<string, CollabProjectBackupTransferredMembershipClaimOverrideRecord[]>();
+  for (const override of claimOverrides) {
+    const identity = `${override.value.transferId}:${override.value.memberId}`;
+    const values = overridesByMember.get(identity) ?? [];
+    values.push(override);
+    overridesByMember.set(identity, values);
+  }
   const claimOverrideEnvelopes = new Map(records
     .filter((item): item is CollabProjectBackupProtectedClaimOverrideEnvelopeRecord => (
       item.kind === 'protected-claim-override-envelope'
@@ -2271,16 +2376,7 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     if (projectAuthorityGeneration !== expectedProjectAuthorityGeneration) {
       throw invalidPayload('records');
     }
-    const hostMemberId = direction === 'lan-to-cloud'
-      ? recovery.value.sourceHostMemberId
-      : recovery.value.targetHostMemberId;
-    const transferMemberIds = [...memberRecords.values()]
-      .filter(item => (
-        item.value.status === 'active'
-        && item.value.memberId !== hostMemberId
-        && Date.parse(item.value.createdAt) <= Date.parse(recovery.value.createdAt)
-      ))
-      .map(item => item.value.memberId);
+    const transferMemberIds = [...(transferMembers.get(recovery.value.transferId) ?? [])];
     if (!isCancellation) {
       const batchReceiptRequired = direction === 'cloud-to-lan'
         ? normalPhaseIndex >= 3
@@ -2320,8 +2416,8 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     }
     if (recovery.value.targetEvidence !== null && (
       recovery.value.targetHostMemberId === null
-      || principalBindings.get(recovery.value.targetHostMemberId)
-        !== recovery.value.targetEvidence.principalId
+      || !membership.matchesHostEvidence(recovery.value.targetHostMemberId,
+        recovery.value.targetEvidence.principalId, recovery, lifecycle)
     )) throw invalidPayload('records');
     if (
       lifecycle.value.operationKind !== 'authority-transfer'
@@ -2356,8 +2452,8 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
           recovery.value.sourceEvidence.checkpointManifestSha256
             !== lifecycle.value.checkpointSha256
           || recovery.value.sourceHostMemberId === null
-          || principalBindings.get(recovery.value.sourceHostMemberId)
-            !== recovery.value.sourceEvidence.principalId
+          || !membership.matchesHostEvidence(recovery.value.sourceHostMemberId,
+            recovery.value.sourceEvidence.principalId, recovery, lifecycle)
         ))
       || (evidence !== null && (
         receiptKey === undefined
@@ -2408,26 +2504,26 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     const redemptionReceipt = redemptionReceipts.get(
       `${claim.value.transferId}:${claim.value.memberId}`,
     );
-    const hasRedeemedOverride = redemptionReceipt !== undefined
-      && redeemedOverrideIdentities.has(
-        `${claim.value.transferId}:${claim.value.memberId}:${redemptionReceipt.value.receipt.claimSha256}:${redemptionReceipt.value.receipt.receiptId}`,
-      );
+    const receiptOwner = redemptionReceipt === undefined ? undefined : membership.receiptOwner(
+      redemptionReceipt.value.receipt, claim,
+      overridesByMember.get(`${claim.value.transferId}:${claim.value.memberId}`) ?? [],
+    );
     if (
-      member?.value.status !== 'active'
+      member === undefined
+      || (member.value.status !== 'active'
+        && !(membership.departed(claim.value.memberId) && claim.value.state === 'revoked'))
       || recovery === undefined
       || Date.parse(member.value.createdAt) > Date.parse(recovery.value.createdAt)
       || recovery.value.sourceAuthority.kind !== 'lan'
+      || !transferMembers.get(claim.value.transferId)?.has(claim.value.memberId)
       || claim.value.memberId === recovery.value.sourceHostMemberId
       || lifecycle?.value.batchRevision !== claim.value.batchRevision
       || lifecycle.value.checkpointSha256 !== claim.value.checkpointSha256
       || claim.value.expiresAt !== recovery.value.expiresAt
       || (claim.value.targetPrincipalId !== null
         && principalBindings.get(claim.value.memberId) !== claim.value.targetPrincipalId)
-      || (claim.value.state === 'redeemed' && redemptionReceipt === undefined)
-      || (redemptionReceipt !== undefined
-        && claim.value.state !== 'redeemed'
-        && !hasRedeemedOverride)
-      || (claim.value.state === 'redeemed' && hasRedeemedOverride)
+      || (claim.value.state === 'redeemed' && receiptOwner !== 'source')
+      || (redemptionReceipt !== undefined && receiptOwner === undefined)
     ) {
       throw invalidPayload('records');
     }
@@ -2495,12 +2591,8 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
   for (const envelope of invitationEnvelopes.values()) {
     if (!invitations.has(envelope.value.invitationId)) throw invalidPayload('records');
   }
-  const overridesByMember = new Map<string, CollabProjectBackupTransferredMembershipClaimOverrideRecord[]>();
   for (const override of claimOverrides) {
     const identity = `${override.value.transferId}:${override.value.memberId}`;
-    const values = overridesByMember.get(identity) ?? [];
-    values.push(override);
-    overridesByMember.set(identity, values);
     const envelope = claimOverrideEnvelopes.get(
       `${identity}:${override.value.claimGeneration}`,
     );
@@ -2510,7 +2602,9 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
     if (
       !members.has(override.value.memberId)
       || !members.has(override.value.managerMemberId)
-      || (envelope === undefined) === (tombstone === undefined)
+      || (membership.departed(override.value.memberId)
+        ? envelope !== undefined
+        : (envelope === undefined) === (tombstone === undefined))
       || (tombstone !== undefined
         && tombstone.value.expiredAt !== override.value.secretReplayExpiresAt)
       || (envelope !== undefined && (
@@ -2534,12 +2628,18 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       ? undefined
       : principalBindings.get(first.value.memberId);
     const redemptionReceipt = redemptionReceipts.get(identity);
+    const departed = first !== undefined && membership.departed(first.value.memberId);
+    const receiptOwner = redemptionReceipt === undefined ? undefined : membership.receiptOwner(
+      redemptionReceipt.value.receipt, sourceClaim, overrides,
+    );
     const redeemedOverrides = overrides.filter(item => item.value.state === 'redeemed');
     if (
       first === undefined
       || sourceClaim === undefined
       || recovery?.value.sourceAuthority.kind !== 'lan'
-      || member?.value.status !== 'active'
+      || (member?.value.status !== 'active' && !departed)
+      || (departed && (sourceClaim.value.state !== 'revoked'
+        || overrides.some(item => item.value.state === 'active' || item.value.state === 'redeemed')))
       || sourceClaim.value.state === 'redeemed'
       || overrides.some((item, index) => item.value.claimGeneration !== index + 1)
       || overrides.some((item, index) => item.value.supersededClaimSha256 !== (
@@ -2557,17 +2657,8 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
         principalBinding !== undefined
         || redemptionReceipt !== undefined
       ))
-      || (highest?.value.state === 'redeemed' && (
-        principalBinding !== highest.value.targetPrincipalId
-        || redemptionReceipt === undefined
-        || redemptionReceipt.value.receipt.transferId !== highest.value.transferId
-        || redemptionReceipt.value.receipt.memberId !== highest.value.memberId
-        || redemptionReceipt.value.receipt.claimSha256 !== highest.value.claimSha256
-        || redemptionReceipt.value.receipt.receiptId !== highest.value.redemptionReceiptId
-        || redemptionReceipt.value.receipt.checkpointSha256
-          !== sourceClaim.value.checkpointSha256
-      ))
-      || (highest?.value.state !== 'redeemed' && redemptionReceipt !== undefined)
+      || (highest?.value.state === 'redeemed' && receiptOwner !== 'override')
+      || (redemptionReceipt !== undefined && receiptOwner !== 'override')
     ) throw invalidPayload('records');
   }
   for (const envelope of claimOverrideEnvelopes.values()) {
@@ -2656,27 +2747,20 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
       const lifecycle = lifecycles.get(receipt.transferId);
       const terminalPrincipal = terminalPrincipals.get(identity);
       const lanToCloud = recovery?.value.sourceAuthority.kind === 'lan';
-      const hasRedeemedOverride = redeemedOverrideIdentities.has(
-        `${receipt.transferId}:${receipt.memberId}:${receipt.claimSha256}:${receipt.receiptId}`,
+      const receiptOwner = membership.receiptOwner(
+        receipt, claim, overridesByMember.get(identity) ?? [],
       );
-      const matchesSourceClaim = claim?.value.state === 'redeemed'
-        && claim.value.claimSha256 === receipt.claimSha256
-        && claim.value.checkpointSha256 === receipt.checkpointSha256
-        && claim.value.operationIntentId === receipt.operationIntentId
-        && claim.value.redemptionReceiptId === receipt.receiptId;
-      const matchesOverride = claim !== undefined
-        && hasRedeemedOverride
-        && claim.value.checkpointSha256 === receipt.checkpointSha256;
       if (
         recovery === undefined
         || lifecycle === undefined
-        || memberRecords.get(receipt.memberId)?.value.status !== 'active'
+        || (memberRecords.get(receipt.memberId)?.value.status !== 'active'
+          && !membership.departed(receipt.memberId))
         || receipt.targetAuthorityGeneration !== recovery.value.targetAuthority.generation
         || !keys.has(`${receipt.transferId}:${receipt.receiptKeyId}`)
         || Date.parse(receipt.redeemedAt) > Date.parse(recovery.value.expiresAt)
         || (lanToCloud && (
           item.value.acknowledgedAt !== null
-          || (!matchesSourceClaim && !matchesOverride)
+          || receiptOwner === undefined
         ))
         || (!lanToCloud && (
           item.value.acknowledgedAt === null
@@ -2916,6 +3000,7 @@ export function validateCollabProjectBackupCheckpointConsistency(
   const claimOverrideEnvelopeIds = new Set(decodedRecords
     .filter(item => item.kind === 'protected-claim-override-envelope')
     .map(item => item.recordId));
+  const membership = new BackupMembershipContinuity(decodedRecords);
   const captureTime = Date.parse(decodedManifest.createdAt);
   if (decodedRecords.some(item => {
     if (item.kind === 'secret-replay-tombstone') {
@@ -2931,8 +3016,10 @@ export function validateCollabProjectBackupCheckpointConsistency(
     }
     if (item.kind === 'transferred-membership-claim-override') {
       return captureTime < Date.parse(item.value.createdAt)
-        || (captureTime < Date.parse(item.value.secretReplayExpiresAt))
-          !== claimOverrideEnvelopeIds.has(item.recordId);
+        || (membership.departed(item.value.memberId)
+          ? claimOverrideEnvelopeIds.has(item.recordId)
+          : (captureTime < Date.parse(item.value.secretReplayExpiresAt))
+            !== claimOverrideEnvelopeIds.has(item.recordId));
     }
     return false;
   })) throw invalidPayload('records');
@@ -2958,7 +3045,7 @@ export function validateCollabProjectBackupCheckpointConsistency(
   const baseRecords = decodedRecords.filter(item => (
     !CONTINUITY_KIND_SET.has(item.kind) && item.kind !== 'idempotency-result'
   )) as readonly CollabCheckpointBackupRecord[];
-  validateCheckpointRecordSequence(baseRecords, 'backup');
+  validateCheckpointRecordSequence(baseRecords, 'backup', 'member');
   validateCheckpointManifestConsistency(decodedManifest, baseRecords);
   return records;
 }

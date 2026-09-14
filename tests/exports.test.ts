@@ -1,6 +1,8 @@
 import * as protocol from '../src/index';
 
 const EXPECTED_OPERATIONS = [
+  'createProjectRecoveryLink',
+  'redeemProjectRecoveryLink',
   'getRequest',
   'listRequestComments',
   'ensureMyRequest',

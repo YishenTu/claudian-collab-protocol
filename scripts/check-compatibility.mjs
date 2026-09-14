@@ -57,6 +57,8 @@ const WIRE_MODULES = new Set([
   './operations/CollabProtocol',
   './operations/CollabProjectMembership',
   './checkpoints/CollabProjectCheckpoint',
+  './checkpoints/CollabProjectBackupCheckpoint',
+  './operations/CollabProjectRecovery',
   './operations/CollabProjectRetirement',
   './operations/CollabRequestTicketRequestCodecs',
   './operations/CollabRequestTicketResponseCodecs',
@@ -276,6 +278,24 @@ function effectiveCloudBindingContract(snapshot) {
   });
 }
 
+function effectiveWireContract(snapshot) {
+  // Older snapshots already retain the complete backup API and source digests at
+  // the package level. Enrich only formerly omitted owners, without rewriting or
+  // replacing any recorded wire evidence.
+  const addedOwners = new Set(['./checkpoints/CollabProjectBackupCheckpoint', './operations/CollabProjectRecovery']);
+  const wire = snapshot.contract.wire;
+  const declarations = [...(wire.declarations ?? [])];
+  const digests = [...(wire.runtimeBehaviorDigests ?? [])];
+  for (const item of snapshot.contract.publicDeclarations) {
+    if (addedOwners.has(item.source) && !declarations.some(existing => existing.exportName === item.exportName)) declarations.push(item);
+  }
+  for (const item of snapshot.contract.runtimeBehaviorDigests) {
+    if (addedOwners.has(moduleForBehaviorPath(item.path)) && !digests.some(existing => existing.path === item.path)) digests.push(item);
+  }
+  return { ...wire, declarations: declarations.sort((a, b) => a.exportName.localeCompare(b.exportName)),
+    runtimeBehaviorDigests: digests.sort((a, b) => a.path.localeCompare(b.path)) };
+}
+
 function withoutImplementationDigests(contract) {
   const semantics = { ...contract };
   delete semantics.runtimeBehaviorDigests;
@@ -399,8 +419,238 @@ function preservesOptionalLanTarget(baseDeclaration, currentDeclaration) {
     === stableJson(syntaxSignature(expectedSource.statements[0].members[0], expectedSource));
 }
 
+const RECOVERY_OPERATIONS = ['createProjectRecoveryLink', 'redeemProjectRecoveryLink'];
+const RECOVERY_MODULE = './operations/CollabProjectRecovery';
+const RECOVERY_PATH = 'src/operations/CollabProjectRecovery.ts';
+
+function isRecoveryAddition(additions) {
+  return stableJson(additions) === stableJson(RECOVERY_OPERATIONS);
+}
+
+function printedSyntax(text) {
+  return ts.createPrinter({ removeComments: true }).printFile(sourceFile(text, 'contract.ts'));
+}
+
+// Remove only the reviewed additive syntax; comparing the remainder proves that
+// old declarations, branches, imports and their order have not been edited.
+function subtractRecoverySyntax(text, fileName, { declarationOnly = false } = {}) {
+  const source = sourceFile(text, fileName);
+  const removed = [];
+  const removedKeys = new Set();
+  const syntax = node => sourceSyntax(node.getText(source), fileName);
+  const same = (node, expected) => syntax(node) === sourceSyntax(expected, fileName);
+  const guards = new Map([
+    ['memberRecord', ["Object.hasOwn(record(source.value, 'value'), 'recoveryCredentialHashes')", 'return memberRecordWithRecovery(source, recordId, revision);']],
+    ['validateCheckpointRecordSequence', ["records.some(item => item.kind === 'member' && item.value.recoveryCredentialHashes !== undefined)", 'validateRecoveryCredentialOwners(records);']],
+    ['validateContinuity', ["records.some(item => item.kind === 'project-recovery-link')", 'validateRecoveryLinks(records, projectAuthorityGeneration, memberRecords);']],
+    ['validateCollabProjectBackupCheckpointConsistency', ["item.kind === 'project-recovery-link'", null]],
+  ]);
+  const transformed = ts.transform(source, [context => root => {
+    let owner;
+    function visit(node) {
+      const previous = owner;
+      if (node.parent === source) owner = declaredNames(node)[0];
+      let omit = false;
+      if (ts.isPropertySignature(node) && owner === 'CollabCheckpointMemberRecord'
+        && node.name.getText(source) === 'recoveryCredentialHashes') {
+        if (!same(node, 'readonly recoveryCredentialHashes?: readonly string[];')) throw new Error('Recovery verifier field must remain optional');
+        omit = true;
+      }
+      if (ts.isExpressionWithTypeArguments(node) && owner === 'CollabControlOperationMap'
+        && same(node, 'CollabProjectRecoveryOperationMap')) omit = true;
+      if (ts.isSpreadAssignment(node) && owner === 'COLLAB_CONTROL_OPERATION_CODECS'
+        && same(node, '...COLLAB_PROJECT_RECOVERY_OPERATION_CODECS')) omit = true;
+      // The emitted codec declaration expands the spread into two properties.
+      if (declarationOnly && ts.isPropertySignature(node) && owner === 'COLLAB_CONTROL_OPERATION_CODECS'
+        && RECOVERY_OPERATIONS.includes(node.name.getText(source))) omit = true;
+      if (ts.isLiteralTypeNode(node) && ts.isStringLiteral(node.literal)
+        && ((owner === 'COLLAB_PROJECT_BACKUP_RECORD_KINDS' && node.literal.text === 'project-recovery-link')
+          || (owner === 'COLLAB_CLOUD_CAPABILITIES' && node.literal.text === 'project-recovery'))) omit = true;
+      if (ts.isStringLiteral(node) && ts.isArrayLiteralExpression(node.parent)
+        && ((owner === 'BACKUP_CONTINUITY_RECORD_KINDS' && node.text === 'project-recovery-link')
+          || (owner === 'COLLAB_CLOUD_CAPABILITIES' && node.text === 'project-recovery'))) omit = true;
+      if (ts.isTypeReferenceNode(node) && owner === 'CollabProjectBackupContinuityRecord'
+        && same(node, 'CollabProjectBackupRecoveryLinkRecord')) omit = true;
+      if (ts.isIfStatement(node) && guards.has(owner)) {
+        const [condition, body] = guards.get(owner);
+        if (same(node.expression, condition)) {
+          if (node.elseStatement || !ts.isBlock(node.thenStatement)
+            || (body !== null && !same(node.thenStatement, `{ ${body} }`))) throw new Error('Recovery guard changed its dispatch');
+          omit = true;
+        }
+      }
+      if (ts.isCaseClause(node) && owner === 'decodeContinuityRecord'
+        && same(node.expression, "'project-recovery-link'")) {
+        if (node.parent.clauses[0] !== node || node.statements.length !== 1
+          || !same(node.statements[0], 'return projectRecoveryLinkRecord(source, recordId, revision);')) {
+          throw new Error('Recovery backup dispatch must be a leading returning case');
+        }
+        omit = true;
+      }
+      if (omit) {
+        const key = `${owner}:${node.kind}:${ts.isPropertySignature(node) ? node.name.getText(source) : ''}`;
+        if (removedKeys.has(key)) throw new Error('Duplicate recovery addition');
+        removedKeys.add(key);
+        removed.push(node); owner = previous; return undefined;
+      }
+      const result = ts.visitEachChild(node, visit, context);
+      owner = previous;
+      return result;
+    }
+    return ts.visitNode(root, visit);
+  }]);
+  const result = ts.createPrinter({ removeComments: true }).printFile(transformed.transformed[0]);
+  transformed.dispose();
+  return { text: result, removed };
+}
+
+function preservesRecoveryDeclaration(before, after) {
+  if (before.source !== after.source || before.exportName !== after.exportName) return false;
+  const supported = new Set(['CollabControlOperationMap', 'COLLAB_CONTROL_OPERATION_CODECS',
+    'CollabCheckpointMemberRecord', 'CollabProjectBackupContinuityRecord',
+    'COLLAB_PROJECT_BACKUP_RECORD_KINDS', 'COLLAB_CLOUD_CAPABILITIES']);
+  if (!supported.has(before.exportName)) return false;
+  const candidate = subtractRecoverySyntax(after.declaration, 'contract.d.ts', { declarationOnly: true });
+  return candidate.removed.length > 0 && sourceSyntax(printedSyntax(before.declaration), 'contract.d.ts') === sourceSyntax(candidate.text, 'contract.d.ts');
+}
+
+function assertRecoveryImports(before, after, fileName, reachable, files) {
+  const imports = parsed => {
+    const values = new Map();
+    for (const statement of parsed.source.statements) {
+      if (!ts.isImportDeclaration(statement)) continue;
+      const clause = statement.importClause;
+      if (!clause || clause.name || !clause.namedBindings || !ts.isNamedImports(clause.namedBindings)
+        || statement.attributes || !ts.isStringLiteral(statement.moduleSpecifier)) throw new Error('Unsupported recovery import');
+      for (const element of clause.namedBindings.elements) {
+        const name = element.name.text;
+        if (values.has(name)) throw new Error('Duplicate recovery import binding');
+        values.set(name, { module: statement.moduleSpecifier.text, typeOnly: clause.isTypeOnly,
+          element: sourceSyntax(element.getText(parsed.source), fileName) });
+      }
+    }
+    return values;
+  };
+  const base = imports(before); const current = imports(after);
+  for (const [name, value] of base) {
+    if (stableJson(value) !== stableJson(current.get(name))) throw new Error(`Recovery changed existing import: ${name}`);
+  }
+  const added = new Set([...current.keys()].filter(name => !base.has(name)));
+  for (const name of added) {
+    const entry = current.get(name);
+    const absolute = path.posix.normalize(path.posix.join(path.posix.dirname(fileName), `${entry.module}.ts`));
+    const target = files[absolute];
+    const exported = typeof target === 'string' && sourceFile(target, absolute).statements.some(statement =>
+      declaredNames(statement).includes(name) && statement.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword));
+    if (!reachable.has(name) || !exported || ![sourceSyntax(name, fileName), sourceSyntax(`type ${name}`, fileName)].includes(entry.element)) {
+      throw new Error(`Recovery added unreachable or aliased import: ${name}`);
+    }
+  }
+  assertExistingReferenceBindings(before, after, added);
+  return added;
+}
+
+function parsedRecoveryTopLevel(text, fileName) {
+  const source = sourceFile(text, fileName);
+  const named = new Map();
+  for (const statement of source.statements) {
+    const names = declaredNames(statement);
+    if (names.length === 0) continue;
+    if (names.length !== 1) throw new Error('Recovery review requires one declaration per statement');
+    const previous = named.get(names[0]);
+    if (previous && (!ts.isFunctionDeclaration(statement) || !previous.statements.every(ts.isFunctionDeclaration))) {
+      throw new Error('Recovery review rejects duplicate declarations');
+    }
+    const statements = [...(previous?.statements ?? []), statement];
+    named.set(names[0], { source, statements, statement: { getText: () => statements.map(s => s.getText(source)).join('\n') } });
+  }
+  return { source, named, unnamed: [] };
+}
+
+export function assertProjectRecoveryOperationSourceAddition(input) {
+  if (!isRecoveryAddition(input.addedOperations) || input.baseFiles[RECOVERY_PATH] !== undefined
+    || typeof input.currentFiles[RECOVERY_PATH] !== 'string') throw new Error('Invalid Project recovery operation family');
+  const allowed = new Set([RECOVERY_PATH, 'src/operations/CollabProtocol.ts', 'src/operations/CollabControlOperationCodecs.ts',
+    'src/checkpoints/CollabProjectCheckpoint.ts', 'src/checkpoints/CollabProjectBackupCheckpoint.ts',
+    'src/cloud/CollabCloudBinding.ts', 'src/core/CollabConstants.ts', 'src/index.ts']);
+  if (stableJson(Object.keys(input.currentFiles).filter(p => p !== RECOVERY_PATH).sort())
+    !== stableJson(Object.keys(input.baseFiles).sort())) throw new Error('Recovery changed unrelated module inventory');
+  const family = parsedTopLevel(input.currentFiles[RECOVERY_PATH], RECOVERY_PATH);
+  const map = declarationShape(family.named.get('CollabProjectRecoveryOperationMap')?.statement.getText(family.source) ?? '');
+  if (map?.kind !== 'members' || stableJson(map.entries.map(([name]) => name).sort()) !== stableJson(RECOVERY_OPERATIONS)
+    || stableJson(sourceOperationTuple(family.named.get('COLLAB_PROJECT_RECOVERY_OPERATIONS')?.statement)) !== stableJson(RECOVERY_OPERATIONS)) {
+    throw new Error('Recovery operation map and tuple disagree');
+  }
+  const codec = family.named.get('COLLAB_PROJECT_RECOVERY_OPERATION_CODECS')?.statement;
+  const object = codec?.declarationList?.declarations[0]?.initializer?.arguments?.[0];
+  if (!object || !ts.isObjectLiteralExpression(object) || object.properties.some(p => !ts.isPropertyAssignment(p))
+    || stableJson(object.properties.map(p => propertyNameText(p.name)).sort()) !== stableJson(RECOVERY_OPERATIONS)) {
+    throw new Error('Recovery codec registry must contain exactly the added operations');
+  }
+  const exportedNames = new Set();
+  for (const [fileName, currentText] of Object.entries(input.currentFiles)) {
+    const baseText = input.baseFiles[fileName] ?? '';
+    if (!allowed.has(fileName)) {
+      if (baseText !== currentText) throw new Error(`Recovery changed unrelated source: ${fileName}`);
+      continue;
+    }
+    if (fileName === 'src/index.ts') continue;
+    if (fileName === 'src/core/CollabConstants.ts') {
+      if (sourceSyntax(baseText, fileName) !== sourceSyntax(normalizedVersionSource(currentText, 'COLLAB_PROTOCOL_VERSION',
+        input.currentProtocolVersion, input.baseProtocolVersion), fileName)) throw new Error('Recovery changed unrelated protocol constants');
+      continue;
+    }
+    const before = parsedRecoveryTopLevel(baseText, fileName);
+    const after = parsedRecoveryTopLevel(currentText, fileName);
+    const subtracted = subtractRecoverySyntax(currentText, fileName);
+    const normalized = parsedRecoveryTopLevel(subtracted.text, fileName);
+    const roots = new Set(fileName === RECOVERY_PATH ? ['CollabProjectRecoveryOperationMap', 'COLLAB_PROJECT_RECOVERY_OPERATIONS',
+      'COLLAB_PROJECT_RECOVERY_OPERATION_CODECS'] : []);
+    const graph = topLevelReferenceGraph(currentText, { includeImports: true, referenceSpans: subtracted.removed });
+    for (const name of graph.get('__reviewRoots') ?? []) roots.add(name);
+    const reachable = new Set(roots);
+    for (const name of reachable) for (const next of graph.get(name) ?? []) reachable.add(next);
+    const newNames = new Set([...after.named.keys()].filter(name => !before.named.has(name)));
+    for (const name of newNames) {
+      if (!reachable.has(name)) throw new Error(`Recovery added unreachable declaration: ${name}`);
+      exportedNames.add(name);
+    }
+    const addedImports = assertRecoveryImports(before, after, fileName, reachable, input.currentFiles);
+    assertExistingReferenceBindings(before, after, new Set([...newNames, ...addedImports]));
+    const retainedOrder = parsed => parsed.source.statements.flatMap(statement => {
+      const names = declaredNames(statement);
+      if (names.length > 0) return before.named.has(names[0]) ? [`declaration:${names[0]}`] : [];
+      if (ts.isImportDeclaration(statement)) {
+        const clause = statement.importClause;
+        const bindings = clause?.namedBindings;
+        const elements = bindings && ts.isNamedImports(bindings)
+          ? bindings.elements.filter(element => !addedImports.has(element.name.text)) : [];
+        return elements.length > 0 ? [`import:${statement.moduleSpecifier.getText(parsed.source)}:${clause.isTypeOnly}:${elements.map(element => element.name.text).join(',')}`] : [];
+      }
+      return [sourceSyntax(statement.getText(parsed.source), fileName)];
+    });
+    if (stableJson(retainedOrder(before)) !== stableJson(retainedOrder(after))) throw new Error('Recovery changed existing statement order');
+    // Non-import unnamed statements (including side effects and re-exports) remain exact.
+    const unnamed = parsed => parsed.source.statements.filter(s => !ts.isImportDeclaration(s) && declaredNames(s).length === 0)
+      .map(s => sourceSyntax(s.getText(parsed.source), fileName));
+    if (stableJson(unnamed(before)) !== stableJson(unnamed(normalized))) throw new Error('Recovery changed unnamed statements');
+    if (fileName === 'src/cloud/CollabCloudBinding.ts') {
+      assertCloudBindingVersionMigration(printedSyntax(baseText), subtracted.text, input.baseCloudBindingVersion, input.currentCloudBindingVersion);
+      continue;
+    }
+    for (const [name, declaration] of before.named) {
+      const candidate = normalized.named.get(name);
+      if (!candidate || sourceSyntax(printedSyntax(declaration.statement.getText(before.source)), fileName)
+        !== sourceSyntax(printedSyntax(candidate.statement.getText(normalized.source)), fileName)) throw new Error(`Recovery changed existing source declaration: ${name}`);
+    }
+  }
+  assertIndexAddition(input.baseFiles['src/index.ts'], input.currentFiles['src/index.ts'], exportedNames,
+    new Set([RECOVERY_MODULE, './checkpoints/CollabProjectBackupCheckpoint']));
+}
+
 function isAllowedChangedOperationDeclaration(base, current, additions, snapshots) {
   if (base.source !== current.source || base.exportName !== current.exportName) return false;
+  if (isRecoveryAddition(additions) && preservesRecoveryDeclaration(base, current)) return true;
   if (
     base.exportName === 'CollabControlOperationMap'
     || base.exportName === 'CollabAuthorityTransferOperationMap'
@@ -456,7 +706,7 @@ function parsedTopLevel(sourceText, fileName) {
   return { named, source, unnamed };
 }
 
-function topLevelReferenceGraph(sourceText, { includeImports = false } = {}) {
+function topLevelReferenceGraph(sourceText, { includeImports = false, referenceSpans = [] } = {}) {
   const fileName = 'authority-transfer-source.ts';
   const options = {
     noLib: true,
@@ -515,6 +765,16 @@ function topLevelReferenceGraph(sourceText, { includeImports = false } = {}) {
     visit(statement);
     graph.set(owner, references);
   }
+  const selected = new Set();
+  function visitSelected(node) {
+    if (ts.isIdentifier(node) && referenceSpans.some(span => node.pos >= span.pos && node.end <= span.end)) {
+      const name = symbols.get(checker.getSymbolAtLocation(node));
+      if (name !== undefined) selected.add(name);
+    }
+    ts.forEachChild(node, visitSelected);
+  }
+  visitSelected(source);
+  graph.set('__reviewRoots', selected);
   return graph;
 }
 
@@ -1358,11 +1618,15 @@ function assertVersionedOperationAdditionReview(base, current, review) {
       'declarations',
       'jsonOperations',
       'runtimeBehaviorDigests',
+      ...(isRecoveryAddition(additions) ? ['capabilities'] : []),
     ])) !== stableJson(withoutKeys(current.contract.cloudBinding, [
       'declarations',
       'jsonOperations',
       'runtimeBehaviorDigests',
+      ...(isRecoveryAddition(additions) ? ['capabilities'] : []),
     ]))
+    || (isRecoveryAddition(additions) && (stableJson(current.contract.cloudBinding.capabilities.filter(value => value !== 'project-recovery')) !== stableJson(base.contract.cloudBinding.capabilities)
+      || current.contract.cloudBinding.capabilities.filter(value => value === 'project-recovery').length !== 1))
   ) throw new Error('Versioned operation addition review exceeds additive wire or Cloud semantics');
 
   const baseDeclarations = new Map(
@@ -1399,6 +1663,7 @@ function assertVersionedOperationAdditionReview(base, current, review) {
     './operations/CollabControlOperationCodecs',
     './index',
     ...addedDeclarationSources,
+    ...(isRecoveryAddition(additions) ? ['./checkpoints/CollabProjectCheckpoint', './checkpoints/CollabProjectBackupCheckpoint'] : []),
   ]);
   const baseDigests = new Map(
     base.contract.runtimeBehaviorDigests.map(entry => [entry.path, entry.sha256]),
@@ -1779,7 +2044,7 @@ export function assertVersionedContractChange(base, current, review) {
     ? withoutImplementationDigests
     : value => value;
   if (
-    stableJson(comparedContract(base.contract.wire)) !== stableJson(comparedContract(current.contract.wire))
+    stableJson(comparedContract(effectiveWireContract(base))) !== stableJson(comparedContract(effectiveWireContract(current)))
     && current.protocolVersion <= base.protocolVersion
   ) {
     failures.push('wire protocol version must increase for a wire contract change');
@@ -2023,6 +2288,7 @@ export function readBaseSnapshot(baseSha, { cwd = repositoryRoot } = {}) {
 }
 
 export function assertVersionedOperationSourceAddition(input) {
+  if (isRecoveryAddition(input?.addedOperations)) return assertProjectRecoveryOperationSourceAddition(input);
   const additions = input?.addedOperations;
   if (!Array.isArray(additions) || additions.length === 0) throw new Error('Invalid versioned operation source review input');
   const families = [
@@ -2068,9 +2334,6 @@ function operationSourceReviewInput(baseSha, base, current) {
       absolutePath,
     ).split(path.sep).join('/'))
   ));
-  if (stableJson(basePaths) !== stableJson(currentPaths)) {
-    throw new Error('Versioned authority-transfer operation review cannot add or remove source modules');
-  }
   const baseFiles = {};
   const currentFiles = {};
   for (const pathname of basePaths) {
@@ -2078,10 +2341,9 @@ function operationSourceReviewInput(baseSha, base, current) {
       cwd: repositoryRoot,
       encoding: 'utf8',
     });
-    const currentSource = readFileSync(path.join(repositoryRoot, pathname), 'utf8');
     baseFiles[pathname] = baseSource;
-    currentFiles[pathname] = currentSource;
   }
+  for (const pathname of currentPaths) currentFiles[pathname] = readFileSync(path.join(repositoryRoot, pathname), 'utf8');
   return {
     addedOperations: operationAdditions(
       base.contract.wire.operations,

@@ -1,3 +1,4 @@
+import { COLLAB_PROJECT_RECOVERY_OPERATION_CODECS } from './CollabProjectRecovery';
 import {
   COLLAB_AUTHORITY_TRANSFER_OPERATIONS,
   type CollabAuthorityTransferOperation,
@@ -139,6 +140,7 @@ function codec<Operation extends CollabControlOperation>(
 }
 
 export const COLLAB_CONTROL_OPERATION_CODECS = Object.freeze({
+  ...COLLAB_PROJECT_RECOVERY_OPERATION_CODECS,
   getRequest: codec('getRequest'),
   listRequestComments: codec('listRequestComments'),
   ensureMyRequest: codec('ensureMyRequest'),

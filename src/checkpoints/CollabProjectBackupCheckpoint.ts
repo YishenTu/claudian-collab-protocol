@@ -1,3 +1,4 @@
+import { COLLAB_PROJECT_RECOVERY_LIMITS, type RedeemProjectRecoveryLinkResponse } from '../operations/CollabProjectRecovery';
 import {
   COLLAB_AUTHORITY_TRANSFER_CANCELLATION_PHASES,
   COLLAB_CLOUD_TO_LAN_TRANSFER_PHASES,
@@ -25,6 +26,7 @@ import {
   COLLAB_CHECKPOINT_PORTABLE_RECORD_KINDS,
   type CollabCheckpointAuthority,
   type CollabCheckpointBackupRecord,
+  type CollabCheckpointMemberRecord,
   type CollabCheckpointGitRef,
   type CollabCheckpointIdempotencyResultRecord,
   type CollabCheckpointTerminalResponderRecord,
@@ -71,6 +73,7 @@ const BACKUP_CONTINUITY_RECORD_KINDS = Object.freeze([
   'terminal-responder-replay',
   'leave-former-principal-replay',
   'project-invitation',
+  'project-recovery-link',
   'protected-invitation-envelope',
   'transferred-membership-claim-override',
   'protected-claim-override-envelope',
@@ -287,6 +290,27 @@ export type CollabProjectBackupInvitationRecord =
     readonly terminalAt: CollabIsoTimestamp | null;
   }>;
 
+export type CollabProjectBackupRecoveryLinkRecord = BackupRecordBase<'project-recovery-link', {
+  readonly authorityGeneration: number;
+  readonly createdAt: CollabIsoTimestamp;
+  readonly expiresAt: CollabIsoTimestamp;
+  readonly idempotencyKey: string;
+  readonly issuedByMemberId: CollabMemberId;
+  readonly projectId: CollabProjectId;
+  readonly recoveryLinkId: string;
+  readonly requestFingerprint: string;
+  readonly secretReplayExpiresAt: CollabIsoTimestamp;
+  readonly tokenSha256: string;
+  readonly envelope: CollabProjectBackupProtectedSecretEnvelope | null;
+  readonly redemption: {
+    readonly idempotencyKey: string;
+    readonly proofCredentialSha256: string;
+    readonly requestFingerprint: string;
+    readonly targetPrincipalId: string;
+    readonly response: RedeemProjectRecoveryLinkResponse;
+  } | null;
+}>;
+
 export interface CollabProjectBackupProtectedSecretEnvelope {
   readonly associatedDataSha256: string;
   readonly ciphertext: string;
@@ -398,6 +422,7 @@ export type CollabProjectBackupSecretReplayTombstoneRecord =
   }>;
 
 export type CollabProjectBackupContinuityRecord =
+  | CollabProjectBackupRecoveryLinkRecord
   | CollabProjectBackupLifecycleJournalRecord
   | CollabProjectBackupAuthorityTransferRecoveryRecord
   | CollabProjectBackupTransferredMembershipClaimRecord
@@ -1342,6 +1367,44 @@ function leaveFormerPrincipalReplayRecord(
   };
 }
 
+function projectRecoveryLinkRecord(source: UnknownRecord, recordId: string, revision: number): CollabProjectBackupRecoveryLinkRecord {
+  const value = exactRecord(source.value, 'value', ['authorityGeneration', 'createdAt', 'expiresAt',
+    'idempotencyKey', 'issuedByMemberId', 'projectId', 'recoveryLinkId', 'requestFingerprint',
+    'secretReplayExpiresAt', 'tokenSha256', 'envelope', 'redemption']);
+  const projectId = token(value, 'projectId', isCollabProjectId);
+  const recoveryLinkId = token(value, 'recoveryLinkId');
+  const authorityGeneration = positiveInteger(value, 'authorityGeneration');
+  const createdAt = timestamp(value, 'createdAt');
+  const expiresAt = timestamp(value, 'expiresAt');
+  const secretReplayExpiresAt = timestamp(value, 'secretReplayExpiresAt');
+  if (recordId !== recoveryLinkId
+    || !hasExactDuration(createdAt, expiresAt, COLLAB_PROJECT_RECOVERY_LIMITS.linkTtlMs)
+    || !hasExactDuration(createdAt, secretReplayExpiresAt, COLLAB_PROJECT_RECOVERY_LIMITS.secretReplayTtlMs)) throw invalidPayload('recoveryLink');
+  const envelope = value.envelope === null ? null : protectedSecretEnvelopeFields(exactRecord(value.envelope, 'envelope', [
+    'associatedDataSha256', 'ciphertext', 'createdAt', 'expiresAt', 'keyId', 'nonce', 'projectId',
+  ]));
+  if (envelope && (envelope.projectId !== projectId || envelope.createdAt !== createdAt
+    || envelope.expiresAt !== secretReplayExpiresAt)) throw invalidPayload('envelope');
+  let redemption: CollabProjectBackupRecoveryLinkRecord['value']['redemption'] = null;
+  if (value.redemption !== null) {
+    const raw = exactRecord(value.redemption, 'redemption', ['idempotencyKey', 'proofCredentialSha256',
+      'requestFingerprint', 'targetPrincipalId', 'response']);
+    const response = collabControlOperationCodec('redeemProjectRecoveryLink').decodeResponse(raw.response);
+    if (response.projectId !== projectId || response.recoveryLinkId !== recoveryLinkId
+      || response.authorityGeneration !== authorityGeneration
+      || Date.parse(response.recoveredAt) < Date.parse(createdAt)
+      || Date.parse(response.recoveredAt) >= Date.parse(expiresAt)) throw invalidPayload('redemption');
+    redemption = { idempotencyKey: token(raw, 'idempotencyKey'), proofCredentialSha256: sha256(raw, 'proofCredentialSha256'),
+      requestFingerprint: sha256(raw, 'requestFingerprint'), targetPrincipalId: principal(raw, 'targetPrincipalId'), response };
+  }
+  return { kind: 'project-recovery-link', recordId, revision, value: {
+    authorityGeneration, createdAt, expiresAt, idempotencyKey: token(value, 'idempotencyKey'),
+    issuedByMemberId: token(value, 'issuedByMemberId', isCollabMemberId), projectId, recoveryLinkId,
+    requestFingerprint: sha256(value, 'requestFingerprint'), secretReplayExpiresAt,
+    tokenSha256: sha256(value, 'tokenSha256'), envelope, redemption,
+  } };
+}
+
 function projectInvitationRecord(
   source: UnknownRecord,
   recordId: string,
@@ -1796,6 +1859,7 @@ function decodeContinuityRecord(
   revision: number,
 ): CollabProjectBackupContinuityRecord {
   switch (kind) {
+    case 'project-recovery-link': return projectRecoveryLinkRecord(source, recordId, revision);
     case 'lifecycle-journal': return lifecycleJournalRecord(source, recordId, revision);
     case 'authority-transfer-recovery':
       return authorityTransferRecoveryRecord(source, recordId, revision);
@@ -2039,6 +2103,29 @@ class BackupMembershipContinuity {
 
 }
 
+function validateRecoveryLinks(
+  records: readonly CollabProjectBackupRecord[],
+  projectAuthorityGeneration: number,
+  memberRecords: ReadonlyMap<string, CollabCheckpointMemberRecord>,
+): void {
+  const members = new Set(memberRecords.keys());
+  const recoveryTokens = new Set<string>();
+  const recoveryIssuances = new Set<string>();
+  for (const item of records) {
+    if (item.kind !== 'project-recovery-link') continue;
+    const link = item.value;
+    const issuance = `${link.issuedByMemberId}:${link.idempotencyKey}`;
+    if (link.authorityGeneration > projectAuthorityGeneration || !members.has(link.issuedByMemberId)
+      || recoveryTokens.has(link.tokenSha256) || recoveryIssuances.has(issuance)) throw invalidPayload('recoveryLink');
+    recoveryTokens.add(link.tokenSha256);
+    recoveryIssuances.add(issuance);
+    if (link.redemption) {
+      const owner = memberRecords.get(link.redemption.response.memberId)?.value;
+      if (!owner?.recoveryCredentialHashes?.includes(link.redemption.proofCredentialSha256)) throw invalidPayload('recoveryLink');
+    }
+  }
+}
+
 function validateContinuity(records: readonly CollabProjectBackupRecord[]): void {
   if (
     records.length === 0
@@ -2052,6 +2139,9 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
   const membership = new BackupMembershipContinuity(records);
   const memberRecords = membership.members;
   const members = new Set(memberRecords.keys());
+  if (records.some(item => item.kind === 'project-recovery-link')) {
+    validateRecoveryLinks(records, projectAuthorityGeneration, memberRecords);
+  }
   const principalBindingRecords = records.filter(item => item.kind === 'principal-binding');
   const principalBindings = membership.principalBindings;
   const lifecycles = new Map(records
@@ -3011,6 +3101,11 @@ export function validateCollabProjectBackupCheckpointConsistency(
     }
     if (item.kind === 'membership-idempotency-tombstone') {
       return Date.parse(item.value.compactedAt) > captureTime;
+    }
+    if (item.kind === 'project-recovery-link') {
+      return captureTime < Date.parse(item.value.createdAt)
+        || (captureTime < Date.parse(item.value.secretReplayExpiresAt)) !== (item.value.envelope !== null)
+        || (item.value.redemption !== null && captureTime < Date.parse(item.value.redemption.response.recoveredAt));
     }
     if (item.kind === 'project-invitation') {
       return captureTime < Date.parse(item.value.createdAt)

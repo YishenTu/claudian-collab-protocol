@@ -459,3 +459,16 @@ export type {
   CollabTicketStatus,
   CollabTicketSummary,
 } from './core/types';
+
+export {
+  COLLAB_PROJECT_RECOVERY_LIMITS,
+  COLLAB_PROJECT_RECOVERY_OPERATIONS,
+  COLLAB_PROJECT_RECOVERY_OPERATION_CODECS,
+  type CollabProjectRecoveryOperationMap,
+  type CreateProjectRecoveryLinkRequest,
+  type CreateProjectRecoveryLinkResponse,
+  type RedeemProjectRecoveryLinkRequest,
+  type RedeemProjectRecoveryLinkResponse,
+} from './operations/CollabProjectRecovery';
+
+export type { CollabProjectBackupRecoveryLinkRecord } from './checkpoints/CollabProjectBackupCheckpoint';

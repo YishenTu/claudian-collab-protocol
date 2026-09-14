@@ -1,3 +1,4 @@
+import type { CollabProjectRecoveryOperationMap } from './CollabProjectRecovery';
 import type { CollabAuthorityTransferOperationMap } from './CollabAuthorityTransfer';
 import { COLLAB_PROTOCOL_VERSION, type CollabProtocolVersion } from '../core/CollabConstants';
 import { CollabError } from '../core/CollabError';
@@ -181,6 +182,7 @@ export interface CollabControlOperationDefinition<Request, Response> {
 
 export interface CollabControlOperationMap
   extends CollabAuthorityTransferOperationMap,
+  CollabProjectRecoveryOperationMap,
   CollabProjectMembershipOperationMap,
   CollabProjectRetirementOperationMap {
   getRequest: CollabControlOperationDefinition<GetRequestRequest, CollabRequestDetail>;

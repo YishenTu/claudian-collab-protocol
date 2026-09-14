@@ -61,7 +61,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     operationId: 'operation_1',
     profile: 'authority-transfer',
     projectId: 'project_1',
-    protocolVersion: 11,
+    protocolVersion: 12,
     refs: [
       { name: 'refs/heads/main', oid: MAIN },
       { name: 'refs/heads/members/member_1', oid: MEMBER },
@@ -279,7 +279,7 @@ function operationalBackupRecords() {
           occurredAt: NOW,
           payload: { transferId: 'transfer_1' },
           projectId: 'project_1',
-          protocolVersion: 11,
+          protocolVersion: 12,
           sequence: 1,
         },
       },
@@ -470,7 +470,22 @@ describe('Project checkpoint contract', () => {
     const digestInput = encodeCollabProjectCheckpointManifestDigestInput(decoded);
     expect(digestInput).not.toContain('manifestSha256');
     expect(createHash('sha256').update(digestInput).digest('hex'))
-      .toBe('99d1073ee794068b4b5e6200159c4552d323e97df79ebbb99f3a44a9123b1f66');
+      .toBe('a3180c212e2b120f99ab38ad2f662957d4f1d13b7f8b67b9136b120e58caf9da');
+  });
+
+  it('preserves portable recovery verifiers and rejects ambiguous member ownership', () => {
+    const records = portableRecords();
+    const owner = records.find(item => item.kind === 'member')!;
+    Object.assign(owner.value, { recoveryCredentialHashes: ['a'.repeat(64), 'b'.repeat(64)] });
+    const decode = () => decodeCollabProjectCheckpointCoordinationNdjson(
+      records.map(item => JSON.stringify(item)).join('\n') + '\n', 'authority-transfer',
+    );
+    const decoded = decode();
+    expect(decoded.find(item => item.kind === 'member')?.value).toEqual(owner.value);
+    expect(validateCollabProjectCheckpointConsistency(decodeCollabProjectCheckpointManifest(manifest()), decoded)).toBe(decoded);
+    const other = records.find(item => item.kind === 'member' && item.recordId !== owner.recordId)!;
+    Object.assign(other.value, { recoveryCredentialHashes: ['a'.repeat(64)] });
+    expect(() => validateCollabProjectCheckpointConsistency(decodeCollabProjectCheckpointManifest(manifest()), decode())).toThrow();
   });
 
   it('binds one decoded coordination set to the manifest Project and authority fences', () => {
@@ -1007,7 +1022,7 @@ describe('Project checkpoint contract', () => {
                 retirementId: 'retirement_1',
               },
               projectId: 'project_1',
-              protocolVersion: 11,
+              protocolVersion: 12,
               sequence: 1,
             },
           },
@@ -1120,7 +1135,7 @@ describe('Project checkpoint contract', () => {
               occurredAt: NOW,
               payload: { mainOid: '5'.repeat(64), requestId: 'request_1' },
               projectId: 'project_1',
-              protocolVersion: 11,
+              protocolVersion: 12,
               sequence: 1,
             },
           },

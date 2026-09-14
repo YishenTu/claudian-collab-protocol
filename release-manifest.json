@@ -6,35 +6,35 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "4.4.1"
+    "version": "4.5.0"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-4.4.1.tgz",
+    "filename": "claudian-collab-protocol-4.5.0.tgz",
     "files": [
       {
         "path": "dist/checkpoints/CollabProjectBackupCheckpoint.d.ts",
-        "size": 15748
+        "size": 16785
       },
       {
         "path": "dist/checkpoints/CollabProjectBackupCheckpoint.js",
-        "size": 109456
+        "size": 114261
       },
       {
         "path": "dist/checkpoints/CollabProjectCheckpoint.d.ts",
-        "size": 17011
+        "size": 17052
       },
       {
         "path": "dist/checkpoints/CollabProjectCheckpoint.js",
-        "size": 58701
+        "size": 60428
       },
       {
         "path": "dist/cloud/CollabCloudBinding.d.ts",
-        "size": 9149
+        "size": 9169
       },
       {
         "path": "dist/cloud/CollabCloudBinding.js",
-        "size": 26906
+        "size": 26930
       },
       {
         "path": "dist/cloud/CollabCloudProjectEvent.d.ts",
@@ -94,15 +94,15 @@
       },
       {
         "path": "dist/esm/checkpoints/CollabProjectBackupCheckpoint.mjs",
-        "size": 107321
+        "size": 112014
       },
       {
         "path": "dist/esm/checkpoints/CollabProjectCheckpoint.mjs",
-        "size": 56129
+        "size": 57842
       },
       {
         "path": "dist/esm/cloud/CollabCloudBinding.mjs",
-        "size": 24778
+        "size": 24802
       },
       {
         "path": "dist/esm/cloud/CollabCloudProjectEvent.mjs",
@@ -134,7 +134,7 @@
       },
       {
         "path": "dist/esm/index.mjs",
-        "size": 5384
+        "size": 5552
       },
       {
         "path": "dist/esm/markdown/CollabMarkdownProse.mjs",
@@ -154,11 +154,15 @@
       },
       {
         "path": "dist/esm/operations/CollabControlOperationCodecs.mjs",
-        "size": 6641
+        "size": 6778
       },
       {
         "path": "dist/esm/operations/CollabProjectMembership.mjs",
         "size": 28373
+      },
+      {
+        "path": "dist/esm/operations/CollabProjectRecovery.mjs",
+        "size": 4980
       },
       {
         "path": "dist/esm/operations/CollabProjectRetirement.mjs",
@@ -178,11 +182,11 @@
       },
       {
         "path": "dist/index.d.ts",
-        "size": 15179
+        "size": 15647
       },
       {
         "path": "dist/index.js",
-        "size": 28012
+        "size": 28773
       },
       {
         "path": "dist/markdown/CollabMarkdownProse.d.ts",
@@ -218,11 +222,11 @@
       },
       {
         "path": "dist/operations/CollabControlOperationCodecs.d.ts",
-        "size": 12250
+        "size": 12848
       },
       {
         "path": "dist/operations/CollabControlOperationCodecs.js",
-        "size": 7120
+        "size": 7261
       },
       {
         "path": "dist/operations/CollabProjectMembership.d.ts",
@@ -231,6 +235,14 @@
       {
         "path": "dist/operations/CollabProjectMembership.js",
         "size": 29568
+      },
+      {
+        "path": "dist/operations/CollabProjectRecovery.d.ts",
+        "size": 2610
+      },
+      {
+        "path": "dist/operations/CollabProjectRecovery.js",
+        "size": 5281
       },
       {
         "path": "dist/operations/CollabProjectRetirement.d.ts",
@@ -242,7 +254,7 @@
       },
       {
         "path": "dist/operations/CollabProtocol.d.ts",
-        "size": 6405
+        "size": 6522
       },
       {
         "path": "dist/operations/CollabProtocol.js",
@@ -274,14 +286,14 @@
       },
       {
         "path": "README.md",
-        "size": 2835
+        "size": 3826
       }
     ],
-    "integrity": "sha512-m62BckiHeylswydQNeBs/4y5OUNlbb2qpLpI4O+WWMrlz0y3g7JdWfnqEMcKEHJO4UNmSmuJXgIZl4amu68xmw==",
-    "sha256": "1fb447b0c281e6f2528f45b0498f2231f76ee8293ecba282b2af08e643772669",
-    "shasum": "4041498702044cad139a40a7c535bf73a0618b27",
-    "size": 134665,
-    "unpackedSize": 899114
+    "integrity": "sha512-Jhag8pbq2PwO3FMLCxaKT5aNcy1tvWhqtKoAUhE1BHeIK5p0cwvys8JIpClJvq7cgWIGUgwQoTi9wy+vcViEmA==",
+    "sha256": "c8fdc56a5a4bfe2445317171276c2b2590219f2fcd6cde28ea45431be8efc034",
+    "shasum": "cab3c782074e1633d59fe15885dd259951b75a76",
+    "size": 140265,
+    "unpackedSize": 929450
   },
   "toolchain": {
     "node": "24.16.0",

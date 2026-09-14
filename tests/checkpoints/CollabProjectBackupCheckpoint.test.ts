@@ -55,7 +55,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     operationId: 'backup_1',
     profile: 'backup',
     projectId: 'project_1',
-    protocolVersion: 11,
+    protocolVersion: 12,
     refs: [
       { name: 'refs/heads/main', oid: MAIN },
       { name: 'refs/heads/members/member_1', oid: MEMBER },
@@ -1000,6 +1000,80 @@ describe('Project backup checkpoint format v3', () => {
       records as any,
     )).toThrow(error);
   }, 30_000);
+
+  it('backs up recovery authorization without plaintext secrets and validates its binding', () => {
+    const value = {
+      authorityGeneration: 5, createdAt: NOW, expiresAt: '2026-08-28T00:15:00.000Z',
+      idempotencyKey: 'create-recovery', issuedByMemberId: 'member_1', projectId: 'project_1',
+      recoveryLinkId: 'recovery_1', requestFingerprint: SHA256,
+      secretReplayExpiresAt: '2026-08-28T00:10:00.000Z', tokenSha256: CLAIM_SHA256,
+      envelope: { associatedDataSha256: SHA256, ciphertext: 'encrypted-token', createdAt: NOW,
+        expiresAt: '2026-08-28T00:10:00.000Z', keyId: 'key_1', nonce: 'nonce', projectId: 'project_1' },
+      redemption: null,
+    };
+    const record = { kind: 'project-recovery-link', recordId: 'recovery_1', revision: 1, value };
+    const decode = (candidate = record) => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      canonicalRecords([candidate]).map(item => JSON.stringify(item)).join('\n') + '\n',
+    );
+    expect(decode().find(item => item.kind === 'project-recovery-link')).toEqual(record);
+    expect(() => decode({ ...record, value: { ...value, authorityGeneration: 6 } })).toThrow();
+    expect(() => decode({ ...record, value: { ...value, issuedByMemberId: 'member_unknown' } })).toThrow();
+    expect(() => decode({ ...record, value: { ...value, envelope: { ...value.envelope, projectId: 'project_other' } } })).toThrow();
+  });
+
+  it('retains exact recovery receipts after expiry and validates issuance, proof ownership and capture boundaries', () => {
+    const receipt = {
+      projectId: 'project_1', recoveryLinkId: 'recovery_1', authorityGeneration: 5,
+      memberId: 'member_2', personalRef: 'refs/heads/members/member_2', receiptId: 'receipt_1', recoveredAt: LATER,
+    };
+    const value = {
+      authorityGeneration: 5, createdAt: NOW, expiresAt: '2026-08-28T00:15:00.000Z',
+      idempotencyKey: 'create-recovery', issuedByMemberId: 'member_1', projectId: 'project_1',
+      recoveryLinkId: 'recovery_1', requestFingerprint: SHA256,
+      secretReplayExpiresAt: '2026-08-28T00:10:00.000Z', tokenSha256: CLAIM_SHA256,
+      envelope: { associatedDataSha256: SHA256, ciphertext: 'encrypted-token', createdAt: NOW,
+        expiresAt: '2026-08-28T00:10:00.000Z', keyId: 'key_1', nonce: 'nonce', projectId: 'project_1' },
+      redemption: { idempotencyKey: 'redeem-recovery', proofCredentialSha256: SHA256,
+        requestFingerprint: BATCH_SHA256, targetPrincipalId: 'principal_2', response: receipt },
+    };
+    const link = { kind: 'project-recovery-link', recordId: 'recovery_1', revision: 1, value };
+    const members = baseRecords().map(item => item.kind === 'member' && item.recordId === 'member_2'
+      ? { ...item, value: { ...item.value, recoveryCredentialHashes: [SHA256] } } : item);
+    const decode = (links: readonly Record<string, any>[] = [link]) => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      canonicalRecords(links, members).map(item => JSON.stringify(item)).join('\n') + '\n',
+    );
+    const decoded = decode();
+    expect(decoded.find(item => item.kind === 'project-recovery-link')?.value.redemption?.response).toEqual(receipt);
+    expect(validateCollabProjectBackupCheckpointConsistency(decodeCollabProjectBackupCheckpointManifest(manifest({ createdAt: LATER })), decoded))
+      .toEqual(decoded);
+    const expired = decode([{ ...link, value: { ...value, envelope: null } }]);
+    expect(validateCollabProjectBackupCheckpointConsistency(
+      decodeCollabProjectBackupCheckpointManifest(manifest({ createdAt: '2026-08-28T00:20:00.000Z' })), expired,
+    ).find(item => item.kind === 'project-recovery-link')?.value.redemption?.response).toEqual(receipt);
+    for (const [capturedAt, records] of [
+      [NOW, decoded], // The receipt cannot predate capture.
+      ['2026-08-28T00:10:00.000Z', decoded], // Expired secret envelopes must be removed.
+      [LATER, expired], // Retained creation retries need their envelope while live.
+    ] as const) {
+      expect(() => validateCollabProjectBackupCheckpointConsistency(
+        decodeCollabProjectBackupCheckpointManifest(manifest({ createdAt: capturedAt })), records,
+      )).toThrow();
+    }
+    for (const response of [
+      { ...receipt, memberId: 'member_1', personalRef: 'refs/heads/members/member_1' },
+      { ...receipt, authorityGeneration: 4 },
+      { ...receipt, recoveryLinkId: 'recovery_other' },
+      { ...receipt, recoveredAt: value.expiresAt },
+    ]) {
+      expect(() => decode([{ ...link, value: { ...value, redemption: { ...value.redemption, response } } }])).toThrow();
+    }
+    for (const duplicate of [
+      { ...value, recoveryLinkId: 'recovery_2', idempotencyKey: 'new-intent', redemption: null },
+      { ...value, recoveryLinkId: 'recovery_2', tokenSha256: BATCH_SHA256, redemption: null },
+    ]) {
+      expect(() => decode([link, { ...link, recordId: 'recovery_2', value: duplicate }])).toThrow();
+    }
+  });
 
   it('adds a backup-only coordination format while retaining transfer/export format v1', () => {
     expect(COLLAB_PROJECT_COORDINATION_FORMAT_VERSION).toBe(1);

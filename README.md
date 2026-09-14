@@ -4,7 +4,7 @@ Shared collaboration contracts for [Claudian](https://github.com/YishenTu/claudi
 
 This package defines the data and compatibility rules that clients and authorities agree on:
 
-- Project membership, Requests, Tickets, authority transfer, and retirement operations, with TypeScript types and executable codecs.
+- Project membership, recovery links, Requests, Tickets, authority transfer, and retirement operations, with TypeScript types and executable codecs.
 - Cloud routes, capabilities, envelopes, snapshots, and events.
 - Project checkpoint and backup formats, shared limits, safe errors, and Git ref rules.
 - Markdown Ticket references and Member mentions.
@@ -39,6 +39,12 @@ Import from the package root only. CommonJS, ESM, and TypeScript declarations ar
 Package SemVer, the canonical wire version, and the Cloud binding version are independent. Package version alone does not establish protocol compatibility. Every wire-contract change increases the wire version; every Cloud-binding change increases the binding version, including additive changes.
 
 Envelope decoders reject unknown fields and unsupported versions. Operation payload compatibility is defined by its codec and tested with independent fixtures. Unknown Cloud capability tokens are accepted and ignored by consumers that do not support them.
+
+## Project recovery
+
+Recovery links authorize an existing member to prove its identity at the current Project authority. They do not grant new membership. The recipient supplies its original Project credential in the request body; the authority derives the member from retained credential verifiers and binds the new authenticated credential only after validating the Project, generation, link, and membership state. A verifier digest is not a bearer credential.
+
+Each creation intent issues an independent, single-use link. Exact creation retries retain the same secret during its replay window; exact successful redemption retries retain the same receipt after link expiry. Historical credential verifiers travel with member checkpoints; exceeding the limit must stop a handoff before relinquishment instead of dropping older verifiers. Backups retain encrypted issuance secrets while replay remains available and retain redemption receipts without plaintext credentials.
 
 ## Development
 

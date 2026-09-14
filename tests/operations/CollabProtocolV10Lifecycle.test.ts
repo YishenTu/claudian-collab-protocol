@@ -252,12 +252,12 @@ function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number
 
 describe('Canonical Collab wire protocol v11 lifecycle integration', () => {
   it('publishes the exact lifecycle operation inventory through one registry', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(11);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(12);
     const operations = Object.keys(COLLAB_CONTROL_OPERATION_CODECS);
     const lifecycleStart = operations.indexOf(LIFECYCLE_OPERATIONS[0]);
     expect(operations.slice(lifecycleStart, lifecycleStart + LIFECYCLE_OPERATIONS.length))
       .toEqual(LIFECYCLE_OPERATIONS);
-    expect(operations).toHaveLength(54);
+    expect(operations).toHaveLength(56);
   });
 
   it('strictly decodes every lifecycle request without accepting authority extensions', () => {
@@ -396,7 +396,7 @@ describe('Canonical Collab wire protocol v11 lifecycle integration', () => {
     });
     expect(decoded.status).toBe('unsupported-version');
     expect(decoded).toMatchObject({
-      error: { safeContext: { supportedVersion: 11 } },
+      error: { safeContext: { supportedVersion: 12 } },
       receivedVersion: 9,
       status: 'unsupported-version',
     });

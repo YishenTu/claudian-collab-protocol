@@ -1,3 +1,4 @@
+import { COLLAB_PROJECT_RECOVERY_LIMITS } from '../operations/CollabProjectRecovery';
 import {
   type CollabAuthorityRelinquishmentProof,
   type CollabAuthorityTransferDirection,
@@ -149,6 +150,8 @@ export type CollabCheckpointProjectRecord = CollabCheckpointRecordBase<'project'
 }>;
 
 export type CollabCheckpointMemberRecord = CollabCheckpointRecordBase<'member', {
+  /** Historical Project credential verifiers, retained across authority handoffs. */
+  readonly recoveryCredentialHashes?: readonly string[];
   readonly activatedAt: CollabIsoTimestamp | null;
   readonly createdAt: CollabIsoTimestamp;
   readonly displayName: string;
@@ -826,7 +829,24 @@ function projectRecord(source: UnknownRecord, recordId: string, revision: number
   };
 }
 
+function memberRecordWithRecovery(source: UnknownRecord, recordId: string, revision: number): CollabCheckpointMemberRecord {
+  const raw = record(source.value, 'value');
+  const { recoveryCredentialHashes: hashes, ...rest } = raw;
+  if (!Array.isArray(hashes)
+    || hashes.length > COLLAB_PROJECT_RECOVERY_LIMITS.maxCredentialVerifiersPerMember
+    || hashes.some(item => typeof item !== 'string' || !SHA256_PATTERN.test(item))
+    || new Set(hashes).size !== hashes.length
+    || hashes.some((item, index) => index > 0 && hashes[index - 1] >= item)) {
+    throw invalidPayload('recoveryCredentialHashes');
+  }
+  const decoded = memberRecord({ ...source, value: rest }, recordId, revision);
+  return { ...decoded, value: { ...decoded.value, recoveryCredentialHashes: [...hashes as string[]] } };
+}
+
 function memberRecord(source: UnknownRecord, recordId: string, revision: number) {
+  if (Object.hasOwn(record(source.value, 'value'), 'recoveryCredentialHashes')) {
+    return memberRecordWithRecovery(source, recordId, revision);
+  }
   const value = exactRecord(source.value, 'value', [
     'activatedAt',
     'createdAt',
@@ -1716,6 +1736,18 @@ function compareRecords(
 }
 
 /** @internal V3 decoding checks terminal principals separately; consistency binds current principals. */
+function validateRecoveryCredentialOwners(records: readonly ParsedCheckpointRecord[]): void {
+  const members = records.filter((item): item is CollabCheckpointMemberRecord => item.kind === 'member');
+  const recoveryOwners = new Map<string, string>();
+  for (const member of members) {
+    for (const hash of member.value.recoveryCredentialHashes ?? []) {
+      const owner = recoveryOwners.get(hash);
+      if (owner !== undefined && owner !== member.value.memberId) throw invalidPayload('recoveryCredentialHashes');
+      recoveryOwners.set(hash, member.value.memberId);
+    }
+  }
+}
+
 export function validateCheckpointRecordSequence(
   records: readonly ParsedCheckpointRecord[],
   profile: CollabCheckpointProfile,
@@ -1757,6 +1789,9 @@ export function validateCheckpointRecordSequence(
   const members = new Map(records
     .filter((item): item is CollabCheckpointMemberRecord => item.kind === 'member')
     .map(item => [item.value.memberId, item]));
+  if (records.some(item => item.kind === 'member' && item.value.recoveryCredentialHashes !== undefined)) {
+    validateRecoveryCredentialOwners(records);
+  }
   const requests = new Set(records
     .filter((item): item is CollabCheckpointRequestRecord => item.kind === 'request')
     .map(item => item.value.requestId));

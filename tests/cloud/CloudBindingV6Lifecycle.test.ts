@@ -35,10 +35,10 @@ function limits() {
 
 function capabilities(overrides: Record<string, unknown> = {}) {
   return {
-    bindingVersions: [7],
+    bindingVersions: [8],
     capabilities: [...COLLAB_CLOUD_CAPABILITIES],
     limits: limits(),
-    protocolVersions: [11],
+    protocolVersions: [12],
     schemaVersion: 2,
     ...overrides,
   };
@@ -46,8 +46,8 @@ function capabilities(overrides: Record<string, unknown> = {}) {
 
 describe('Cloud binding v7 lifecycle integration', () => {
   it('publishes wire v11, binding v7, lifecycle capabilities, and hard stream limits', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(11);
-    expect(COLLAB_CLOUD_BINDING_VERSION).toBe(7);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(12);
+    expect(COLLAB_CLOUD_BINDING_VERSION).toBe(8);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
     expect(COLLAB_CLOUD_CAPABILITIES).toEqual([
       'accept',
@@ -64,6 +64,7 @@ describe('Cloud binding v7 lifecycle integration', () => {
       'git-upload-pack',
       'project-checkpoint-export',
       'project-events',
+      'project-recovery',
       'project-retirement',
       'project-snapshot',
       'requests',
@@ -103,14 +104,14 @@ describe('Cloud binding v7 lifecycle integration', () => {
         transferId: 'transfer_1',
       },
       method: 'PUT',
-      target: '/v7/projects/project_1/authority-transfers/transfer_1/checkpoint/repository.bundle',
+      target: '/v8/projects/project_1/authority-transfers/transfer_1/checkpoint/repository.bundle',
     });
     expect(download.method).toBe('GET');
     expect(matchCollabCloudRoute(upload.method, upload.target)).toEqual(upload.match);
     expect(matchCollabCloudRoute(download.method, download.target)).toEqual(download.match);
     expect(matchCollabCloudRoute(
       'PUT',
-      '/v7/projects/project_1/authority-transfers/transfer_1/checkpoint/future.bin',
+      '/v8/projects/project_1/authority-transfers/transfer_1/checkpoint/future.bin',
     )).toBeNull();
   });
 
@@ -123,7 +124,7 @@ describe('Cloud binding v7 lifecycle integration', () => {
     );
     expect(begin.method).toBe('POST');
     expect(statusRoute.method).toBe('GET');
-    expect(begin.target).toBe('/v7/projects/project_1/checkpoint-exports/export_1');
+    expect(begin.target).toBe('/v8/projects/project_1/checkpoint-exports/export_1');
     expect(matchCollabCloudRoute(begin.method, begin.target)).toEqual(begin.match);
     expect(matchCollabCloudRoute(statusRoute.method, statusRoute.target))
       .toEqual(statusRoute.match);
@@ -159,7 +160,7 @@ describe('Cloud binding v7 lifecycle integration', () => {
         artifact,
       );
       expect(route.target).toBe(
-        `/v7/projects/project_1/checkpoint-exports/export_1/checkpoint/${artifact}`,
+        `/v8/projects/project_1/checkpoint-exports/export_1/checkpoint/${artifact}`,
       );
       expect(route.method).toBe('GET');
       expect(matchCollabCloudRoute(route.method, route.target)).toEqual(route.match);
@@ -169,7 +170,7 @@ describe('Cloud binding v7 lifecycle integration', () => {
 
   it('moves ordinary operation routes to v7 and rejects the former binding path', () => {
     const route = collabCloudProjectOperationRoute('project_1', 'retireProject');
-    expect(route.target).toBe('/v7/projects/project_1/operations/retireProject');
+    expect(route.target).toBe('/v8/projects/project_1/operations/retireProject');
     expect(matchCollabCloudRoute(route.method, route.target)).toEqual(route.match);
     expect(matchCollabCloudRoute(
       'POST',
@@ -179,15 +180,15 @@ describe('Cloud binding v7 lifecycle integration', () => {
 
   it('rejects noncanonical origin, dot-segment, and encoded route aliases', () => {
     for (const [method, target] of [
-      ['GET', '//evil.invalid/v7/projects/project_1/checkpoint-exports/export_1'],
-      ['GET', '/v7/projects/project_1/x/../checkpoint-exports/export_1'],
+      ['GET', '//evil.invalid/v8/projects/project_1/checkpoint-exports/export_1'],
+      ['GET', '/v8/projects/project_1/x/../checkpoint-exports/export_1'],
       [
         'GET',
-        '/v7/projects/project_1/x/%2e%2e/checkpoint-exports/export_1/checkpoint/checkpoint.json',
+        '/v8/projects/project_1/x/%2e%2e/checkpoint-exports/export_1/checkpoint/checkpoint.json',
       ],
       [
         'PUT',
-        '/v7/projects/project_1/x/../authority-transfers/transfer_1/checkpoint/repository.bundle',
+        '/v8/projects/project_1/x/../authority-transfers/transfer_1/checkpoint/repository.bundle',
       ],
     ]) {
       expect(matchCollabCloudRoute(method, target)).toBeNull();

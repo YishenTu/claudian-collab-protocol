@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "7b32b26ab055a52b04ed64de79dfe9fa982dfc70a668da6b472820b4194a4239",
-  "candidateSnapshotSha256": "6732b956281e3660f3fd675aca9b3b99a0bbfe41b5d1bd13acf2cd7d70dd4a3c",
-  "reason": "User-approved 4.4.1 compatible defect fix: terminal backup transfer history may precede the current Project generation while active transfers remain exact and future generations are rejected. Public declarations, exports, wire 11 and binding 7 are unchanged. Evidence: CollabProjectBackupCheckpoint tests (71 passing), complete 491 Jest and 77 Node tests, and server real PostgreSQL/Git cancellation-then-transfer startup regression failing against 4.4.0. Independent protocol and server architecture reviews found no material defects."
+  "baseSnapshotSha256": "6732b956281e3660f3fd675aca9b3b99a0bbfe41b5d1bd13acf2cd7d70dd4a3c",
+  "candidateSnapshotSha256": "6842088ad1341a9afdab759ec0aba7dbd9edb4aeb8eab1ef3985dd3666c52517",
+  "reviewKind": "versioned-operation-addition",
+  "addedOperations": [
+    "createProjectRecoveryLink",
+    "redeemProjectRecoveryLink"
+  ],
+  "reason": "Project recovery adds two operations, optional member credential verifiers and a backup record. Existing source declarations, statement order, bindings and decoder branches are preserved after guarded additions. Evidence: 498 protocol tests and ProjectRecoveryOperationCompatibility source and CLI mutation tests. Package 4.5.0, wire 12 and binding 8 explicitly approved."
 }

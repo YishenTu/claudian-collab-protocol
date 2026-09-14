@@ -97,7 +97,7 @@ const packageVersion = ${JSON.stringify(installedManifest.version)};
 assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 11);
 assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 7);
 assert.notEqual(packageVersion, String(protocol.COLLAB_PROTOCOL_VERSION));
-assert.equal(packageVersion, '4.4.0');
+assert.equal(packageVersion, '4.4.1');
 assert.equal(
   require.resolve('@claudian-collab/protocol'),
   path.join(__dirname, 'node_modules', '@claudian-collab', 'protocol', 'dist', 'index.js'),

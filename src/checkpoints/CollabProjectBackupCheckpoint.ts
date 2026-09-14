@@ -2373,9 +2373,12 @@ function validateContinuity(records: readonly CollabProjectBackupRecord[]): void
         item.value.transferId === recovery.value.transferId
       )))
     )) throw invalidPayload('records');
-    if (projectAuthorityGeneration !== expectedProjectAuthorityGeneration) {
-      throw invalidPayload('records');
-    }
+    const transferEnded = lifecycle.value.state === 'cancelled'
+      || lifecycle.value.state === 'completed';
+    if (transferEnded
+      ? projectAuthorityGeneration < expectedProjectAuthorityGeneration
+      : projectAuthorityGeneration !== expectedProjectAuthorityGeneration
+    ) throw invalidPayload('records');
     const transferMemberIds = [...(transferMembers.get(recovery.value.transferId) ?? [])];
     if (!isCancellation) {
       const batchReceiptRequired = direction === 'cloud-to-lan'

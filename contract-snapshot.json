@@ -2620,7 +2620,7 @@
     "runtimeBehaviorDigests": [
       {
         "path": "src/checkpoints/CollabProjectBackupCheckpoint.ts",
-        "sha256": "ffa97b3046415315c1c7ddcb703fc5d9b4e5b1b4a9de7e80069109c83cca6589"
+        "sha256": "069cb9a31babce21ec2d86758c411fa9bc427d6b50b345662f6f3447a2ba15c1"
       },
       {
         "path": "src/checkpoints/CollabProjectCheckpoint.ts",
@@ -4186,7 +4186,7 @@
       ]
     }
   },
-  "packageVersion": "4.4.0",
+  "packageVersion": "4.4.1",
   "protocolVersion": 11,
   "schemaVersion": 2
 }

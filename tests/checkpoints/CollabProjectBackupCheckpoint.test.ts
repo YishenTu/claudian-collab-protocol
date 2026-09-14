@@ -2072,6 +2072,43 @@ describe('Project backup checkpoint format v3', () => {
     )).toThrow('collab.error.protocol-payload-invalid');
   });
 
+  it('retains completed transfer history without accepting future or unfinished generations', () => {
+    const completed = canonicalRecords(lanToCloudContinuityRecords()).map(record => (
+      record.kind === 'project'
+        ? { ...record, value: { ...record.value, authorityGeneration: 7 } }
+        : record
+    ));
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      completed.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(completed);
+
+    const unfinished = completed.map(record => (
+      record.kind === 'lifecycle-journal' && record.recordId === 'transfer_1'
+        ? { ...record, value: { ...record.value, phase: 'cloud-activated',
+            resultSha256: null, state: 'active' } }
+        : record
+    ));
+    const currentUnfinished = unfinished.map(record => (
+      record.kind === 'project'
+        ? { ...record, value: { ...record.value, authorityGeneration: 5 } }
+        : record
+    ));
+    expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      currentUnfinished.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toEqual(currentUnfinished);
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      unfinished.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+    const future = completed.map(record => (
+      record.kind === 'project'
+        ? { ...record, value: { ...record.value, authorityGeneration: 4 } }
+        : record
+    ));
+    expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+      future.map(record => JSON.stringify(record)).join('\n') + '\n',
+    )).toThrow('collab.error.protocol-payload-invalid');
+  });
+
   it('keeps exact imported-member custody through cancellation cleanup', () => {
     const cancellationRecords = (
       phase: 'cancel-intent' | 'target-invalidated' | 'target-cleaned' | 'source-reopened' | 'cancelled',
@@ -2276,6 +2313,27 @@ describe('Project backup checkpoint format v3', () => {
       expect(decodeCollabProjectBackupCheckpointCoordinationNdjson(
         cleaned.map(record => JSON.stringify(record)).join('\n') + '\n',
       )).toEqual(cleaned);
+
+      const afterLaterTransfer = cleaned.map(record => (
+        record.kind === 'project'
+          ? { ...record, value: { ...record.value, authorityGeneration: 5 } }
+          : record
+      ));
+      const decodeLaterTransfer = () => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        afterLaterTransfer.map(record => JSON.stringify(record)).join('\n') + '\n',
+      );
+      const result = (() => {
+        try { return decodeLaterTransfer(); } catch { return 'invalid'; }
+      })();
+      expect(result).toEqual(phase === 'cancelled' ? afterLaterTransfer : 'invalid');
+      const beforeSourceGeneration = cleaned.map(record => (
+        record.kind === 'project'
+          ? { ...record, value: { ...record.value, authorityGeneration: 3 } }
+          : record
+      ));
+      expect(() => decodeCollabProjectBackupCheckpointCoordinationNdjson(
+        beforeSourceGeneration.map(record => JSON.stringify(record)).join('\n') + '\n',
+      )).toThrow('collab.error.protocol-payload-invalid');
     }
   });
 

@@ -1,10 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "2f555b6f9aa235d4d477d0d3fd44187d326953ad3621d6eb939d9508db74e14e",
-  "candidateSnapshotSha256": "7b32b26ab055a52b04ed64de79dfe9fa982dfc70a668da6b472820b4194a4239",
-  "reviewKind": "versioned-operation-addition",
-  "addedOperations": [
-    "getProjectAuthoritySuccessor"
-  ],
-  "reason": "Approved one-hop successor discovery with optional public LAN trust in canonical terminal status. Codec tests preserve old status bytes and reject credential extensions. Compatibility source checks preserve prior requests/responses and guard optional trust only when present."
+  "baseSnapshotSha256": "7b32b26ab055a52b04ed64de79dfe9fa982dfc70a668da6b472820b4194a4239",
+  "candidateSnapshotSha256": "6732b956281e3660f3fd675aca9b3b99a0bbfe41b5d1bd13acf2cd7d70dd4a3c",
+  "reason": "User-approved 4.4.1 compatible defect fix: terminal backup transfer history may precede the current Project generation while active transfers remain exact and future generations are rejected. Public declarations, exports, wire 11 and binding 7 are unchanged. Evidence: CollabProjectBackupCheckpoint tests (71 passing), complete 491 Jest and 77 Node tests, and server real PostgreSQL/Git cancellation-then-transfer startup regression failing against 4.4.0. Independent protocol and server architecture reviews found no material defects."
 }

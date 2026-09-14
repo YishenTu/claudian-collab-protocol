@@ -656,6 +656,9 @@ function isAllowedChangedOperationDeclaration(base, current, additions, snapshot
     || base.exportName === 'CollabAuthorityTransferOperationMap'
     || base.exportName === 'COLLAB_CONTROL_OPERATION_CODECS'
   ) return preservesOperationMembers(base.declaration, current.declaration, additions);
+  const eventAdditions = (snapshots.current.contract.cloudBinding.eventKinds ?? []).filter(kind => !(snapshots.base.contract.cloudBinding.eventKinds ?? []).includes(kind)).sort();
+  if (base.exportName === 'COLLAB_CLOUD_EVENT_KINDS') return preservesOperationTuple(base.declaration, current.declaration, eventAdditions);
+  if (base.exportName === 'CollabCloudEventPayloadMap') return preservesOperationMembers(base.declaration, current.declaration, eventAdditions);
   if (base.exportName === 'COLLAB_AUTHORITY_TRANSFER_OPERATIONS') {
     return preservesOperationTuple(base.declaration, current.declaration, additions);
   }
@@ -1617,11 +1620,13 @@ function assertVersionedOperationAdditionReview(base, current, review) {
     || stableJson(withoutKeys(base.contract.cloudBinding, [
       'declarations',
       'jsonOperations',
+      'eventKinds',
       'runtimeBehaviorDigests',
       ...(isRecoveryAddition(additions) ? ['capabilities'] : []),
     ])) !== stableJson(withoutKeys(current.contract.cloudBinding, [
       'declarations',
       'jsonOperations',
+      'eventKinds',
       'runtimeBehaviorDigests',
       ...(isRecoveryAddition(additions) ? ['capabilities'] : []),
     ]))
@@ -1629,6 +1634,9 @@ function assertVersionedOperationAdditionReview(base, current, review) {
       || current.contract.cloudBinding.capabilities.filter(value => value === 'project-recovery').length !== 1))
   ) throw new Error('Versioned operation addition review exceeds additive wire or Cloud semantics');
 
+  if (!isStringArraySubset(base.contract.cloudBinding.eventKinds ?? [], current.contract.cloudBinding.eventKinds ?? [])) {
+    throw new Error('Versioned operation addition removed existing events');
+  }
   const baseDeclarations = new Map(
     base.contract.publicDeclarations.map(entry => [entry.exportName, entry]),
   );
@@ -1663,6 +1671,7 @@ function assertVersionedOperationAdditionReview(base, current, review) {
     './operations/CollabControlOperationCodecs',
     './index',
     ...addedDeclarationSources,
+    ...((current.contract.cloudBinding.eventKinds ?? []).length > (base.contract.cloudBinding.eventKinds ?? []).length ? ['./cloud/CollabCloudProjectEvent'] : []),
     ...(isRecoveryAddition(additions) ? ['./checkpoints/CollabProjectCheckpoint', './checkpoints/CollabProjectBackupCheckpoint'] : []),
   ]);
   const baseDigests = new Map(
@@ -2287,6 +2296,46 @@ export function readBaseSnapshot(baseSha, { cwd = repositoryRoot } = {}) {
   }
 }
 
+export function assertCloudEventSourceAddition(before, after, additions) {
+  if (!Array.isArray(additions) || additions.length === 0) throw new Error('Missing event additions');
+  const pathname = 'src/cloud/CollabCloudProjectEvent.ts';
+  const base = parsedTopLevel(before, pathname);
+  const current = parsedTopLevel(after, pathname);
+  if (stableJson([...base.named.keys()].sort()) !== stableJson([...current.named.keys()].sort())) {
+    throw new Error('Event additions cannot introduce top-level bindings');
+  }
+  assertOnlyNamedChange(base, current, new Set(['COLLAB_CLOUD_EVENT_KINDS', 'CollabCloudEventPayloadMap', 'decodePayload']), 'Cloud events');
+  assertSourceOperationTuple(base.named.get('COLLAB_CLOUD_EVENT_KINDS')?.statement,
+    current.named.get('COLLAB_CLOUD_EVENT_KINDS')?.statement, additions);
+  const oldMap = base.named.get('CollabCloudEventPayloadMap');
+  const newMap = current.named.get('CollabCloudEventPayloadMap');
+  if (!oldMap || !newMap || !preservesOperationMembers(oldMap.statement.getText(oldMap.source),
+    newMap.statement.getText(newMap.source), additions)) throw new Error('Event payloads must be additive');
+  const oldDecoder = base.named.get('decodePayload');
+  const newDecoder = current.named.get('decodePayload');
+  if (!oldDecoder || !newDecoder) throw new Error('Missing event decoder');
+  const oldCases = caseClauses(oldDecoder.statement);
+  const newCases = caseClauses(newDecoder.statement);
+  const newNames = [...newCases.keys()].filter(name => !oldCases.has(name)).sort();
+  if (stableJson(newNames) !== stableJson(additions)) throw new Error('Event cases do not match additions');
+  const omittedNodes = new Set(additions.map(name => newCases.get(name)));
+  if (stableJson(syntaxSignature(oldDecoder.statement, oldDecoder.source))
+    !== stableJson(syntaxSignature(newDecoder.statement, newDecoder.source, { omittedNodes }))) {
+    throw new Error('Existing event decoding changed');
+  }
+  const statements = newDecoder.statement.body?.statements;
+  if (statements?.length !== 1 || !ts.isSwitchStatement(statements[0])
+    || statements[0].expression.getText(newDecoder.source) !== 'kind'
+    || statements[0].caseBlock.clauses.slice(0, additions.length).some(clause => !omittedNodes.has(clause))) {
+    throw new Error('New event cases require a leading prefix');
+  }
+  for (const clause of omittedNodes) {
+    const block = clause.statements[0];
+    if (clause.statements.length !== 1 || !ts.isBlock(block)
+      || !ts.isReturnStatement(block.statements.at(-1))) throw new Error('New event cases must return in their own block');
+  }
+}
+
 export function assertVersionedOperationSourceAddition(input) {
   if (isRecoveryAddition(input?.addedOperations)) return assertProjectRecoveryOperationSourceAddition(input);
   const additions = input?.addedOperations;
@@ -2309,7 +2358,10 @@ export function assertVersionedOperationSourceAddition(input) {
   });
   if (families.length !== 1) throw new Error('Versioned addition must belong to exactly one supported operation family');
   const [family] = families;
-  const allowed = new Set([...family.paths, 'src/cloud/CollabCloudBinding.ts', 'src/core/CollabConstants.ts',
+  const eventPath = 'src/cloud/CollabCloudProjectEvent.ts';
+  const eventAdditions = input.addedEvents ?? [];
+  if (eventAdditions.length > 0) assertCloudEventSourceAddition(input.baseFiles[eventPath], input.currentFiles[eventPath], eventAdditions);
+  const allowed = new Set([...family.paths, ...(eventAdditions.length > 0 ? [eventPath] : []), 'src/cloud/CollabCloudBinding.ts', 'src/core/CollabConstants.ts',
     'src/operations/CollabControlOperationCodecs.ts', 'src/index.ts']);
   if (stableJson(Object.keys(input.baseFiles).sort()) !== stableJson(Object.keys(input.currentFiles).sort())) {
     throw new Error('Versioned operation review cannot add or remove source modules');
@@ -2349,6 +2401,7 @@ function operationSourceReviewInput(baseSha, base, current) {
       base.contract.wire.operations,
       current.contract.wire.operations,
     ),
+    addedEvents: current.contract.cloudBinding.eventKinds.filter(kind => !base.contract.cloudBinding.eventKinds.includes(kind)).sort(),
     baseCloudBindingVersion: base.cloudBindingVersion,
     baseFiles,
     baseProtocolVersion: base.protocolVersion,

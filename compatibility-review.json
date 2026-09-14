@@ -1,11 +1,13 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "6732b956281e3660f3fd675aca9b3b99a0bbfe41b5d1bd13acf2cd7d70dd4a3c",
-  "candidateSnapshotSha256": "6842088ad1341a9afdab759ec0aba7dbd9edb4aeb8eab1ef3985dd3666c52517",
+  "baseSnapshotSha256": "6842088ad1341a9afdab759ec0aba7dbd9edb4aeb8eab1ef3985dd3666c52517",
+  "candidateSnapshotSha256": "1bf1fff34152a549a5e7241dc0e4583522ab32a8cdd904bfd4f73ae064e3d689",
   "reviewKind": "versioned-operation-addition",
   "addedOperations": [
-    "createProjectRecoveryLink",
-    "redeemProjectRecoveryLink"
+    "getCloudToLanPreparationApproval",
+    "listCloudToLanPreparations",
+    "registerCloudToLanPreparation",
+    "withdrawCloudToLanPreparation"
   ],
-  "reason": "Project recovery adds two operations, optional member credential verifiers and a backup record. Existing source declarations, statement order, bindings and decoder branches are preserved after guarded additions. Evidence: 498 protocol tests and ProjectRecoveryOperationCompatibility source and CLI mutation tests. Package 4.5.0, wire 12 and binding 8 explicitly approved."
+  "reason": "Add Cloud-to-LAN preparation registration, discovery, withdrawal, approval lookup and preparation invalidation events. Existing operations and event payloads retain exact decoding. Tests cover bounded expiry, target metadata, and additive-event source policy. Approved wire13 and binding9."
 }

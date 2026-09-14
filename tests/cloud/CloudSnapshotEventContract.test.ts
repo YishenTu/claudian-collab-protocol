@@ -168,6 +168,7 @@ describe('Cloud Project events', () => {
       'ticket.comment-added',
       'main.updated',
       'authority-transfer.updated',
+      'authority-transfer.preparation-updated',
       'membership.claimed',
       'project.retired',
     ]);
@@ -179,6 +180,7 @@ describe('Cloud Project events', () => {
       { kind: 'ticket.comment-added', payload: { ticketId: 'ticket_1' } },
       { kind: 'main.updated', payload: { mainOid: MAIN, requestId: 'request_1' } },
       { kind: 'authority-transfer.updated', payload: { transferId: 'transfer_1' } },
+      { kind: 'authority-transfer.preparation-updated', payload: { preparationId: 'preparation_1' } },
       {
         kind: 'membership.claimed',
         payload: { memberId: 'member_1', transferId: 'transfer_1' },
@@ -193,7 +195,7 @@ describe('Cloud Project events', () => {
         ...event,
         occurredAt: NOW,
         projectId: 'project_1',
-        protocolVersion: 12,
+        protocolVersion: 13,
         sequence: index + 1,
       };
       expect(decodeCollabCloudProjectEventMessage(envelope)).toEqual(envelope);

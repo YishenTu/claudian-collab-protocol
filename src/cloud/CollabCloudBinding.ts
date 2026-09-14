@@ -21,7 +21,7 @@ import {
 } from '../checkpoints/CollabProjectCheckpoint';
 import type { CollabIsoTimestamp, CollabProjectId } from '../core/types';
 
-export const COLLAB_CLOUD_BINDING_VERSION = 8 as const;
+export const COLLAB_CLOUD_BINDING_VERSION = 9 as const;
 export const COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION = 2 as const;
 
 export const COLLAB_CLOUD_CAPABILITIES = Object.freeze([
@@ -339,7 +339,7 @@ export function collabCloudProjectOperationRoute(
 ): CollabCloudRoute {
   assertProjectId(projectId);
   if (!isCloudJsonOperation(operation)) invalidRoute();
-  return route('POST', `/v8/projects/${projectId}/operations/${operation}`, {
+  return route('POST', `/v9/projects/${projectId}/operations/${operation}`, {
     kind: 'project-operation',
     operation,
     projectId,
@@ -352,7 +352,7 @@ export function collabCloudProjectEventsRoute(
 ): CollabCloudRoute {
   assertProjectId(projectId);
   if (!Number.isSafeInteger(afterSequence) || afterSequence < 0) invalidRoute();
-  return route('GET', `/v8/projects/${projectId}/events?afterSequence=${afterSequence}`, {
+  return route('GET', `/v9/projects/${projectId}/events?afterSequence=${afterSequence}`, {
     afterSequence,
     kind: 'project-events',
     projectId,
@@ -378,12 +378,12 @@ export function collabCloudGitRoute(
     if (service !== 'git-upload-pack' && service !== 'git-receive-pack') invalidRoute();
     return route(
       'GET',
-      `/v8/projects/${projectId}/repository.git/info/refs?service=${service}`,
+      `/v9/projects/${projectId}/repository.git/info/refs?service=${service}`,
       { kind: 'git-info-refs', projectId, service },
     );
   }
   if (service !== undefined) invalidRoute();
-  return route('POST', `/v8/projects/${projectId}/repository.git/${routeKind}`, {
+  return route('POST', `/v9/projects/${projectId}/repository.git/${routeKind}`, {
     kind: routeKind,
     projectId,
   });
@@ -403,7 +403,7 @@ export function collabCloudAuthorityTransferArtifactRoute(
   ) invalidRoute();
   return route(
     direction === 'upload' ? 'PUT' : 'GET',
-    `/v8/projects/${projectId}/authority-transfers/${transferId}/checkpoint/${artifact}`,
+    `/v9/projects/${projectId}/authority-transfers/${transferId}/checkpoint/${artifact}`,
     {
       artifact,
       direction,
@@ -424,7 +424,7 @@ export function collabCloudProjectCheckpointExportArtifactRoute(
   if (!COLLAB_PROJECT_CHECKPOINT_ARTIFACTS_SET.has(artifact)) invalidRoute();
   return route(
     'GET',
-    `/v8/projects/${projectId}/checkpoint-exports/${exportId}/checkpoint/${artifact}`,
+    `/v9/projects/${projectId}/checkpoint-exports/${exportId}/checkpoint/${artifact}`,
     {
       artifact,
       exportId,
@@ -444,7 +444,7 @@ export function collabCloudProjectCheckpointExportRoute(
   if (operation !== 'begin' && operation !== 'status') invalidRoute();
   return route(
     operation === 'begin' ? 'POST' : 'GET',
-    `/v8/projects/${projectId}/checkpoint-exports/${exportId}`,
+    `/v9/projects/${projectId}/checkpoint-exports/${exportId}`,
     { exportId, kind: 'project-checkpoint-export', operation, projectId },
   );
 }
@@ -499,7 +499,7 @@ export function collabDevelopmentBootstrapRoute(
   operation: DevelopmentBootstrapOperation,
   attemptId?: string,
 ): CollabCloudRoute {
-  const base = '/v8/development/bootstrap/attempts';
+  const base = '/v9/development/bootstrap/attempts';
   if (operation === 'beginDevelopmentBootstrap') {
     if (attemptId !== undefined) invalidRoute();
     return route('POST', base, { kind: 'development-bootstrap', operation });
@@ -559,7 +559,7 @@ export function matchCollabCloudRoute(
   ) return { kind: 'capabilities' };
 
   if (
-    segments[0] === 'v8'
+    segments[0] === 'v9'
     && segments[1] === 'projects'
     && isCollabProjectId(segments[2])
   ) {
@@ -656,7 +656,7 @@ export function matchCollabCloudRoute(
   }
 
   if (
-    segments[0] !== 'v8'
+    segments[0] !== 'v9'
     || segments[1] !== 'development'
     || segments[2] !== 'bootstrap'
     || segments[3] !== 'attempts'

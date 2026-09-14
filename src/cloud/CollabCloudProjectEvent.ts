@@ -24,6 +24,7 @@ export const COLLAB_CLOUD_EVENT_KINDS = Object.freeze([
   'ticket.comment-added',
   'main.updated',
   'authority-transfer.updated',
+  'authority-transfer.preparation-updated',
   'membership.claimed',
   'project.retired',
 ] as const);
@@ -31,6 +32,7 @@ export const COLLAB_CLOUD_EVENT_KINDS = Object.freeze([
 export type CollabCloudEventKind = typeof COLLAB_CLOUD_EVENT_KINDS[number];
 
 export interface CollabCloudEventPayloadMap {
+  readonly 'authority-transfer.preparation-updated': { readonly preparationId: string };
   readonly 'authority-transfer.updated': { readonly transferId: string };
   readonly 'main.updated': {
     readonly mainOid: CollabGitOid;
@@ -142,6 +144,10 @@ function timestamp(source: UnknownRecord, field: string): CollabIsoTimestamp {
 
 function decodePayload(kind: CollabCloudEventKind, value: unknown): unknown {
   switch (kind) {
+    case 'authority-transfer.preparation-updated': {
+      const source = exactRecord(value, 'payload', ['preparationId']);
+      return { preparationId: stringField(source, 'preparationId', 128, isCollabOpaqueId) };
+    }
     case 'authority-transfer.updated': {
       const source = exactRecord(value, 'payload', ['transferId']);
       return { transferId: stringField(source, 'transferId', 128, isCollabOpaqueId) };

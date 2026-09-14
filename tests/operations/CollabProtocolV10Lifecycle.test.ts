@@ -15,6 +15,10 @@ const LIFECYCLE_OPERATIONS = [
   'requestLanToCloudTransfer',
   'acceptLanToCloudTransferTarget',
   'beginLanToCloudTransfer',
+  'registerCloudToLanPreparation',
+  'listCloudToLanPreparations',
+  'withdrawCloudToLanPreparation',
+  'getCloudToLanPreparationApproval',
   'getProjectAuthoritySuccessor',
   'getProjectAuthorityTransfer',
   'getAuthorityTransferReceiptVerifier',
@@ -121,6 +125,11 @@ function targetCleanupProof() {
 
 function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number], object> {
   return {
+    registerCloudToLanPreparation: { expiresAt: LATER, projectId: 'project_1', idempotencyKey: 'preparation_1', expectedAuthorityGeneration: 3,
+      caCertificatePem: '-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n', caFingerprint: SHA256, targetUrl: 'https://lan.example.test' },
+    listCloudToLanPreparations: { projectId: 'project_1' },
+    withdrawCloudToLanPreparation: { projectId: 'project_1', idempotencyKey: 'withdraw_1', preparationId: 'preparation_1' },
+    getCloudToLanPreparationApproval: { projectId: 'project_1', preparationId: 'preparation_1', sourceAuthorityGeneration: 3 },
     getProjectAuthoritySuccessor: { projectId: "project_1", sourceAuthorityGeneration: 3 },
     requestLanToCloudTransfer: {
       expectedAuthorityGeneration: 3,
@@ -252,12 +261,12 @@ function lifecycleRequestFixtures(): Record<(typeof LIFECYCLE_OPERATIONS)[number
 
 describe('Canonical Collab wire protocol v11 lifecycle integration', () => {
   it('publishes the exact lifecycle operation inventory through one registry', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(12);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(13);
     const operations = Object.keys(COLLAB_CONTROL_OPERATION_CODECS);
     const lifecycleStart = operations.indexOf(LIFECYCLE_OPERATIONS[0]);
     expect(operations.slice(lifecycleStart, lifecycleStart + LIFECYCLE_OPERATIONS.length))
       .toEqual(LIFECYCLE_OPERATIONS);
-    expect(operations).toHaveLength(56);
+    expect(operations).toHaveLength(60);
   });
 
   it('strictly decodes every lifecycle request without accepting authority extensions', () => {
@@ -396,7 +405,7 @@ describe('Canonical Collab wire protocol v11 lifecycle integration', () => {
     });
     expect(decoded.status).toBe('unsupported-version');
     expect(decoded).toMatchObject({
-      error: { safeContext: { supportedVersion: 12 } },
+      error: { safeContext: { supportedVersion: 13 } },
       receivedVersion: 9,
       status: 'unsupported-version',
     });

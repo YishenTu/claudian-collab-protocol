@@ -242,6 +242,49 @@ export interface BeginLanToCloudTransferRequest extends CollabAuthorityMutationR
   readonly transferId: string;
 }
 
+export interface CollabCloudToLanPreparation {
+  readonly caCertificatePem: string;
+  readonly caFingerprint: string;
+  readonly createdAt: CollabIsoTimestamp;
+  readonly expiresAt: CollabIsoTimestamp;
+  readonly preparationId: string;
+  readonly projectId: CollabProjectId;
+  readonly sourceAuthorityGeneration: number;
+  readonly targetHostMemberId: CollabMemberId;
+  readonly targetUrl: string;
+  readonly withdrawnAt: CollabIsoTimestamp | null;
+}
+
+export interface RegisterCloudToLanPreparationRequest extends CollabAuthorityMutationRequest {
+  readonly expiresAt: CollabIsoTimestamp;
+  readonly caCertificatePem: string;
+  readonly caFingerprint: string;
+  readonly expectedAuthorityGeneration: number;
+  readonly targetUrl: string;
+}
+
+export interface ListCloudToLanPreparationsRequest {
+  readonly projectId: CollabProjectId;
+}
+
+export interface ListCloudToLanPreparationsResponse {
+  readonly preparations: readonly CollabCloudToLanPreparation[];
+}
+
+export interface WithdrawCloudToLanPreparationRequest extends CollabAuthorityMutationRequest {
+  readonly preparationId: string;
+}
+
+export interface GetCloudToLanPreparationApprovalRequest {
+  readonly projectId: CollabProjectId;
+  readonly preparationId: string;
+  readonly sourceAuthorityGeneration: number;
+}
+
+export interface GetCloudToLanPreparationApprovalResponse {
+  readonly approval: CollabAuthorityTransferStatus | null;
+}
+
 export interface GetProjectAuthoritySuccessorRequest {
   readonly projectId: CollabProjectId;
   readonly sourceAuthorityGeneration: number;
@@ -364,6 +407,10 @@ export interface CancelProjectAuthorityTransferRequest extends CollabAuthorityMu
 }
 
 export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze([
+  'registerCloudToLanPreparation',
+  'listCloudToLanPreparations',
+  'withdrawCloudToLanPreparation',
+  'getCloudToLanPreparationApproval',
   'getProjectAuthoritySuccessor',
   'requestLanToCloudTransfer',
   'acceptLanToCloudTransferTarget',
@@ -388,6 +435,23 @@ export type CollabAuthorityTransferOperation =
   typeof COLLAB_AUTHORITY_TRANSFER_OPERATIONS[number];
 
 export interface CollabAuthorityTransferOperationMap {
+  readonly registerCloudToLanPreparation: {
+    readonly request: RegisterCloudToLanPreparationRequest;
+    readonly response: CollabCloudToLanPreparation;
+  };
+  readonly listCloudToLanPreparations: {
+    readonly request: ListCloudToLanPreparationsRequest;
+    readonly response: ListCloudToLanPreparationsResponse;
+  };
+  readonly withdrawCloudToLanPreparation: {
+    readonly request: WithdrawCloudToLanPreparationRequest;
+    readonly response: CollabCloudToLanPreparation;
+  };
+
+  readonly getCloudToLanPreparationApproval: {
+    readonly request: GetCloudToLanPreparationApprovalRequest;
+    readonly response: GetCloudToLanPreparationApprovalResponse;
+  };
   readonly getProjectAuthoritySuccessor: {
     readonly request: GetProjectAuthoritySuccessorRequest;
     readonly response: GetProjectAuthoritySuccessorResponse;
@@ -1496,6 +1560,80 @@ function decodeCancelProjectAuthorityTransfer(
   };
 }
 
+function decodeRegisterCloudToLanPreparation(value: unknown): RegisterCloudToLanPreparationRequest {
+  const source = exactRecord(value, 'preparationRequest', [
+    'caCertificatePem', 'caFingerprint', 'expectedAuthorityGeneration', 'expiresAt', 'idempotencyKey', 'projectId', 'targetUrl',
+  ]);
+  return {
+    ...mutationFields(source),
+    expiresAt: timestamp(source, 'expiresAt'),
+    ...decodeLanSuccessorTrust({ caCertificatePem: source.caCertificatePem, caFingerprint: source.caFingerprint }),
+    expectedAuthorityGeneration: positiveInteger(source, 'expectedAuthorityGeneration'),
+    targetUrl: absoluteTargetUrl(source),
+  };
+}
+
+function decodeListCloudToLanPreparations(value: unknown): ListCloudToLanPreparationsRequest {
+  const source = exactRecord(value, 'preparationsRequest', ['projectId']);
+  return { projectId: token(source, 'projectId', isCollabProjectId) };
+}
+
+function decodeWithdrawCloudToLanPreparation(value: unknown): WithdrawCloudToLanPreparationRequest {
+  const source = exactRecord(value, 'withdrawPreparationRequest', ['idempotencyKey', 'projectId', 'preparationId']);
+  return { ...mutationFields(source), preparationId: token(source, 'preparationId') };
+}
+
+function decodeRegisterCloudToLanPreparationResponse(value: unknown): CollabCloudToLanPreparation {
+  const source = exactRecord(value, 'preparation', [
+    'caCertificatePem', 'caFingerprint', 'createdAt', 'expiresAt', 'preparationId', 'projectId',
+    'sourceAuthorityGeneration', 'targetHostMemberId', 'targetUrl', 'withdrawnAt',
+  ]);
+  const createdAt = timestamp(source, 'createdAt');
+  const expiresAt = timestamp(source, 'expiresAt');
+  const withdrawnAt = source.withdrawnAt === null ? null : timestamp(source, 'withdrawnAt');
+  if (expiresAt <= createdAt || (withdrawnAt !== null && withdrawnAt < createdAt)) throw invalidPayload('preparation.time');
+  return {
+    ...decodeLanSuccessorTrust({ caCertificatePem: source.caCertificatePem, caFingerprint: source.caFingerprint }),
+    createdAt, expiresAt, withdrawnAt,
+    preparationId: token(source, 'preparationId'),
+    projectId: token(source, 'projectId', isCollabProjectId),
+    sourceAuthorityGeneration: positiveInteger(source, 'sourceAuthorityGeneration'),
+    targetHostMemberId: token(source, 'targetHostMemberId', isCollabMemberId),
+    targetUrl: absoluteTargetUrl(source),
+  };
+}
+
+function decodeWithdrawCloudToLanPreparationResponse(value: unknown): CollabCloudToLanPreparation {
+  return decodeRegisterCloudToLanPreparationResponse(value);
+}
+
+function decodeListCloudToLanPreparationsResponse(value: unknown): ListCloudToLanPreparationsResponse {
+  const source = exactRecord(value, 'preparationsResponse', ['preparations']);
+  if (!Array.isArray(source.preparations) || source.preparations.length > 100) throw invalidPayload('preparations');
+  const preparations = source.preparations.map(decodeRegisterCloudToLanPreparationResponse);
+  if (new Set(preparations.map(item => item.preparationId)).size !== preparations.length) throw invalidPayload('preparations.duplicate');
+  return { preparations };
+}
+
+function decodeGetCloudToLanPreparationApproval(value: unknown): GetCloudToLanPreparationApprovalRequest {
+  const source = exactRecord(value, 'preparationApprovalRequest', [
+    'projectId', 'preparationId', 'sourceAuthorityGeneration',
+  ]);
+  return {
+    projectId: token(source, 'projectId', isCollabProjectId),
+    preparationId: token(source, 'preparationId'),
+    sourceAuthorityGeneration: positiveInteger(source, 'sourceAuthorityGeneration'),
+  };
+}
+
+function decodeGetCloudToLanPreparationApprovalResponse(value: unknown): GetCloudToLanPreparationApprovalResponse {
+  const response = exactRecord(value, 'preparationApprovalResponse', ['approval']);
+  if (response.approval === null) return { approval: null };
+  const approval = decodeCollabAuthorityTransferStatus(response.approval);
+  if (approval.direction !== 'cloud-to-lan') throw invalidPayload('preparationApproval.direction');
+  return { approval };
+}
+
 function decodeGetProjectAuthoritySuccessor(value: unknown): GetProjectAuthoritySuccessorRequest {
   const source = exactRecord(value, 'authoritySuccessorRequest', ['projectId', 'sourceAuthorityGeneration']);
   return {
@@ -1532,6 +1670,10 @@ export function decodeCollabAuthorityTransferOperationRequest<
 ): CollabAuthorityTransferOperationMap[Operation]['request'] {
   const decoded = (() => {
     switch (operation) {
+      case 'registerCloudToLanPreparation': return decodeRegisterCloudToLanPreparation(value);
+      case 'listCloudToLanPreparations': return decodeListCloudToLanPreparations(value);
+      case 'withdrawCloudToLanPreparation': return decodeWithdrawCloudToLanPreparation(value);
+      case 'getCloudToLanPreparationApproval': return decodeGetCloudToLanPreparationApproval(value);
       case 'getProjectAuthoritySuccessor': return decodeGetProjectAuthoritySuccessor(value);
       case 'requestLanToCloudTransfer': return decodeRequestLanToCloudTransfer(value);
       case 'acceptLanToCloudTransferTarget': return decodeAcceptLanToCloudTransferTarget(value);
@@ -1588,6 +1730,10 @@ export function decodeCollabAuthorityTransferOperationResponse<
 ): CollabAuthorityTransferOperationMap[Operation]['response'] {
   const decoded = (() => {
     switch (operation) {
+      case 'registerCloudToLanPreparation': return decodeRegisterCloudToLanPreparationResponse(value);
+      case 'withdrawCloudToLanPreparation': return decodeWithdrawCloudToLanPreparationResponse(value);
+      case 'listCloudToLanPreparations': return decodeListCloudToLanPreparationsResponse(value);
+      case 'getCloudToLanPreparationApproval': return decodeGetCloudToLanPreparationApprovalResponse(value);
       case 'getProjectAuthoritySuccessor': return decodeGetProjectAuthoritySuccessorResponse(value);
       case 'rotateTransferredMembershipClaims':
         return decodeCollabTransferredMembershipClaimBatch(value);

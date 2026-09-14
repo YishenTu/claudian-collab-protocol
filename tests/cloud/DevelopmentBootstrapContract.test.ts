@@ -87,7 +87,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
       ],
     },
     manifestSchemaVersion: 1,
-    protocolVersion: 10,
+    protocolVersion: 11,
     sourceEligibility: sourceEligibility(),
     ...overrides,
   };

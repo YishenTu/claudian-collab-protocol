@@ -390,6 +390,15 @@ function preservesOperationTuple(baseDeclaration, currentDeclaration, additions)
       === additions.join('\0');
 }
 
+function preservesOptionalLanTarget(baseDeclaration, currentDeclaration) {
+  if (!preservesOperationMembers(baseDeclaration, currentDeclaration, ['lanTarget'])) return false;
+  const current = sourceFile(currentDeclaration, 'status.ts').statements[0];
+  const expectedSource = sourceFile('interface Status { readonly lanTarget?: { readonly caCertificatePem: string; readonly caFingerprint: string; }; }', 'expected.ts');
+  const field = current.members.find(member => member.name?.getText() === 'lanTarget');
+  return stableJson(syntaxSignature(field, field.getSourceFile()))
+    === stableJson(syntaxSignature(expectedSource.statements[0].members[0], expectedSource));
+}
+
 function isAllowedChangedOperationDeclaration(base, current, additions, snapshots) {
   if (base.source !== current.source || base.exportName !== current.exportName) return false;
   if (
@@ -399,6 +408,9 @@ function isAllowedChangedOperationDeclaration(base, current, additions, snapshot
   ) return preservesOperationMembers(base.declaration, current.declaration, additions);
   if (base.exportName === 'COLLAB_AUTHORITY_TRANSFER_OPERATIONS') {
     return preservesOperationTuple(base.declaration, current.declaration, additions);
+  }
+  if (base.exportName === 'CollabAuthorityTransferStatus') {
+    return preservesOptionalLanTarget(base.declaration, current.declaration);
   }
   if (base.exportName === 'CollabRequestTicketOperation') {
     return preservesOperationUnion(base.declaration, current.declaration, additions);
@@ -1114,6 +1126,9 @@ export function assertAuthorityTransferOperationSourceAddition(input) {
     'COLLAB_AUTHORITY_TRANSFER_OPERATIONS',
     'CollabAuthorityTransferOperationMap',
     'decodeCollabAuthorityTransferOperationRequest',
+    'decodeCollabAuthorityTransferOperationResponse',
+    'CollabAuthorityTransferStatus',
+    'decodeCollabAuthorityTransferStatus',
   ]);
   assertOnlyNamedChange(baseAuthority, currentAuthority, allowedChanged, 'Authority-transfer contract');
   assertSourceOperationTuple(
@@ -1136,6 +1151,63 @@ export function assertAuthorityTransferOperationSourceAddition(input) {
   const currentDispatch = currentAuthority.named.get('decodeCollabAuthorityTransferOperationRequest');
   if (!baseDispatch || !currentDispatch) throw new Error('Authority-transfer dispatch is missing');
   assertDispatchAddition(baseDispatch, currentDispatch, additions);
+  const responseName = 'decodeCollabAuthorityTransferOperationResponse';
+  const baseResponse = baseAuthority.named.get(responseName);
+  const currentResponse = currentAuthority.named.get(responseName);
+  const responseAdditions = [];
+  if (baseResponse && currentResponse
+    && stableJson(syntaxSignature(baseResponse.statement, baseResponse.source))
+      !== stableJson(syntaxSignature(currentResponse.statement, currentResponse.source))) {
+    const baseCases = caseClauses(baseResponse.statement);
+    for (const operation of caseClauses(currentResponse.statement).keys()) {
+      if (!baseCases.has(operation)) responseAdditions.push(operation);
+    }
+    responseAdditions.sort();
+    if (responseAdditions.length === 0 || responseAdditions.some(operation => !additions.includes(operation))) {
+      throw new Error('Response dispatch additions must belong to the reviewed operations');
+    }
+    assertDispatchAddition(baseResponse, currentResponse, responseAdditions, 'value', 'Response');
+  } else if (baseResponse !== undefined && currentResponse === undefined
+    || baseResponse === undefined && currentResponse !== undefined) {
+    throw new Error('Response dispatch owner cannot be added or removed');
+  }
+
+
+  const statusName = 'CollabAuthorityTransferStatus';
+  const decoderName = 'decodeCollabAuthorityTransferStatus';
+  const beforeStatus = baseAuthority.named.get(statusName);
+  const afterStatus = currentAuthority.named.get(statusName);
+  const beforeStatusDecoder = baseAuthority.named.get(decoderName);
+  const afterStatusDecoder = currentAuthority.named.get(decoderName);
+  let optionalTrustAdded = false;
+  if (beforeStatus && afterStatus && beforeStatus.statement.getText(beforeStatus.source)
+    !== afterStatus.statement.getText(afterStatus.source)) {
+    optionalTrustAdded = preservesOptionalLanTarget(beforeStatus.statement.getText(beforeStatus.source), afterStatus.statement.getText(afterStatus.source));
+    if (!optionalTrustAdded) throw new Error('Status optional trust changed existing fields');
+    const guard = afterStatusDecoder?.statement.body?.statements[0];
+    let escapingDeclaration = false;
+    const inspectGuardScope = node => {
+      if (ts.isFunctionDeclaration(node)
+        || ts.isVariableDeclarationList(node) && !(node.flags & ts.NodeFlags.BlockScoped)) {
+        escapingDeclaration = true;
+      }
+      ts.forEachChild(node, inspectGuardScope);
+    };
+    if (guard) inspectGuardScope(guard);
+    const expected = sourceFile("if (value !== null && typeof value === 'object' && Object.hasOwn(value, 'lanTarget')) {}", 'guard.ts');
+    if (!beforeStatusDecoder || !afterStatusDecoder || !guard || !ts.isIfStatement(guard) || guard.elseStatement
+      || !ts.isBlock(guard.thenStatement) || escapingDeclaration
+      || stableJson(syntaxSignature(guard.expression, afterStatusDecoder.source))
+        !== stableJson(syntaxSignature(expected.statements[0].expression, expected))
+      || stableJson(syntaxSignature(beforeStatusDecoder.statement, beforeStatusDecoder.source))
+        !== stableJson(syntaxSignature(afterStatusDecoder.statement, afterStatusDecoder.source, { omittedNodes: new Set([guard]) }))) {
+      throw new Error('Status optional trust guard must preserve the existing decoder for absent fields');
+    }
+  } else if (beforeStatusDecoder && afterStatusDecoder
+    && stableJson(syntaxSignature(beforeStatusDecoder.statement, beforeStatusDecoder.source))
+      !== stableJson(syntaxSignature(afterStatusDecoder.statement, afterStatusDecoder.source))) {
+    throw new Error('Status decoder changed without an optional trust addition');
+  }
 
   const newNames = new Set(
     [...currentAuthority.named.keys()].filter(name => !baseAuthority.named.has(name)),
@@ -1148,6 +1220,12 @@ export function assertAuthorityTransferOperationSourceAddition(input) {
     if (newNames.has(name)) roots.add(name);
   }
   for (const operation of additions) roots.add(operationDecoderName(operation));
+  for (const operation of responseAdditions) roots.add(`${operationDecoderName(operation)}Response`);
+  if (optionalTrustAdded) {
+    for (const name of referenceGraph.get(decoderName) ?? []) {
+      if (newNames.has(name)) roots.add(name);
+    }
+  }
   const reachable = new Set();
   const pending = [...roots];
   const expandReachable = () => {

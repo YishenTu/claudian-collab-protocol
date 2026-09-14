@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "a4152ecc054af9f4bcd7050c37ca514947258ee57aeb029003b9cb154c16a113",
-  "candidateSnapshotSha256": "2f555b6f9aa235d4d477d0d3fd44187d326953ad3621d6eb939d9508db74e14e",
-  "reason": "Compatible backup continuity defect repair authorized with the six architecture findings: distinguish retained transfer population, revoked claims and receipts, settled override custody, historical Host evidence and terminal principals from current admission. Public checkpoint decoder and consistency fixtures cover Remove, redeemed Leave, Host departure, malformed publication refs and omitted terminal custody; existing format-1 principal rules remain. Public declarations and exports, wire 10, Cloud binding 6 and backup format 3 are unchanged."
+  "baseSnapshotSha256": "2f555b6f9aa235d4d477d0d3fd44187d326953ad3621d6eb939d9508db74e14e",
+  "candidateSnapshotSha256": "7b32b26ab055a52b04ed64de79dfe9fa982dfc70a668da6b472820b4194a4239",
+  "reviewKind": "versioned-operation-addition",
+  "addedOperations": [
+    "getProjectAuthoritySuccessor"
+  ],
+  "reason": "Approved one-hop successor discovery with optional public LAN trust in canonical terminal status. Codec tests preserve old status bytes and reject credential extensions. Compatibility source checks preserve prior requests/responses and guard optional trust only when present."
 }

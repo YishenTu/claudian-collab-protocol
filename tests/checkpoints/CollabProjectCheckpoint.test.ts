@@ -61,7 +61,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
     operationId: 'operation_1',
     profile: 'authority-transfer',
     projectId: 'project_1',
-    protocolVersion: 10,
+    protocolVersion: 11,
     refs: [
       { name: 'refs/heads/main', oid: MAIN },
       { name: 'refs/heads/members/member_1', oid: MEMBER },
@@ -279,7 +279,7 @@ function operationalBackupRecords() {
           occurredAt: NOW,
           payload: { transferId: 'transfer_1' },
           projectId: 'project_1',
-          protocolVersion: 10,
+          protocolVersion: 11,
           sequence: 1,
         },
       },
@@ -470,7 +470,7 @@ describe('Project checkpoint contract', () => {
     const digestInput = encodeCollabProjectCheckpointManifestDigestInput(decoded);
     expect(digestInput).not.toContain('manifestSha256');
     expect(createHash('sha256').update(digestInput).digest('hex'))
-      .toBe('cc4591fcd2b39cf297f3e3603e8934622ab72b94e8849e69a3308f3555ae3471');
+      .toBe('99d1073ee794068b4b5e6200159c4552d323e97df79ebbb99f3a44a9123b1f66');
   });
 
   it('binds one decoded coordination set to the manifest Project and authority fences', () => {
@@ -1007,7 +1007,7 @@ describe('Project checkpoint contract', () => {
                 retirementId: 'retirement_1',
               },
               projectId: 'project_1',
-              protocolVersion: 10,
+              protocolVersion: 11,
               sequence: 1,
             },
           },
@@ -1120,7 +1120,7 @@ describe('Project checkpoint contract', () => {
               occurredAt: NOW,
               payload: { mainOid: '5'.repeat(64), requestId: 'request_1' },
               projectId: 'project_1',
-              protocolVersion: 10,
+              protocolVersion: 11,
               sequence: 1,
             },
           },

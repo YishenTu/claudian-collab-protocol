@@ -193,6 +193,10 @@ export interface CollabCloudToLanTargetCleanupProof extends
 }
 
 export interface CollabAuthorityTransferStatus {
+  readonly lanTarget?: {
+    readonly caCertificatePem: string;
+    readonly caFingerprint: string;
+  };
   readonly batchRevision: number | null;
   readonly batchSha256: string | null;
   readonly checkpointSha256: string | null;
@@ -236,6 +240,15 @@ export interface BeginLanToCloudTransferRequest extends CollabAuthorityMutationR
   readonly sourceProof: string;
   readonly targetUrl: string;
   readonly transferId: string;
+}
+
+export interface GetProjectAuthoritySuccessorRequest {
+  readonly projectId: CollabProjectId;
+  readonly sourceAuthorityGeneration: number;
+}
+
+export interface GetProjectAuthoritySuccessorResponse {
+  readonly successor: CollabAuthorityTransferStatus | null;
 }
 
 export interface GetProjectAuthorityTransferRequest {
@@ -351,6 +364,7 @@ export interface CancelProjectAuthorityTransferRequest extends CollabAuthorityMu
 }
 
 export const COLLAB_AUTHORITY_TRANSFER_OPERATIONS = Object.freeze([
+  'getProjectAuthoritySuccessor',
   'requestLanToCloudTransfer',
   'acceptLanToCloudTransferTarget',
   'beginLanToCloudTransfer',
@@ -374,6 +388,10 @@ export type CollabAuthorityTransferOperation =
   typeof COLLAB_AUTHORITY_TRANSFER_OPERATIONS[number];
 
 export interface CollabAuthorityTransferOperationMap {
+  readonly getProjectAuthoritySuccessor: {
+    readonly request: GetProjectAuthoritySuccessorRequest;
+    readonly response: GetProjectAuthoritySuccessorResponse;
+  };
   readonly requestLanToCloudTransfer: {
     readonly request: RequestLanToCloudTransferRequest;
     readonly response: CollabAuthorityTransferStatus;
@@ -1047,6 +1065,12 @@ export function decodeCollabAuthorityTransferLifecycleFence(value: unknown) {
 export function decodeCollabAuthorityTransferStatus(
   value: unknown,
 ): CollabAuthorityTransferStatus {
+  if (value !== null && typeof value === 'object' && Object.hasOwn(value, 'lanTarget')) {
+    const { lanTarget, ...previous } = value as Record<string, unknown>;
+    const status = decodeCollabAuthorityTransferStatus(previous);
+    if (status.targetAuthority.kind !== 'lan') throw invalidPayload('lanTarget');
+    return { ...status, lanTarget: decodeLanSuccessorTrust(lanTarget) };
+  }
   const source = exactRecord(value, 'transferStatus', [
     'batchRevision',
     'batchSha256',
@@ -1472,6 +1496,34 @@ function decodeCancelProjectAuthorityTransfer(
   };
 }
 
+function decodeGetProjectAuthoritySuccessor(value: unknown): GetProjectAuthoritySuccessorRequest {
+  const source = exactRecord(value, 'authoritySuccessorRequest', ['projectId', 'sourceAuthorityGeneration']);
+  return {
+    projectId: token(source, 'projectId', isCollabProjectId),
+    sourceAuthorityGeneration: positiveInteger(source, 'sourceAuthorityGeneration'),
+  };
+}
+
+function decodeLanSuccessorTrust(value: unknown): NonNullable<CollabAuthorityTransferStatus['lanTarget']> {
+  const target = exactRecord(value, 'lanTarget', ['caCertificatePem', 'caFingerprint']);
+  const caCertificatePem = boundedString(target, 'caCertificatePem', 16_384);
+  if (!/^-----BEGIN CERTIFICATE-----\n[A-Za-z0-9+/=\r\n]+\n-----END CERTIFICATE-----\n?$/.test(caCertificatePem)) {
+    throw invalidPayload('caCertificatePem');
+  }
+  return { caCertificatePem, caFingerprint: sha256(target, 'caFingerprint') };
+}
+
+function decodeGetProjectAuthoritySuccessorResponse(value: unknown): GetProjectAuthoritySuccessorResponse {
+  const response = exactRecord(value, 'authoritySuccessorResponse', ['successor']);
+  if (response.successor === null) return { successor: null };
+  const status = decodeCollabAuthorityTransferStatus(response.successor);
+  if (status.state !== 'completed' || status.phase !== 'completed' || !status.relinquishmentProof
+    || (status.targetAuthority.kind === 'lan' && !status.lanTarget)) {
+    throw invalidPayload('authoritySuccessor.status');
+  }
+  return { successor: status };
+}
+
 export function decodeCollabAuthorityTransferOperationRequest<
   Operation extends CollabAuthorityTransferOperation,
 >(
@@ -1480,6 +1532,7 @@ export function decodeCollabAuthorityTransferOperationRequest<
 ): CollabAuthorityTransferOperationMap[Operation]['request'] {
   const decoded = (() => {
     switch (operation) {
+      case 'getProjectAuthoritySuccessor': return decodeGetProjectAuthoritySuccessor(value);
       case 'requestLanToCloudTransfer': return decodeRequestLanToCloudTransfer(value);
       case 'acceptLanToCloudTransferTarget': return decodeAcceptLanToCloudTransferTarget(value);
       case 'beginLanToCloudTransfer': return decodeBeginLanToCloudTransfer(value);
@@ -1535,6 +1588,7 @@ export function decodeCollabAuthorityTransferOperationResponse<
 ): CollabAuthorityTransferOperationMap[Operation]['response'] {
   const decoded = (() => {
     switch (operation) {
+      case 'getProjectAuthoritySuccessor': return decodeGetProjectAuthoritySuccessorResponse(value);
       case 'rotateTransferredMembershipClaims':
         return decodeCollabTransferredMembershipClaimBatch(value);
       case 'acknowledgeTransferredMembershipClaimBatch':

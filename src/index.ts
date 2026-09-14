@@ -61,6 +61,8 @@ export type {
   ConfirmCloudToLanTargetActiveRequest,
   ConfirmCloudToLanTargetInvalidatedRequest,
   GetProjectAuthorityTransferRequest,
+  GetProjectAuthoritySuccessorRequest,
+  GetProjectAuthoritySuccessorResponse,
   GetAuthorityTransferReceiptVerifierRequest,
   GetTransferredMembershipClaimRequest,
   ReportCloudToLanTargetStagedRequest,

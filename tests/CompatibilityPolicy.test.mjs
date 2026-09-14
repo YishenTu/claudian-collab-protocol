@@ -255,6 +255,15 @@ test('accepts an exactly reviewed versioned operation addition without waiving e
   );
   assert.doesNotThrow(() => assertVersionedContractChange(base, current, review));
 
+  const withPublicTrust = cloneJson(current);
+  withPublicTrust.contract.publicDeclarations.find(entry => entry.exportName === 'CollabAuthorityTransferStatus').declaration =
+    'export interface CollabAuthorityTransferStatus { readonly phase: string; readonly lanTarget?: { readonly caCertificatePem: string; readonly caFingerprint: string; }; }';
+  assert.doesNotThrow(() => compatibility.createVersionedOperationAdditionReview(base, withPublicTrust, 'Optional public successor trust preserves every existing status field.'));
+  const requiredTrust = cloneJson(withPublicTrust);
+  requiredTrust.contract.publicDeclarations.find(entry => entry.exportName === 'CollabAuthorityTransferStatus').declaration =
+    requiredTrust.contract.publicDeclarations.find(entry => entry.exportName === 'CollabAuthorityTransferStatus').declaration.replace('lanTarget?', 'lanTarget');
+  assert.throws(() => compatibility.createVersionedOperationAdditionReview(base, requiredTrust, 'Required trust breaks old payloads.'), /existing public declaration/u);
+
   const changedExistingInterface = cloneJson(current);
   changedExistingInterface.contract.publicDeclarations.find(
     declaration => declaration.exportName === 'CollabAuthorityTransferStatus',
@@ -352,6 +361,71 @@ test('source review rejects existing decoder drift and unreachable same-module a
     currentProtocolVersion: 5,
   };
   assert.doesNotThrow(() => compatibility.assertAuthorityTransferOperationSourceAddition(input));
+
+  const responsePath = 'src/operations/CollabAuthorityTransfer.ts';
+  const baseResponse = `
+    export function decodeCollabAuthorityTransferOperationResponse(operation: string, value: unknown) {
+      switch (operation) { default: return decodeExisting(value); }
+    }
+  `;
+  const addedResponse = `
+    function decodeConfirmTargetCleanupResponse(value: unknown) { return value; }
+    export function decodeCollabAuthorityTransferOperationResponse(operation: string, value: unknown) {
+      switch (operation) {
+        case 'confirmTargetCleanup': return decodeConfirmTargetCleanupResponse(value);
+        default: return decodeExisting(value);
+      }
+    }
+  `;
+  const responseInput = {
+    ...input,
+    baseFiles: { ...baseFiles, [responsePath]: baseFiles[responsePath] + baseResponse },
+    currentFiles: { ...currentFiles, [responsePath]: currentFiles[responsePath] + addedResponse },
+  };
+  assert.doesNotThrow(() => compatibility.assertAuthorityTransferOperationSourceAddition(responseInput));
+  const statusBase = `
+    export interface CollabAuthorityTransferStatus { readonly phase: string; }
+    export function decodeCollabAuthorityTransferStatus(value: unknown): CollabAuthorityTransferStatus { return value as CollabAuthorityTransferStatus; }
+  `;
+  const statusCurrent = `
+    export interface CollabAuthorityTransferStatus { readonly phase: string; readonly lanTarget?: { readonly caCertificatePem: string; readonly caFingerprint: string; }; }
+    function decodeLanSuccessorTrust(value: unknown) { return value; }
+    export function decodeCollabAuthorityTransferStatus(value: unknown): CollabAuthorityTransferStatus {
+      if (value !== null && typeof value === 'object' && Object.hasOwn(value, 'lanTarget')) {
+        const { lanTarget, ...previous } = value as Record<string, unknown>;
+        return { ...decodeCollabAuthorityTransferStatus(previous), lanTarget: decodeLanSuccessorTrust(lanTarget) };
+      }
+      return value as CollabAuthorityTransferStatus;
+    }
+  `;
+  const trustInput = {
+    ...responseInput,
+    baseFiles: { ...responseInput.baseFiles, [responsePath]: responseInput.baseFiles[responsePath] + statusBase },
+    currentFiles: { ...responseInput.currentFiles, [responsePath]: responseInput.currentFiles[responsePath] + statusCurrent },
+  };
+  assert.doesNotThrow(() => compatibility.assertAuthorityTransferOperationSourceAddition(trustInput));
+  assert.throws(() => compatibility.assertAuthorityTransferOperationSourceAddition({
+    ...trustInput,
+    currentFiles: { ...trustInput.currentFiles, [responsePath]: trustInput.currentFiles[responsePath].replace(
+      'const { lanTarget, ...previous }', 'var Object: any = globalThis.Object; const { lanTarget, ...previous }',
+    ) },
+  }), /guard/u);
+  for (const replacement of ['true', "value !== null && typeof value === 'object'"]) {
+    assert.throws(() => compatibility.assertAuthorityTransferOperationSourceAddition({
+      ...trustInput,
+      currentFiles: { ...trustInput.currentFiles, [responsePath]: trustInput.currentFiles[responsePath].replace(
+        "value !== null && typeof value === 'object' && Object.hasOwn(value, 'lanTarget')", replacement,
+      ) },
+    }), /optional|guard/u);
+  }
+
+  assert.throws(() => compatibility.assertAuthorityTransferOperationSourceAddition({
+    ...responseInput,
+    currentFiles: { ...responseInput.currentFiles,
+      [responsePath]: responseInput.currentFiles[responsePath].replace('default: return decodeExisting(value)', 'default: return null'),
+    },
+  }), /dispatch/u);
+
 
   const decoderDrift = cloneJson(currentFiles);
   decoderDrift['src/operations/CollabAuthorityTransfer.ts'] = decoderDrift[

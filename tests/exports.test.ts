@@ -20,6 +20,7 @@ const EXPECTED_OPERATIONS = [
   'requestLanToCloudTransfer',
   'acceptLanToCloudTransferTarget',
   'beginLanToCloudTransfer',
+  'getProjectAuthoritySuccessor',
   'getProjectAuthorityTransfer',
   'getAuthorityTransferReceiptVerifier',
   'rotateTransferredMembershipClaims',

@@ -74,9 +74,9 @@ function acceptedRelation(id: string) {
   };
 }
 
-describe('Canonical Collab wire protocol v10', () => {
+describe('Canonical Collab wire protocol v11', () => {
   it('declares wire version 10 with finite collection and page limits', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(10);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(11);
     expect(COLLAB_LIMITS.maxRequestComments).toBe(500);
     expect(COLLAB_LIMITS.maxTicketAcceptedRelations).toBe(2_000);
     expect(COLLAB_LIMITS.defaultCommentPageSize).toBe(50);

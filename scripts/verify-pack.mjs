@@ -94,10 +94,10 @@ const path = require('node:path');
 const protocol = require('@claudian-collab/protocol');
 const packageVersion = ${JSON.stringify(installedManifest.version)};
 
-assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 13);
-assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 9);
+assert.equal(protocol.COLLAB_PROTOCOL_VERSION, 14);
+assert.equal(protocol.COLLAB_CLOUD_BINDING_VERSION, 10);
 assert.notEqual(packageVersion, String(protocol.COLLAB_PROTOCOL_VERSION));
-assert.equal(packageVersion, '4.6.0');
+assert.equal(packageVersion, '5.0.0');
 assert.equal(
   require.resolve('@claudian-collab/protocol'),
   path.join(__dirname, 'node_modules', '@claudian-collab', 'protocol', 'dist', 'index.js'),
@@ -196,7 +196,7 @@ const esmOutput = run(process.execPath, [
   "import { COLLAB_CLOUD_BINDING_VERSION, COLLAB_PROTOCOL_VERSION, collabMemberRef, parseCollabTicketReferences } from '@claudian-collab/protocol';"
     + " const resolved = import.meta.resolve('@claudian-collab/protocol');"
     + " const references = parseCollabTicketReferences('Resolves #3');"
-    + " if (!resolved.endsWith('/dist/esm/index.mjs') || COLLAB_PROTOCOL_VERSION !== 13 || COLLAB_CLOUD_BINDING_VERSION !== 9 || collabMemberRef('member_1') !== 'refs/heads/members/member_1' || references.status !== 'ok' || references.references[0]?.ticketNumber !== 3) process.exit(1);"
+    + " if (!resolved.endsWith('/dist/esm/index.mjs') || COLLAB_PROTOCOL_VERSION !== 14 || COLLAB_CLOUD_BINDING_VERSION !== 10 || collabMemberRef('member_1') !== 'refs/heads/members/member_1' || references.status !== 'ok' || references.references[0]?.ticketNumber !== 3) process.exit(1);"
     + " console.log('esm import OK');",
 ], { cwd: consumerRoot });
 console.log(esmOutput);

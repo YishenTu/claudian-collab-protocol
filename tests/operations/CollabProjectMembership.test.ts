@@ -213,17 +213,14 @@ const cases = {
   promoteManager: {
     request: {
       expectedManagerSetGeneration: 1,
-      expectedOfferRevision: 2,
       expectedTargetMembershipRevision: 2,
       idempotencyKey: 'promote_1',
-      managerResponsibilityOfferId: 'offer_1',
       projectId: 'project_1',
       targetMemberId: 'member_target',
     },
     response: {
       managerSetGeneration: 2,
       membershipRevision: 3,
-      offerRevision: 3,
       projectId: 'project_1',
       promotedMemberId: 'member_target',
     },

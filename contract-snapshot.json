@@ -1,5 +1,5 @@
 {
-  "cloudBindingVersion": 9,
+  "cloudBindingVersion": 10,
   "contract": {
     "cloudBinding": {
       "capabilities": [
@@ -50,7 +50,7 @@
           "source": "./cloud/CollabCloudBinding"
         },
         {
-          "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 9;",
+          "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 10;",
           "exportName": "COLLAB_CLOUD_BINDING_VERSION",
           "source": "./cloud/CollabCloudBinding"
         },
@@ -551,7 +551,7 @@
       "runtimeBehaviorDigests": [
         {
           "path": "src/cloud/CollabCloudBinding.ts",
-          "sha256": "dbb9b309bced163f20cf5a5198806116c49c08e7498291109379b9d585ba3dc4"
+          "sha256": "3669c2e479f290d550ca6e1f114e83e2ed99d31165638d7bb10ba0ade0da1e65"
         },
         {
           "path": "src/cloud/CollabCloudProjectEvent.ts",
@@ -679,7 +679,7 @@
         "source": "./cloud/CollabCloudBinding"
       },
       {
-        "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 9;",
+        "declaration": "export declare const COLLAB_CLOUD_BINDING_VERSION: 10;",
         "exportName": "COLLAB_CLOUD_BINDING_VERSION",
         "source": "./cloud/CollabCloudBinding"
       },
@@ -824,7 +824,7 @@
         "source": "./checkpoints/CollabProjectCheckpoint"
       },
       {
-        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 13;",
+        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 14;",
         "exportName": "COLLAB_PROTOCOL_VERSION",
         "source": "./core/CollabConstants"
       },
@@ -2439,12 +2439,12 @@
         "source": "./markdown/CollabTicketReferenceParser"
       },
       {
-        "declaration": "export interface PromoteManagerRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedOfferRevision: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly managerResponsibilityOfferId: string;\n    readonly targetMemberId: CollabMemberId;\n}",
+        "declaration": "export interface PromoteManagerRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly targetMemberId: CollabMemberId;\n}",
         "exportName": "PromoteManagerRequest",
         "source": "./operations/CollabProjectMembership"
       },
       {
-        "declaration": "export interface PromoteManagerResponse {\n    readonly managerSetGeneration: number;\n    readonly membershipRevision: number;\n    readonly offerRevision: number;\n    readonly projectId: CollabProjectId;\n    readonly promotedMemberId: CollabMemberId;\n}",
+        "declaration": "export interface PromoteManagerResponse {\n    readonly managerSetGeneration: number;\n    readonly membershipRevision: number;\n    readonly projectId: CollabProjectId;\n    readonly promotedMemberId: CollabMemberId;\n}",
         "exportName": "PromoteManagerResponse",
         "source": "./operations/CollabProjectMembership"
       },
@@ -2719,7 +2719,7 @@
       },
       {
         "path": "src/cloud/CollabCloudBinding.ts",
-        "sha256": "dbb9b309bced163f20cf5a5198806116c49c08e7498291109379b9d585ba3dc4"
+        "sha256": "3669c2e479f290d550ca6e1f114e83e2ed99d31165638d7bb10ba0ade0da1e65"
       },
       {
         "path": "src/cloud/CollabCloudProjectEvent.ts",
@@ -2735,7 +2735,7 @@
       },
       {
         "path": "src/core/CollabConstants.ts",
-        "sha256": "96cb918e0ba6b4fab63f52badbe3c6d12d024bef101bf15d4b721589bff60662"
+        "sha256": "a69e93bdea7f19fefc7b1ee6c370cd04f1ab8bc7af72af4d77c9458b570d4239"
       },
       {
         "path": "src/core/CollabError.ts",
@@ -2775,7 +2775,7 @@
       },
       {
         "path": "src/operations/CollabProjectMembership.ts",
-        "sha256": "5b693b88d6bf018a18d9365594fc48641300eb9e6c9927a555dd666bbd2fbbf2"
+        "sha256": "b8966653989a0cc3a9ec3c845454d001c61633b6bc2464ee0d46e9c3514d4ecd"
       },
       {
         "path": "src/operations/CollabProjectRecovery.ts",
@@ -3006,7 +3006,7 @@
           "source": "./checkpoints/CollabProjectCheckpoint"
         },
         {
-          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 13;",
+          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 14;",
           "exportName": "COLLAB_PROTOCOL_VERSION",
           "source": "./core/CollabConstants"
         },
@@ -4231,12 +4231,12 @@
           "source": "./operations/CollabProtocol"
         },
         {
-          "declaration": "export interface PromoteManagerRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedOfferRevision: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly managerResponsibilityOfferId: string;\n    readonly targetMemberId: CollabMemberId;\n}",
+          "declaration": "export interface PromoteManagerRequest extends CollabProjectMutationRequest {\n    readonly expectedManagerSetGeneration: number;\n    readonly expectedTargetMembershipRevision: number;\n    readonly targetMemberId: CollabMemberId;\n}",
           "exportName": "PromoteManagerRequest",
           "source": "./operations/CollabProjectMembership"
         },
         {
-          "declaration": "export interface PromoteManagerResponse {\n    readonly managerSetGeneration: number;\n    readonly membershipRevision: number;\n    readonly offerRevision: number;\n    readonly projectId: CollabProjectId;\n    readonly promotedMemberId: CollabMemberId;\n}",
+          "declaration": "export interface PromoteManagerResponse {\n    readonly managerSetGeneration: number;\n    readonly membershipRevision: number;\n    readonly projectId: CollabProjectId;\n    readonly promotedMemberId: CollabMemberId;\n}",
           "exportName": "PromoteManagerResponse",
           "source": "./operations/CollabProjectMembership"
         },
@@ -4506,7 +4506,7 @@
         },
         {
           "path": "src/core/CollabConstants.ts",
-          "sha256": "96cb918e0ba6b4fab63f52badbe3c6d12d024bef101bf15d4b721589bff60662"
+          "sha256": "a69e93bdea7f19fefc7b1ee6c370cd04f1ab8bc7af72af4d77c9458b570d4239"
         },
         {
           "path": "src/core/CollabError.ts",
@@ -4530,7 +4530,7 @@
         },
         {
           "path": "src/operations/CollabProjectMembership.ts",
-          "sha256": "5b693b88d6bf018a18d9365594fc48641300eb9e6c9927a555dd666bbd2fbbf2"
+          "sha256": "b8966653989a0cc3a9ec3c845454d001c61633b6bc2464ee0d46e9c3514d4ecd"
         },
         {
           "path": "src/operations/CollabProjectRecovery.ts",
@@ -4555,7 +4555,7 @@
       ]
     }
   },
-  "packageVersion": "4.6.0",
-  "protocolVersion": 13,
+  "packageVersion": "5.0.0",
+  "protocolVersion": 14,
   "schemaVersion": 2
 }

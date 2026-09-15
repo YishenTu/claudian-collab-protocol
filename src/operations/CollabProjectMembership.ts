@@ -236,16 +236,13 @@ export interface TransitionManagerResponsibilityOfferRequest extends
 
 export interface PromoteManagerRequest extends CollabProjectMutationRequest {
   readonly expectedManagerSetGeneration: number;
-  readonly expectedOfferRevision: number;
   readonly expectedTargetMembershipRevision: number;
-  readonly managerResponsibilityOfferId: string;
   readonly targetMemberId: CollabMemberId;
 }
 
 export interface PromoteManagerResponse {
   readonly managerSetGeneration: number;
   readonly membershipRevision: number;
-  readonly offerRevision: number;
   readonly projectId: CollabProjectId;
   readonly promotedMemberId: CollabMemberId;
 }
@@ -1044,22 +1041,18 @@ function decodeTransitionOfferRequest(
 function decodePromoteRequest(value: unknown): PromoteManagerRequest {
   const source = exactRecord(value, 'request', [
     'expectedManagerSetGeneration',
-    'expectedOfferRevision',
     'expectedTargetMembershipRevision',
     'idempotencyKey',
-    'managerResponsibilityOfferId',
     'projectId',
     'targetMemberId',
   ]);
   return {
     expectedManagerSetGeneration: positiveInteger(source, 'expectedManagerSetGeneration'),
-    expectedOfferRevision: positiveInteger(source, 'expectedOfferRevision'),
     expectedTargetMembershipRevision: positiveInteger(
       source,
       'expectedTargetMembershipRevision',
     ),
     ...mutationFields(source),
-    managerResponsibilityOfferId: token(source, 'managerResponsibilityOfferId'),
     targetMemberId: token(source, 'targetMemberId', isCollabMemberId),
   };
 }
@@ -1068,14 +1061,12 @@ function decodePromoteResponse(value: unknown): PromoteManagerResponse {
   const source = exactRecord(value, 'response', [
     'managerSetGeneration',
     'membershipRevision',
-    'offerRevision',
     'projectId',
     'promotedMemberId',
   ]);
   return {
     managerSetGeneration: positiveInteger(source, 'managerSetGeneration'),
     membershipRevision: positiveInteger(source, 'membershipRevision'),
-    offerRevision: positiveInteger(source, 'offerRevision'),
     projectId: token(source, 'projectId', isCollabProjectId),
     promotedMemberId: token(source, 'promotedMemberId', isCollabMemberId),
   };

@@ -6,11 +6,11 @@
     "provenance": true,
     "registry": "https://registry.npmjs.org",
     "repository": "git+https://github.com/YishenTu/claudian-collab-protocol.git",
-    "version": "5.0.0"
+    "version": "5.1.0"
   },
   "schemaVersion": 1,
   "tarball": {
-    "filename": "claudian-collab-protocol-5.0.0.tgz",
+    "filename": "claudian-collab-protocol-5.1.0.tgz",
     "files": [
       {
         "path": "dist/checkpoints/CollabProjectBackupCheckpoint.d.ts",
@@ -134,7 +134,7 @@
       },
       {
         "path": "dist/esm/index.mjs",
-        "size": 5552
+        "size": 5636
       },
       {
         "path": "dist/esm/markdown/CollabMarkdownProse.mjs",
@@ -150,7 +150,7 @@
       },
       {
         "path": "dist/esm/operations/CollabAuthorityTransfer.mjs",
-        "size": 45886
+        "size": 48578
       },
       {
         "path": "dist/esm/operations/CollabControlOperationCodecs.mjs",
@@ -182,11 +182,11 @@
       },
       {
         "path": "dist/index.d.ts",
-        "size": 15906
+        "size": 16020
       },
       {
         "path": "dist/index.js",
-        "size": 28773
+        "size": 29265
       },
       {
         "path": "dist/markdown/CollabMarkdownProse.d.ts",
@@ -214,11 +214,11 @@
       },
       {
         "path": "dist/operations/CollabAuthorityTransfer.d.ts",
-        "size": 21157
+        "size": 22057
       },
       {
         "path": "dist/operations/CollabAuthorityTransfer.js",
-        "size": 48268
+        "size": 51170
       },
       {
         "path": "dist/operations/CollabControlOperationCodecs.d.ts",
@@ -289,11 +289,11 @@
         "size": 3826
       }
     ],
-    "integrity": "sha512-AcJJEgPirz5KCdBxA1o2Qtbcn8Jybu5juSAW358TlHn9vnnUKW78HdKPRmCtO5DUcIp/FNF2a/FXv93TbXsvzg==",
-    "sha256": "f72021353441f87413894dea78f26567042e57cd449ecfd54ded62298d03a652",
-    "shasum": "4f59f5c5a58bfcf2065f76ed862123c056d3864c",
-    "size": 141892,
-    "unpackedSize": 943088
+    "integrity": "sha512-TKnTSrLSyucjGlHAgEl1ID6gDcC7sac+7OkepmIzjPGI3oqki860Gj2WHeE9S8+MUJIu2mk3qBLrrLvjVptPnw==",
+    "sha256": "f0dc1405ec3ea5d12b4324c931cdbcbc4b4158c8e2344b4e9669da4e030ce621",
+    "shasum": "c300e2cc86b9d0c51027769db27f418bcdfe0c77",
+    "size": 143171,
+    "unpackedSize": 950272
   },
   "toolchain": {
     "node": "24.16.0",

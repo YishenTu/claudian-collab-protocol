@@ -1704,10 +1704,8 @@ export function createVersionedOperationAdditionReview(base, current, reason) {
     baseSnapshotSha256: snapshotDigest(base),
     candidateSnapshotSha256: snapshotDigest(current),
     reviewKind: 'versioned-operation-addition',
-    addedOperations: operationAdditions(
-      base.contract.wire.operations,
-      current.contract.wire.operations,
-    ),
+    addedOperations: stableJson(base.contract.wire.operations) === stableJson(current.contract.wire.operations)
+      ? [] : operationAdditions(base.contract.wire.operations, current.contract.wire.operations),
     reason,
   };
   assertVersionedOperationAdditionReview(base, current, review);
@@ -1746,6 +1744,150 @@ function optionalDeclarationAddition(beforeText, afterText) {
   return false;
 }
 
+const OPTIONAL_AUTHORITY_SOURCE = './operations/CollabAuthorityTransfer';
+
+function optionalAuthorityChange(base, current) {
+  return base.contract.publicDeclarations.some(before => {
+    const after = current.contract.publicDeclarations.find(item => item.exportName === before.exportName);
+    return before.source === OPTIONAL_AUTHORITY_SOURCE && after && before.declaration !== after.declaration;
+  });
+}
+
+function reachableDeclarations(graph, roots) {
+  const result = new Set();
+  const pending = [...roots];
+  while (pending.length > 0) {
+    const name = pending.pop();
+    if (result.has(name)) continue;
+    result.add(name);
+    pending.push(...(graph.get(name) ?? []));
+  }
+  return result;
+}
+
+function relatedProofCodec(statement, source, proofNames) {
+  if (!ts.isFunctionDeclaration(statement) || !statement.name || statement.parameters.length !== 1) return false;
+  const name = statement.name.text;
+  if (name.startsWith('decode') && statement.type && proofNames.has(statement.type.getText(source))) {
+    return statement.parameters[0].type?.kind === ts.SyntaxKind.UnknownKeyword;
+  }
+  const parameter = statement.parameters[0];
+  if (!name.startsWith('encode') || !name.endsWith('SigningInput') || statement.type?.kind !== ts.SyntaxKind.StringKeyword
+    || !parameter.type || !ts.isTypeReferenceNode(parameter.type) || parameter.type.typeName.getText(source) !== 'Omit') return false;
+  const args = parameter.type.typeArguments;
+  return args?.length === 2 && proofNames.has(args[0].getText(source))
+    && ts.isLiteralTypeNode(args[1]) && ts.isStringLiteral(args[1].literal) && args[1].literal.text === 'signature';
+}
+
+function assertOptionalAuthorityReview(base, current, review) {
+  const semantics = contract => withoutKeys(contract, ['declarations', 'runtimeBehaviorDigests']);
+  if (current.protocolVersion <= base.protocolVersion || current.cloudBindingVersion !== base.cloudBindingVersion
+    || stableJson(effectiveCloudBindingContract(base)) !== stableJson(effectiveCloudBindingContract(current))
+    || stableJson(semantics(base.contract.wire)) !== stableJson(semantics(current.contract.wire))) {
+    throw new Error('Optional authority review changed inventories or versions');
+  }
+  const previous = new Map(base.contract.publicDeclarations.map(item => [item.exportName, item]));
+  const next = new Map(current.contract.publicDeclarations.map(item => [item.exportName, item]));
+  const changed = new Set();
+  for (const [name, before] of previous) {
+    const after = next.get(name);
+    if (!after || before.source !== after.source) throw new Error('Optional authority review removed an export');
+    if (stableJson(before) === stableJson(after)) continue;
+    if (name === 'COLLAB_PROTOCOL_VERSION' && isAllowedChangedOperationDeclaration(before, after, [], { base, current })) continue;
+    if (before.source !== OPTIONAL_AUTHORITY_SOURCE || !optionalDeclarationAddition(before.declaration, after.declaration)) {
+      throw new Error(`Not an optional public addition: ${name}`);
+    }
+    changed.add(name);
+  }
+  if (changed.size === 0) throw new Error('Optional authority review requires an optional public addition');
+  const graph = topLevelReferenceGraph(current.contract.publicDeclarations.filter(item => item.source === OPTIONAL_AUTHORITY_SOURCE)
+    .map(item => item.declaration).join('\n'));
+  const reachable = reachableDeclarations(graph, changed);
+  const added = current.contract.publicDeclarations.filter(item => !previous.has(item.exportName));
+  const proofNames = new Set(added.filter(item => reachable.has(item.exportName)).map(item => item.exportName));
+  const addedRuntime = new Set();
+  for (const item of added) {
+    const source = sourceFile(item.declaration, 'contract.d.ts');
+    const statement = source.statements[0];
+    if (item.source !== OPTIONAL_AUTHORITY_SOURCE || source.statements.length !== 1
+      || (!reachable.has(item.exportName) && !relatedProofCodec(statement, source, proofNames))) {
+      throw new Error('Optional authority review added an unrelated declaration');
+    }
+    if (ts.isFunctionDeclaration(statement)) addedRuntime.add(item.exportName);
+    else if (!ts.isInterfaceDeclaration(statement) && !ts.isTypeAliasDeclaration(statement)) {
+      throw new Error('Optional authority review added a runtime declaration');
+    }
+  }
+  if (stableJson([...base.contract.publicRuntimeExports, ...addedRuntime].sort())
+    !== stableJson([...current.contract.publicRuntimeExports].sort())) throw new Error('Optional authority review changed runtime exports');
+  stringEntries(review.implementationDeclarations, 'implementation declaration');
+  const beforeDigests = keyedEntries(base.contract.runtimeBehaviorDigests, 'path', 'runtime behavior digest');
+  const afterDigests = keyedEntries(current.contract.runtimeBehaviorDigests, 'path', 'runtime behavior digest');
+  if (beforeDigests.size !== afterDigests.size) throw new Error('Optional authority review changed runtime modules');
+  for (const [pathname, digest] of beforeDigests) {
+    if (!afterDigests.has(pathname) || (afterDigests.get(pathname) !== digest
+      && !['src/core/CollabConstants.ts', 'src/operations/CollabAuthorityTransfer.ts', 'src/index.ts'].includes(pathname))) {
+      throw new Error('Optional authority review changed unrelated runtime modules');
+    }
+  }
+}
+
+export function assertOptionalAuthoritySourceAddition(input) {
+  const owner = 'src/operations/CollabAuthorityTransfer.ts';
+  const paths = Object.keys(input.baseFiles).sort();
+  if (stableJson(paths) !== stableJson(Object.keys(input.currentFiles).sort())) throw new Error('Optional authority source inventory changed');
+  for (const pathname of paths) {
+    if (pathname === owner || pathname === 'src/index.ts') continue;
+    const after = pathname === 'src/core/CollabConstants.ts'
+      ? normalizedVersionSource(input.currentFiles[pathname], 'COLLAB_PROTOCOL_VERSION', input.currentProtocolVersion, input.baseProtocolVersion)
+      : input.currentFiles[pathname];
+    if (sourceSyntax(input.baseFiles[pathname], pathname) !== sourceSyntax(after, pathname)) throw new Error('Optional authority changed unrelated source');
+  }
+  const base = parsedTopLevel(input.baseFiles[owner], owner);
+  const current = parsedTopLevel(input.currentFiles[owner], owner);
+  const changed = new Set();
+  for (const [name, before] of base.named) {
+    const after = current.named.get(name);
+    if (after && ts.isInterfaceDeclaration(before.statement)
+      && optionalDeclarationAddition(before.statement.getText(before.source), after.statement.getText(after.source))) changed.add(name);
+  }
+  if (changed.size === 0) throw new Error('Optional authority source requires an optional contract');
+  const reviewed = new Set(input.implementationDeclarations);
+  for (const name of reviewed) {
+    const before = base.named.get(name);
+    const after = current.named.get(name);
+    if (!before || !after || !name.startsWith('decode') || !ts.isFunctionDeclaration(before.statement)
+      || !ts.isFunctionDeclaration(after.statement) || !changed.has(before.statement.type?.getText(before.source))) {
+      throw new Error('Optional authority implementation must be an affected decoder');
+    }
+    const signature = item => item.statement.getText(item.source).slice(0, item.statement.body.getStart(item.source) - item.statement.getStart(item.source)).trim();
+    if (sourceSyntax(signature(before) + ';', 'signature.ts') !== sourceSyntax(signature(after) + ';', 'signature.ts')) {
+      throw new Error('Optional authority decoder signature changed');
+    }
+  }
+  if (stableJson([...base.named.keys()]) !== stableJson([...current.named.keys()].filter(name => base.named.has(name)))) {
+    throw new Error('Optional authority changed existing declaration order');
+  }
+  assertOnlyNamedChange(base, current, new Set([...changed, ...reviewed]), 'Optional authority');
+  const added = new Set([...current.named.keys()].filter(name => !base.named.has(name)));
+  for (const name of added) {
+    const statement = current.named.get(name).statement;
+    if (!ts.isFunctionDeclaration(statement) && !ts.isInterfaceDeclaration(statement) && !ts.isTypeAliasDeclaration(statement)) {
+      throw new Error('Optional authority added a module initializer');
+    }
+  }
+  assertExistingReferenceBindings(base, current, added);
+  const graph = topLevelReferenceGraph(input.currentFiles[owner], { includeImports: true });
+  const proofNames = reachableDeclarations(graph, changed);
+  const codecRoots = [...added].filter(name => {
+    const item = current.named.get(name);
+    return relatedProofCodec(item.statement, item.source, proofNames);
+  });
+  const reachable = reachableDeclarations(graph, new Set([...changed, ...reviewed, ...codecRoots]));
+  for (const name of added) if (!reachable.has(name)) throw new Error('Optional authority added an unrelated source declaration');
+  assertIndexAddition(input.baseFiles['src/index.ts'], input.currentFiles['src/index.ts'], added);
+}
+
 function assertOptionalContractAdditionReview(base, current, review) {
   exactFields(review, new Set([...IMPLEMENTATION_REVIEW_FIELDS, 'reviewKind', 'implementationDeclarations']), 'optional contract addition review');
   if (review.schemaVersion !== 1 || review.reviewKind !== 'optional-contract-addition'
@@ -1755,6 +1897,7 @@ function assertOptionalContractAdditionReview(base, current, review) {
   if (review.baseSnapshotSha256 !== snapshotDigest(base) || review.candidateSnapshotSha256 !== snapshotDigest(current)) {
     throw new Error('Optional contract review does not match the exact base and candidate snapshots');
   }
+  if (optionalAuthorityChange(base, current)) return assertOptionalAuthorityReview(base, current, review);
   const semantics = contract => withoutKeys(contract, ['declarations', 'runtimeBehaviorDigests']);
   if (current.protocolVersion <= base.protocolVersion || current.cloudBindingVersion <= base.cloudBindingVersion
     || stableJson(semantics(base.contract.wire)) !== stableJson(semantics(current.contract.wire))
@@ -2397,10 +2540,8 @@ function operationSourceReviewInput(baseSha, base, current) {
   }
   for (const pathname of currentPaths) currentFiles[pathname] = readFileSync(path.join(repositoryRoot, pathname), 'utf8');
   return {
-    addedOperations: operationAdditions(
-      base.contract.wire.operations,
-      current.contract.wire.operations,
-    ),
+    addedOperations: stableJson(base.contract.wire.operations) === stableJson(current.contract.wire.operations)
+      ? [] : operationAdditions(base.contract.wire.operations, current.contract.wire.operations),
     addedEvents: current.contract.cloudBinding.eventKinds.filter(kind => !base.contract.cloudBinding.eventKinds.includes(kind)).sort(),
     baseCloudBindingVersion: base.cloudBindingVersion,
     baseFiles,
@@ -2417,6 +2558,12 @@ function assertReviewedSourceChange(baseSha, base, current, review) {
     return;
   }
   if (review?.reviewKind === 'optional-contract-addition') {
+    if (optionalAuthorityChange(base, current)) {
+      assertOptionalAuthoritySourceAddition({ ...operationSourceReviewInput(baseSha, base, current),
+        implementationDeclarations: review.implementationDeclarations });
+      return;
+    }
+
     const readBefore = pathname => execFileSync('git', ['show', `${baseSha}:${pathname}`], { cwd: repositoryRoot, encoding: 'utf8' });
     const constantsPath = 'src/core/CollabConstants.ts';
     const currentConstants = normalizedVersionSource(readFileSync(path.join(repositoryRoot, constantsPath), 'utf8'),

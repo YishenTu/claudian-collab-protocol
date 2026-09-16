@@ -1,13 +1,10 @@
 {
   "schemaVersion": 1,
-  "baseSnapshotSha256": "6842088ad1341a9afdab759ec0aba7dbd9edb4aeb8eab1ef3985dd3666c52517",
-  "candidateSnapshotSha256": "1bf1fff34152a549a5e7241dc0e4583522ab32a8cdd904bfd4f73ae064e3d689",
-  "reviewKind": "versioned-operation-addition",
-  "addedOperations": [
-    "getCloudToLanPreparationApproval",
-    "listCloudToLanPreparations",
-    "registerCloudToLanPreparation",
-    "withdrawCloudToLanPreparation"
+  "baseSnapshotSha256": "4c32958c5abc2f7bbd700a9ee44ba1badfee1e804c8091eabb898eabf6fb38b9",
+  "candidateSnapshotSha256": "f8951ed3bf4dbc3b29dc8ab18c8bb567f71cc4ce4c7dfb3777e63e24454647c4",
+  "reviewKind": "optional-contract-addition",
+  "implementationDeclarations": [
+    "decodeBeginLanToCloudTransfer"
   ],
-  "reason": "Add Cloud-to-LAN preparation registration, discovery, withdrawal, approval lookup and preparation invalidation events. Existing operations and event payloads retain exact decoding. Tests cover bounded expiry, target metadata, and additive-event source policy. Approved wire13 and binding9."
+  "reason": "Generation-bound committed LAN Host activation evidence is optional in begin requests. Existing absent-field inputs retain their meaning; codec fixtures and consumer RSA-PSS tamper/continuity tests characterize the addition. Cloud routes, envelopes and operation inventory remain unchanged."
 }

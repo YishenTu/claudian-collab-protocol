@@ -233,7 +233,23 @@ export interface AcceptLanToCloudTransferTargetRequest extends CollabAuthorityMu
   readonly transferId: string;
 }
 
+/** Evidence released only with an irrevocably committed physical LAN Host activation. */
+export interface CollabLanHostActivationProof {
+  readonly schemaVersion: 1;
+  readonly authorityGeneration: number;
+  readonly projectId: CollabProjectId;
+  readonly transferId: string;
+  readonly targetHostMemberId: CollabMemberId;
+  readonly targetCaFingerprint: string;
+  readonly manifestSha256: string;
+  readonly cutoverAt: CollabIsoTimestamp;
+  readonly caCertificatePem: string;
+  readonly signatureAlgorithm: 'rsa-pss-sha256';
+  readonly signature: string;
+}
+
 export interface BeginLanToCloudTransferRequest extends CollabAuthorityMutationRequest {
+  readonly hostActivationProofs?: readonly CollabLanHostActivationProof[];
   readonly checkpointManifestSha256: string;
   readonly expectedSourceAuthorityGeneration: number;
   readonly sourceHostMemberId: CollabMemberId;
@@ -1263,6 +1279,45 @@ function decodeAcceptLanToCloudTransferTarget(
   };
 }
 
+function activationPayload(value: unknown): Omit<CollabLanHostActivationProof, 'signature'> {
+  const source = exactRecord(value, 'activationProof', [
+    'schemaVersion', 'authorityGeneration', 'projectId', 'transferId', 'targetHostMemberId',
+    'targetCaFingerprint', 'manifestSha256', 'cutoverAt', 'caCertificatePem', 'signatureAlgorithm',
+  ]);
+  if (source.schemaVersion !== 1) throw invalidPayload('schemaVersion');
+  const caCertificatePem = decodeLanSuccessorTrust({
+    caCertificatePem: source.caCertificatePem, caFingerprint: source.targetCaFingerprint,
+  }).caCertificatePem;
+  return {
+    schemaVersion: 1,
+    authorityGeneration: positiveInteger(source, 'authorityGeneration'),
+    projectId: token(source, 'projectId', isCollabProjectId),
+    transferId: token(source, 'transferId'),
+    targetHostMemberId: token(source, 'targetHostMemberId', isCollabMemberId),
+    targetCaFingerprint: sha256(source, 'targetCaFingerprint'),
+    manifestSha256: sha256(source, 'manifestSha256'),
+    cutoverAt: timestamp(source, 'cutoverAt'),
+    caCertificatePem,
+    signatureAlgorithm: literal(source, 'signatureAlgorithm', ['rsa-pss-sha256']),
+  };
+}
+
+export function decodeCollabLanHostActivationProof(value: unknown): CollabLanHostActivationProof {
+  const source = record(value, 'activationProof');
+  const { signature: _signature, ...payload } = source;
+  const signature = base64url(source, 'signature', 2048);
+  if (signature.length < 342) throw invalidPayload('signature');
+  return { ...activationPayload(payload), signature };
+}
+
+export function encodeCollabLanHostActivationProofSigningInput(value: Omit<CollabLanHostActivationProof, 'signature'>): string {
+  const proof = activationPayload(value);
+  return 'claudian-collab-lan-host-activation-v1\n' + JSON.stringify([
+    1, proof.projectId, proof.authorityGeneration, proof.transferId, proof.targetHostMemberId,
+    proof.targetCaFingerprint, proof.manifestSha256, proof.cutoverAt, proof.caCertificatePem,
+  ]);
+}
+
 function decodeBeginLanToCloudTransfer(value: unknown): BeginLanToCloudTransferRequest {
   const source = exactRecord(value, 'request', [
     'checkpointManifestSha256',
@@ -1273,8 +1328,20 @@ function decodeBeginLanToCloudTransfer(value: unknown): BeginLanToCloudTransferR
     'sourceProof',
     'targetUrl',
     'transferId',
+    ...(Object.hasOwn(record(value, 'request'), 'hostActivationProofs') ? ['hostActivationProofs'] : []),
   ]);
+  const proofs = source.hostActivationProofs;
+  if (Object.hasOwn(source, 'hostActivationProofs') && (!Array.isArray(proofs) || proofs.length > 32)) {
+    throw invalidPayload('hostActivationProofs');
+  }
+  const hostActivationProofs = proofs === undefined ? undefined
+    : (proofs as unknown[]).map(decodeCollabLanHostActivationProof);
+  if (hostActivationProofs?.some(proof => proof.projectId !== source.projectId
+    || proof.authorityGeneration !== source.expectedSourceAuthorityGeneration)) {
+    throw invalidPayload('hostActivationProofs');
+  }
   return {
+    ...(hostActivationProofs === undefined ? {} : { hostActivationProofs }),
     checkpointManifestSha256: sha256(source, 'checkpointManifestSha256'),
     expectedSourceAuthorityGeneration: positiveInteger(
       source,

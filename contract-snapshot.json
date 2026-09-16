@@ -614,7 +614,7 @@
         "source": "./cloud/DevelopmentBootstrap"
       },
       {
-        "declaration": "export interface BeginLanToCloudTransferRequest extends CollabAuthorityMutationRequest {\n    readonly checkpointManifestSha256: string;\n    readonly expectedSourceAuthorityGeneration: number;\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly sourceProof: string;\n    readonly targetUrl: string;\n    readonly transferId: string;\n}",
+        "declaration": "export interface BeginLanToCloudTransferRequest extends CollabAuthorityMutationRequest {\n    readonly hostActivationProofs?: readonly CollabLanHostActivationProof[];\n    readonly checkpointManifestSha256: string;\n    readonly expectedSourceAuthorityGeneration: number;\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly sourceProof: string;\n    readonly targetUrl: string;\n    readonly transferId: string;\n}",
         "exportName": "BeginLanToCloudTransferRequest",
         "source": "./operations/CollabAuthorityTransfer"
       },
@@ -824,7 +824,7 @@
         "source": "./checkpoints/CollabProjectCheckpoint"
       },
       {
-        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 14;",
+        "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 15;",
         "exportName": "COLLAB_PROTOCOL_VERSION",
         "source": "./core/CollabConstants"
       },
@@ -1342,6 +1342,11 @@
         "declaration": "export type CollabIsoTimestamp = string;",
         "exportName": "CollabIsoTimestamp",
         "source": "./core/types"
+      },
+      {
+        "declaration": "export interface CollabLanHostActivationProof {\n    readonly schemaVersion: 1;\n    readonly authorityGeneration: number;\n    readonly projectId: CollabProjectId;\n    readonly transferId: string;\n    readonly targetHostMemberId: CollabMemberId;\n    readonly targetCaFingerprint: string;\n    readonly manifestSha256: string;\n    readonly cutoverAt: CollabIsoTimestamp;\n    readonly caCertificatePem: string;\n    readonly signatureAlgorithm: 'rsa-pss-sha256';\n    readonly signature: string;\n}",
+        "exportName": "CollabLanHostActivationProof",
+        "source": "./operations/CollabAuthorityTransfer"
       },
       {
         "declaration": "export type CollabLanToCloudTransferPhase = typeof COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES[number];",
@@ -1959,6 +1964,11 @@
         "source": "./operations/CollabAuthorityTransfer"
       },
       {
+        "declaration": "export declare function decodeCollabLanHostActivationProof(value: unknown): CollabLanHostActivationProof;",
+        "exportName": "decodeCollabLanHostActivationProof",
+        "source": "./operations/CollabAuthorityTransfer"
+      },
+      {
         "declaration": "export declare function decodeCollabProjectBackupCheckpointCoordinationNdjson(value: string): readonly CollabProjectBackupRecord[];",
         "exportName": "decodeCollabProjectBackupCheckpointCoordinationNdjson",
         "source": "./checkpoints/CollabProjectBackupCheckpoint"
@@ -2201,6 +2211,11 @@
       {
         "declaration": "export declare function encodeCollabCloudToLanTargetCleanupProofSigningInput(payload: CollabCloudToLanTargetCleanupProofSigningPayload): string;",
         "exportName": "encodeCollabCloudToLanTargetCleanupProofSigningInput",
+        "source": "./operations/CollabAuthorityTransfer"
+      },
+      {
+        "declaration": "export declare function encodeCollabLanHostActivationProofSigningInput(value: Omit<CollabLanHostActivationProof, 'signature'>): string;",
+        "exportName": "encodeCollabLanHostActivationProofSigningInput",
         "source": "./operations/CollabAuthorityTransfer"
       },
       {
@@ -2663,6 +2678,7 @@
       "decodeCollabCloudProjectSnapshot",
       "decodeCollabCloudSuccessEnvelope",
       "decodeCollabCloudToLanTargetCleanupProof",
+      "decodeCollabLanHostActivationProof",
       "decodeCollabProjectBackupCheckpointCoordinationNdjson",
       "decodeCollabProjectBackupCheckpointManifest",
       "decodeCollabProjectCheckpointCoordinationNdjson",
@@ -2686,6 +2702,7 @@
       "developmentBootstrapOperationCodec",
       "encodeCollabAuthorityRelinquishmentProofSigningInput",
       "encodeCollabCloudToLanTargetCleanupProofSigningInput",
+      "encodeCollabLanHostActivationProofSigningInput",
       "encodeCollabProjectBackupCheckpointCoordinationNdjson",
       "encodeCollabProjectBackupCheckpointManifestCanonicalJson",
       "encodeCollabProjectBackupCheckpointManifestDigestInput",
@@ -2735,7 +2752,7 @@
       },
       {
         "path": "src/core/CollabConstants.ts",
-        "sha256": "a69e93bdea7f19fefc7b1ee6c370cd04f1ab8bc7af72af4d77c9458b570d4239"
+        "sha256": "abfd1e7de4652af8971a097e4d4032fedccacc23048031e2dd10a7c689d842f5"
       },
       {
         "path": "src/core/CollabError.ts",
@@ -2751,7 +2768,7 @@
       },
       {
         "path": "src/index.ts",
-        "sha256": "3d68c2b4b7c2ad84c732048db9f2b5267019314d2744a6f245d3d1ebff73eb42"
+        "sha256": "f54c9c74f2079489751e27ebcd9dc4d353eb1a1c40d91ba34ad8f6d219d10050"
       },
       {
         "path": "src/markdown/CollabMarkdownProse.ts",
@@ -2767,7 +2784,7 @@
       },
       {
         "path": "src/operations/CollabAuthorityTransfer.ts",
-        "sha256": "3b9bfb452957e6112d82f043bb641293f22818b9e9b6b1a8b6f9c565940479cf"
+        "sha256": "a4bbfc7f643823cc98df4a92f7f8bfd8b46077a6f32371cddcde41081109b06f"
       },
       {
         "path": "src/operations/CollabControlOperationCodecs.ts",
@@ -2836,7 +2853,7 @@
           "source": "./operations/CollabAuthorityTransfer"
         },
         {
-          "declaration": "export interface BeginLanToCloudTransferRequest extends CollabAuthorityMutationRequest {\n    readonly checkpointManifestSha256: string;\n    readonly expectedSourceAuthorityGeneration: number;\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly sourceProof: string;\n    readonly targetUrl: string;\n    readonly transferId: string;\n}",
+          "declaration": "export interface BeginLanToCloudTransferRequest extends CollabAuthorityMutationRequest {\n    readonly hostActivationProofs?: readonly CollabLanHostActivationProof[];\n    readonly checkpointManifestSha256: string;\n    readonly expectedSourceAuthorityGeneration: number;\n    readonly sourceHostMemberId: CollabMemberId;\n    readonly sourceProof: string;\n    readonly targetUrl: string;\n    readonly transferId: string;\n}",
           "exportName": "BeginLanToCloudTransferRequest",
           "source": "./operations/CollabAuthorityTransfer"
         },
@@ -3006,7 +3023,7 @@
           "source": "./checkpoints/CollabProjectCheckpoint"
         },
         {
-          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 14;",
+          "declaration": "export declare const COLLAB_PROTOCOL_VERSION: 15;",
           "exportName": "COLLAB_PROTOCOL_VERSION",
           "source": "./core/CollabConstants"
         },
@@ -3354,6 +3371,11 @@
           "declaration": "export type CollabIsoTimestamp = string;",
           "exportName": "CollabIsoTimestamp",
           "source": "./core/types"
+        },
+        {
+          "declaration": "export interface CollabLanHostActivationProof {\n    readonly schemaVersion: 1;\n    readonly authorityGeneration: number;\n    readonly projectId: CollabProjectId;\n    readonly transferId: string;\n    readonly targetHostMemberId: CollabMemberId;\n    readonly targetCaFingerprint: string;\n    readonly manifestSha256: string;\n    readonly cutoverAt: CollabIsoTimestamp;\n    readonly caCertificatePem: string;\n    readonly signatureAlgorithm: 'rsa-pss-sha256';\n    readonly signature: string;\n}",
+          "exportName": "CollabLanHostActivationProof",
+          "source": "./operations/CollabAuthorityTransfer"
         },
         {
           "declaration": "export type CollabLanToCloudTransferPhase = typeof COLLAB_LAN_TO_CLOUD_TRANSFER_PHASES[number];",
@@ -3916,6 +3938,11 @@
           "source": "./operations/CollabAuthorityTransfer"
         },
         {
+          "declaration": "export declare function decodeCollabLanHostActivationProof(value: unknown): CollabLanHostActivationProof;",
+          "exportName": "decodeCollabLanHostActivationProof",
+          "source": "./operations/CollabAuthorityTransfer"
+        },
+        {
           "declaration": "export declare function decodeCollabProjectBackupCheckpointCoordinationNdjson(value: string): readonly CollabProjectBackupRecord[];",
           "exportName": "decodeCollabProjectBackupCheckpointCoordinationNdjson",
           "source": "./checkpoints/CollabProjectBackupCheckpoint"
@@ -4023,6 +4050,11 @@
         {
           "declaration": "export declare function encodeCollabCloudToLanTargetCleanupProofSigningInput(payload: CollabCloudToLanTargetCleanupProofSigningPayload): string;",
           "exportName": "encodeCollabCloudToLanTargetCleanupProofSigningInput",
+          "source": "./operations/CollabAuthorityTransfer"
+        },
+        {
+          "declaration": "export declare function encodeCollabLanHostActivationProofSigningInput(value: Omit<CollabLanHostActivationProof, 'signature'>): string;",
+          "exportName": "encodeCollabLanHostActivationProofSigningInput",
           "source": "./operations/CollabAuthorityTransfer"
         },
         {
@@ -4506,7 +4538,7 @@
         },
         {
           "path": "src/core/CollabConstants.ts",
-          "sha256": "a69e93bdea7f19fefc7b1ee6c370cd04f1ab8bc7af72af4d77c9458b570d4239"
+          "sha256": "abfd1e7de4652af8971a097e4d4032fedccacc23048031e2dd10a7c689d842f5"
         },
         {
           "path": "src/core/CollabError.ts",
@@ -4522,7 +4554,7 @@
         },
         {
           "path": "src/operations/CollabAuthorityTransfer.ts",
-          "sha256": "3b9bfb452957e6112d82f043bb641293f22818b9e9b6b1a8b6f9c565940479cf"
+          "sha256": "a4bbfc7f643823cc98df4a92f7f8bfd8b46077a6f32371cddcde41081109b06f"
         },
         {
           "path": "src/operations/CollabControlOperationCodecs.ts",
@@ -4555,7 +4587,7 @@
       ]
     }
   },
-  "packageVersion": "5.0.0",
-  "protocolVersion": 14,
+  "packageVersion": "5.1.0",
+  "protocolVersion": 15,
   "schemaVersion": 2
 }

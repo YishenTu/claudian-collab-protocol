@@ -41,7 +41,7 @@ function capabilityDocument(overrides: Record<string, unknown> = {}) {
       maxJsonPayloadUtf8Bytes: 512 * 1024,
       maxRepositoryBytes: 1024 * 1024 * 1024,
     },
-    protocolVersions: [14],
+    protocolVersions: [15],
     schemaVersion: 2,
     ...overrides,
   };
@@ -49,7 +49,7 @@ function capabilityDocument(overrides: Record<string, unknown> = {}) {
 
 describe('Cloud binding v7', () => {
   it('admits only binding 6 with wire 10', () => {
-    const current = capabilityDocument({ bindingVersions: [10], protocolVersions: [14] });
+    const current = capabilityDocument({ bindingVersions: [10], protocolVersions: [15] });
     expect(decodeCollabCloudCapabilityDocument(current)).toEqual(current);
     expect(() => decodeCollabCloudCapabilityDocument({ ...current, bindingVersions: [3] }))
       .toThrow('collab.error.protocol-version-unsupported');
@@ -70,7 +70,7 @@ describe('Cloud binding v7', () => {
   });
 
   it('keeps package, canonical wire, Cloud binding, and LAN binding independent', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(14);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(15);
     expect(COLLAB_CLOUD_BINDING_VERSION).toBe(10);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
     expect(Object.keys(COLLAB_CONTROL_OPERATION_CODECS)).toHaveLength(60);

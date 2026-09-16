@@ -1030,3 +1030,74 @@ encode: value => ({ requestId: value }), collabCloudProjectEventsRoute: () => '/
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /related codec/u);
 });
+
+test('optional authority evidence keeps the Cloud binding unchanged and rejects unrelated declarations', () => {
+  const owner = './operations/CollabAuthorityTransfer';
+  const request = { exportName: 'Request', source: owner, declaration: 'export interface Request { readonly id: string; }' };
+  const base = snapshot({ declarations: [request], runtimeExports: [],
+    runtime: [{ path: 'src/operations/CollabAuthorityTransfer.ts', sha256: 'before' }] });
+  const current = snapshot({ packageVersion: '1.1.0', protocolVersion: 5,
+    declarations: [{ ...request, declaration: 'export interface Request { readonly id: string; readonly proof?: Proof; }' },
+      { exportName: 'Proof', source: owner, declaration: 'export interface Proof { readonly signature: string; }' },
+      { exportName: 'decodeProof', source: owner, declaration: 'export declare function decodeProof(value: unknown): Proof;' },
+      { exportName: 'encodeProofSigningInput', source: owner, declaration: 'export declare function encodeProofSigningInput(value: Omit<Proof, "signature">): string;' }],
+    runtimeExports: ['decodeProof', 'encodeProofSigningInput'],
+    runtime: [{ path: 'src/operations/CollabAuthorityTransfer.ts', sha256: 'after' }] });
+  const review = candidate => compatibility.createOptionalContractAdditionReview(base, candidate, 'Codec fixtures preserve requests without evidence.', ['decodeRequest']);
+  assert.doesNotThrow(() => assertVersionedContractChange(base, current, review(current)));
+  for (const edit of [
+    candidate => { candidate.contract.publicDeclarations[0].declaration = 'export interface Request { readonly id: string; readonly proof: Proof; }'; },
+    candidate => { candidate.contract.publicDeclarations[0].declaration = 'export interface Request { readonly id: number; readonly proof?: Proof; }'; },
+    candidate => { candidate.contract.publicDeclarations.push({ exportName: 'Unrelated', source: owner, declaration: 'export interface Unrelated {}' }); },
+    candidate => { candidate.contract.publicRuntimeExports.push('unrelated'); },
+    candidate => { candidate.contract.cloudBinding.routes.push('new'); },
+    candidate => { candidate.cloudBindingVersion++; },
+    candidate => { candidate.protocolVersion = 4; },
+    candidate => { candidate.contract.wire.operations.push('new'); },
+    candidate => { candidate.contract.runtimeBehaviorDigests.push({ path: 'src/unrelated.ts', sha256: 'new' }); },
+  ]) {
+    const changed = cloneJson(current); edit(changed);
+    assert.throws(() => review(changed));
+  }
+  const patch = { ...current, packageVersion: '1.0.1' };
+  assert.throws(() => assertVersionedContractChange(base, patch, review(patch)), /minor/u);
+});
+
+test('optional authority source review preserves existing code and only admits related proof codecs', () => {
+  const owner = 'src/operations/CollabAuthorityTransfer.ts';
+  const before = 'export interface Request { readonly id: string; } function decodeRequest(value: unknown): Request { return value as Request; } function unrelated() { return JSON.stringify(true); }';
+  const after = before.replace('id: string;', 'id: string; readonly proof?: Proof;')
+    .replace('return value as Request;', 'return { ...value as Request, proof: decodeProof(value) };') +
+    ' export interface Proof { readonly signature: string; } export function decodeProof(value: unknown): Proof { return helper(value); } function helper(value: unknown): Proof { return value as Proof; } export function encodeProofSigningInput(value: Omit<Proof, "signature">): string { return JSON.stringify(value); }';
+  const baseFiles = { [owner]: before, 'src/core/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 4 as const;',
+    'src/index.ts': "export { type Request } from './operations/CollabAuthorityTransfer';" };
+  const currentFiles = { ...baseFiles, [owner]: after,
+    'src/core/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 5 as const;',
+    'src/index.ts': "export { type Request, type Proof, decodeProof, encodeProofSigningInput } from './operations/CollabAuthorityTransfer';" };
+  const check = files => compatibility.assertOptionalAuthoritySourceAddition({ baseFiles, currentFiles: files,
+    baseProtocolVersion: 4, currentProtocolVersion: 5, implementationDeclarations: ['decodeRequest'] });
+  assert.doesNotThrow(() => check(currentFiles));
+  for (const source of [after.replace('JSON.stringify(true)', 'JSON.stringify(false)'), after + ' const unused = 1;',
+    after.replace('id: string;', 'id: number;'), after.replace('decodeRequest(value: unknown)', 'decodeRequest(value: number)'),
+    after + ' const JSON = { stringify: () => "captured" };',
+    after.replace('function helper(value: unknown): Proof { return value as Proof; }', 'const helper = (globalThis.changed = true, (value: unknown): Proof => value as Proof);')]) {
+    assert.throws(() => check({ ...currentFiles, [owner]: source }));
+  }
+  assert.throws(() => check({ ...currentFiles, 'src/new.ts': 'export const value = 1;' }));
+  assert.throws(() => check({ ...currentFiles, 'src/index.ts': currentFiles['src/index.ts'].replace('decodeProof,', 'decodeProof as other,') }));
+});
+
+test('optional authority source review rejects reordered existing initializers', () => {
+  const owner = 'src/operations/CollabAuthorityTransfer.ts';
+  const base = 'export interface Request { readonly id: string; } const flag = false; const legacy = readFlag(); function readFlag() { return flag; }';
+  const addition = base.replace('id: string;', 'id: string; readonly proof?: Proof;') + ' export interface Proof { readonly signature: string; }';
+  const files = source => ({ [owner]: source,
+    'src/core/CollabConstants.ts': 'export const COLLAB_PROTOCOL_VERSION = 4 as const;',
+    'src/index.ts': "export { type Request } from './operations/CollabAuthorityTransfer';" });
+  const changed = files(addition.replace('const flag = false; const legacy = readFlag();', 'const legacy = readFlag(); const flag = false;'));
+  changed['src/core/CollabConstants.ts'] = 'export const COLLAB_PROTOCOL_VERSION = 5 as const;';
+  assert.throws(() => compatibility.assertOptionalAuthoritySourceAddition({
+    baseFiles: files(base), currentFiles: changed, baseProtocolVersion: 4, currentProtocolVersion: 5,
+    implementationDeclarations: [],
+  }), /order/u);
+});

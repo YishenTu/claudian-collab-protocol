@@ -38,7 +38,7 @@ function capabilities(overrides: Record<string, unknown> = {}) {
     bindingVersions: [10],
     capabilities: [...COLLAB_CLOUD_CAPABILITIES],
     limits: limits(),
-    protocolVersions: [14],
+    protocolVersions: [15],
     schemaVersion: 2,
     ...overrides,
   };
@@ -46,7 +46,7 @@ function capabilities(overrides: Record<string, unknown> = {}) {
 
 describe('Cloud binding v7 lifecycle integration', () => {
   it('publishes wire v11, binding v7, lifecycle capabilities, and hard stream limits', () => {
-    expect(COLLAB_PROTOCOL_VERSION).toBe(14);
+    expect(COLLAB_PROTOCOL_VERSION).toBe(15);
     expect(COLLAB_CLOUD_BINDING_VERSION).toBe(10);
     expect(COLLAB_CLOUD_CAPABILITY_DOCUMENT_SCHEMA_VERSION).toBe(2);
     expect(COLLAB_CLOUD_CAPABILITIES).toEqual([
